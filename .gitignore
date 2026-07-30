@@ -5,3 +5,4 @@ dev/payload-types.ts
 .env
 *.log
 *.tsbuildinfo
+dev/.env.local
