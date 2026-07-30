@@ -51,7 +51,7 @@ pnpm add @heroui/react framer-motion @iconify/react
 
 ## Quick Start
 
-### 1. Add the plugin + Users collection to your Payload config
+### 1. Add the plugin + Users collection
 
 ```ts
 import { authLoginPlugin } from '@main12/auth-login'
@@ -63,7 +63,6 @@ export default buildConfig({
       auth: { tokenExpiration: 7200, verify: false, maxLoginAttempts: 5 },
       fields: [
         { name: 'name', type: 'text' },
-        // OTP fields required by the plugin:
         { name: 'otpHash', type: 'text', admin: { hidden: true } },
         { name: 'otpAttempts', type: 'number', admin: { hidden: true } },
         { name: 'otpExpiresAt', type: 'text', admin: { hidden: true } },
@@ -74,40 +73,36 @@ export default buildConfig({
     authLoginPlugin({
       projectName: 'My App',
       domain: 'https://myapp.com',
-      logo: '/logo.png',          // shown automatically on all auth pages
-      style: 'hero-ui',           // or 'tailwind'
+      logo: '/logo.png',
+      style: 'hero-ui',
     }),
   ],
 })
 ```
 
-### 2. Add auth pages to your app
-
-Create one-line route files under `src/app/(frontend)/(auth)/`:
+### 2. Create one-line route files
 
 ```tsx
-// login/page.tsx
+// src/app/(frontend)/(auth)/login/page.tsx
 export { LoginPage as default } from '@main12/auth-login/client'
 
-// signup/page.tsx
+// src/app/(frontend)/(auth)/signup/page.tsx
 export { SignupPage as default } from '@main12/auth-login/client'
 
-// forgot-password/page.tsx
+// src/app/(frontend)/(auth)/forgot-password/page.tsx
 export { ForgotPasswordPage as default } from '@main12/auth-login/client'
 
-// verify-otp/page.tsx
+// src/app/(frontend)/(auth)/verify-otp/page.tsx
 export { VerifyOtpPage as default } from '@main12/auth-login/client'
 
-// set-password/page.tsx
+// src/app/(frontend)/(auth)/set-password/page.tsx
 export { SetPasswordPage as default } from '@main12/auth-login/client'
 ```
-
-The logo is already handled — no need to pass it. The plugin reads it from the global config.
 
 ### 3. Wire up the login action
 
 ```tsx
-// login/page.tsx — override with your Payload login function:
+// login/page.tsx
 'use client'
 import { LoginPage } from '@main12/auth-login/client'
 import { useAuth } from '@/providers/Auth'
@@ -118,93 +113,121 @@ export default function Page() {
 }
 ```
 
-### 4. That's it — visit `/login`
+### 4. Visit `/login` — done.
 
 ---
 
-## Configuration Options
+## Configuration
 
 ```ts
 authLoginPlugin({
-  // === Branding ===
-  projectName: 'My App',          // Used in email subjects and footers
+  projectName: 'My App',          // Email subjects + footers
   contactEmail: 'hi@myapp.com',   // Email footer contact
   domain: 'https://myapp.com',    // Links in emails
-  logo: '/logo.png',              // Shown on all auth pages + email headers
-
-  // === Style ===
-  style: 'tailwind',              // 'tailwind' (default) | 'hero-ui'
-
-  // === Enable/Disable ===
-  enabled: true,                  // Set false to disable the plugin
+  logo: '/logo.png',              // All auth pages + email headers
+  style: 'tailwind',              // 'tailwind' | 'hero-ui'
+  enabled: true,
 })
 ```
 
 ### Per-page overrides
 
-Each page component also accepts these props for project-specific customization:
-
-```ts
+```tsx
 <LoginPage
   logo={<AppLogo width={180} />}  // Override global logo (optional)
-  onPasswordLogin={login}          // Required — Payload's login function
-  redirectTo="/dashboard"          // Where to go after login
-  showGoogleOAuth={true}           // Show "Continue with Google" button
-  signupUrl="/signup"              // Link to signup page
-  poweredBy={{                     // Powered by logo config
-    enabled: true,
-    logoUrl: '/custom.png',        // Override default Main12 logo
-    linkUrl: 'https://your-site.com',
-  }}
+  onPasswordLogin={login}          // Required
+  redirectTo="/dashboard"
+  showGoogleOAuth={true}
+  signupUrl="/signup"
+  poweredBy={{ enabled: true, logoUrl: '/custom.png', linkUrl: 'https://...' }}
 />
 ```
 
 ---
 
-## Building Custom Auth Pages
+## Building Custom Pages
 
-You can build your own UI while reusing the plugin's hooks, services, and endpoints.
+Use the plugin's hooks to build your own UI with any component library (HeroUI, shadcn, plain Tailwind).
 
-### Custom login with your own components
+### Hook Quick-Reference
+
+| Hook | Returns | Key inputs |
+|------|---------|------------|
+| `useLoginFlow({ redirectTo, onPasswordLogin })` | `step, email, password, error, isLoading, handleEmailSubmit, handlePasswordSubmit, handleSendOtp, handleEditEmail` | `redirectTo: string`, `onPasswordLogin: (creds) => Promise<void>` |
+| `useForgotPasswordFlow()` | `email, error, isLoading, setEmail, handleSubmit` | none |
+| `useVerifyOtpFlow({ email, purpose, redirectTo })` | `otp, error, isLoading, isResending, resendCooldown, setOtp, handleSubmit, handleResendCode` | `email: string`, `purpose: 'login'\|'signup'\|'password-reset'` |
+| `useSetPasswordFlow({ redirectTo })` | `password, confirmPassword, error, isLoading, strength, setPassword, setConfirmPassword, handleSubmit` | `redirectTo: string` |
+
+> **Signup note:** No hook needed — call `signup(name, email)` from `@main12/auth-login/client`, then redirect to `/verify-otp?email=...&purpose=signup`.
+
+### Full Example: Custom Login Page
 
 ```tsx
 'use client'
 import { useLoginFlow } from '@main12/auth-login/client'
-import { Button, Input } from '@heroui/react' // or shadcn, or plain HTML
 import { useAuth } from '@/providers/Auth'
 
-export default function MyCustomLogin() {
+export default function CustomLogin() {
   const { login } = useAuth()
   const {
     step, email, password, error, isLoading, showPassword,
     setEmail, setPassword, setShowPassword,
     handleEmailSubmit, handlePasswordSubmit, handleSendOtp, handleEditEmail,
-  } = useLoginFlow({
-    redirectTo: '/dashboard',
-    onPasswordLogin: login,
-  })
+  } = useLoginFlow({ redirectTo: '/dashboard', onPasswordLogin: login })
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-xl">
+        <img src="/logo.png" className="mx-auto mb-6" width={180} alt="" />
+
+        {/* Step 1: Email */}
         {step === 'email' && (
-          <form onSubmit={handleEmailSubmit}>
-            <Input type="email" label="Email" value={email} onValueChange={setEmail} />
-            <Button type="submit" isLoading={isLoading}>Continue</Button>
+          <form onSubmit={handleEmailSubmit} className="space-y-4">
+            <h1 className="text-xl font-semibold text-center">Welcome Back</h1>
+            {error && <p className="text-red-600 text-sm">{error}</p>}
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="Email" required className="w-full h-12 px-4 border rounded-xl" />
+            <button type="submit" disabled={isLoading}
+              className="w-full h-12 bg-[#D5E855] rounded-full font-semibold">
+              {isLoading ? 'Loading...' : 'Continue'}
+            </button>
           </form>
         )}
+
+        {/* Step 2a: Password */}
         {step === 'password' && (
-          <form onSubmit={handlePasswordSubmit}>
-            <p>Signing in as {email} <button onClick={handleEditEmail}>Edit</button></p>
-            <Input type="password" label="Password" value={password} onValueChange={setPassword} />
-            <Button type="submit" isLoading={isLoading}>Sign In</Button>
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div className="flex justify-between border rounded-xl px-4 py-3">
+              <span>{email}</span>
+              <button type="button" onClick={handleEditEmail} className="text-sm">Edit</button>
+            </div>
+            {error && <p className="text-red-600 text-sm">{error}</p>}
+            <input type={showPassword ? 'text' : 'password'} value={password}
+              onChange={e => setPassword(e.target.value)} placeholder="Password" required
+              className="w-full h-12 px-4 border rounded-xl" autoFocus />
+            <button type="submit" disabled={isLoading}
+              className="w-full h-12 bg-[#D5E855] rounded-full font-semibold">
+              {isLoading ? 'Loading...' : 'Sign In'}
+            </button>
           </form>
         )}
+
+        {/* Step 2b: OTP Prompt (migrated users without password) */}
         {step === 'otp-prompt' && (
-          <>
-            <p>{email} <button onClick={handleEditEmail}>Edit</button></p>
-            <Button onPress={handleSendOtp} isLoading={isLoading}>Send Code</Button>
-          </>
+          <div className="space-y-4">
+            <div className="flex justify-between border rounded-xl px-4 py-3">
+              <span>{email}</span>
+              <button type="button" onClick={handleEditEmail}>Edit</button>
+            </div>
+            {error && <p className="text-red-600 text-sm">{error}</p>}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-700">
+              We'll send a verification code to this email.
+            </div>
+            <button onClick={handleSendOtp} disabled={isLoading}
+              className="w-full h-12 bg-[#D5E855] rounded-full font-semibold">
+              {isLoading ? 'Sending...' : 'Send Code'}
+            </button>
+          </div>
         )}
       </div>
     </div>
@@ -212,59 +235,49 @@ export default function MyCustomLogin() {
 }
 ```
 
-### Custom email templates
+### Custom Signup
 
-Override individual email translations or entire template functions:
+Same pattern — call `onSignup(name, email)` from your form, redirect to `/verify-otp?email=...&purpose=signup` on success.
+
+### Custom Verify OTP
+
+Use `useVerifyOtpFlow({ email, purpose, redirectTo })`. It manages the 6-digit input, verification, resend cooldown (60s), and auto-redirect. All you need is an `<input>` or `<InputOtp>` for the code and a verify button.
+
+### Custom Forgot Password
+
+Use `useForgotPasswordFlow()`. Collect email, call `handleSubmit(e)`. It checks user exists, sends OTP, and redirects to `/verify-otp?email=...&purpose=password-reset`.
+
+### Custom Set Password
+
+Use `useSetPasswordFlow({ redirectTo })`. Two password fields (new + confirm). The hook validates strength (≥8 chars, 3/4 criteria) and matches. Returns `strength.score` (0-5) for a visual indicator.
+
+---
+
+## Custom Email Templates
 
 ```ts
-import { getEmailTranslations } from '@main12/auth-login/rsc'
+import { generateWelcomeEmail, getEmailTranslations } from '@main12/auth-login/rsc'
 
-// Option 1: Deep-merge translations
-const myTranslations = getEmailTranslations('en')
-myTranslations.welcome.subject = 'Welcome to My SaaS! 🚀'
-myTranslations.otp.purposeLogin = 'Use this code to access your dashboard:'
+// Override translations
+const t = getEmailTranslations('en')
+t.welcome.subject = 'Welcome to My SaaS! 🚀'
 
-// Option 2: Import template generators and wrap them
-import { generateWelcomeEmail, generateOtpEmail } from '@main12/auth-login/rsc'
-
-function myWelcomeEmail(params) {
+// Or wrap template generators
+function myWelcome(params) {
   const base = generateWelcomeEmail(params)
-  return {
-    ...base,
-    html: base.html.replace('Get Started', 'Launch Dashboard'),
-  }
+  return { ...base, html: base.html.replace('Get Started', 'Launch Now') }
 }
 
-// Use in your Payload hooks or custom endpoints
+// Use in hooks/endpoints
 await payload.sendEmail({
   to: user.email,
-  subject: myWelcomeEmail({ userName: user.name }).subject,
-  html: myWelcomeEmail({ userName: user.name }).html,
+  ...myWelcome({ userName: user.name, userEmail: user.email }),
 })
 ```
 
 ---
 
-## Exported Hooks & Services
-
-| Hook / Service | Type | Purpose |
-|---------------|------|---------|
-| `useLoginFlow` | Hook | Multi-step login state machine (email → password/OTP) |
-| `useVerifyOtpFlow` | Hook | OTP input, verify, resend with cooldown |
-| `useForgotPasswordFlow` | Hook | Email → check → send OTP |
-| `useSetPasswordFlow` | Hook | Set password with strength indicator |
-| `checkEmail(email)` | Service | Check if user exists and has password |
-| `sendOtp(email, purpose)` | Service | Send OTP to email |
-| `verifyOtp(email, otp)` | Service | Verify OTP code |
-| `setUserPassword(pw, confirm)` | Service | Set/update password |
-| `signup(name, email)` | Service | Create new user |
-| `initiateGoogleLogin(redirect)` | Service | Redirect to Google OAuth |
-
----
-
 ## API Endpoints
-
-Registered automatically by the plugin:
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -278,19 +291,61 @@ Registered automatically by the plugin:
 
 ## ShadCN Compatibility
 
-The `tailwind` style uses standard Tailwind utility classes — it works in ShadCN projects out of the box. If you want ShadCN components instead of plain HTML:
+The `tailwind` style works in ShadCN projects out of the box. For ShadCN components, build a [custom page](#building-custom-pages) — import the plugin's hooks and use your `@/components/ui/button`, `@/components/ui/input`, etc.
 
-1. Follow the [Custom Auth Pages](#building-custom-auth-pages) guide above
-2. Import `useLoginFlow`, `useVerifyOtpFlow`, etc. from the plugin
-3. Use your ShadCN `<Button>`, `<Input>`, `<Card>` components with the same hook values
+---
 
-No need for a separate `style: 'shadcn'` — the Tailwind style already renders compatible markup, and custom pages give you full ShadCN component control.
+## 🤖 AI Agent Prompts
+
+Copy these prompts into Claude, Cursor, Copilot, or any AI agent.
+
+### Prompt: Set up the auth plugin in a new Payload project
+
+```
+Add @main12/auth-login to this Payload project:
+
+1. Install: pnpm add @main12/auth-login
+2. In payload.config.ts, add:
+   - Users collection with auth enabled + otpHash, otpAttempts, otpExpiresAt fields
+   - Plugin: authLoginPlugin({ projectName: "<PROJECT>", domain: "<URL>", logo: "/logo.png", style: "hero-ui" })
+3. Create route files under src/app/(frontend)/(auth)/:
+   - login/page.tsx      → export { LoginPage as default } from '@main12/auth-login/client'
+   - signup/page.tsx     → export { SignupPage as default } from '@main12/auth-login/client'
+   - forgot-password/page.tsx  → export { ForgotPasswordPage as default } from '@main12/auth-login/client'
+   - verify-otp/page.tsx → export { VerifyOtpPage as default } from '@main12/auth-login/client'
+   - set-password/page.tsx → export { SetPasswordPage as default } from '@main12/auth-login/client'
+4. In login/page.tsx, wrap LoginPage with useAuth() to pass onPasswordLogin={login}.
+5. Verify: visit /login
+```
+
+### Prompt: Build a custom login page with HeroUI components
+
+```
+Build a custom login page using @main12/auth-login hooks and @heroui/react:
+
+- Import useLoginFlow from '@main12/auth-login/client'
+- Use useAuth() from Payload's Auth provider for the login function
+- Render 3 steps: email input → password input / OTP prompt
+- Use HeroUI <Button>, <Input> with variant="bordered", rounded-full
+- Add "Continue with Google" button using initiateGoogleLogin from the plugin
+- Add "Powered by Main12" footer from the plugin's PoweredBy component
+```
+
+### Prompt: Customize email templates for my project
+
+```
+Customize the email templates from @main12/auth-login for my project "<PROJECT_NAME>":
+
+- Import generateWelcomeEmail, generateOtpEmail, generatePasswordResetEmail, generatePasswordChangedEmail from '@main12/auth-login/rsc'
+- Override each to use my brand colors (primary: <COLOR>, accent: <COLOR>)
+- Change the welcome email CTA text to "<CUSTOM_TEXT>"
+- Change the OTP email purpose text to "<CUSTOM_TEXT>"
+- Add my project's social media links to the footer
+```
 
 ---
 
 ## Dev Testing
-
-This repo ships with a dev harness. To test locally:
 
 ```bash
 git clone https://github.com/MAIN-12/auth-login-plugin.git
