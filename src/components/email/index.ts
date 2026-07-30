@@ -1,0 +1,7 @@
+export { wrapInBaseTemplate, type BaseTemplateOptions } from './baseTemplate.js'
+export { DEFAULT_COLORS, SOCIAL_ICONS, getBaseUrl, getSenderEmail, type EmailColors, type SocialLink, type SocialPlatform } from './constants.js'
+export { getEmailTranslations, type SupportedLanguage, type EmailTranslations } from './translations.js'
+export { generateOtpEmail, type OtpEmailParams, type OtpEmailResult } from './templates/otp.js'
+export { generateWelcomeEmail, type WelcomeEmailParams, type WelcomeEmailResult } from './templates/welcome.js'
+export { generatePasswordResetEmail, type PasswordResetEmailParams, type PasswordResetEmailResult } from './templates/passwordReset.js'
+export { generatePasswordChangedEmail, type PasswordChangedEmailParams, type PasswordChangedEmailResult } from './templates/passwordChanged.js'

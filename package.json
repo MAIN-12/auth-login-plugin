@@ -1,0 +1,118 @@
+{
+  "name": "@main12/auth-login",
+  "version": "0.1.2",
+  "description": "Reusable Payload CMS auth plugin — login, signup, OTP, forgot password, branded emails, Powered by Main12",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./client": {
+      "import": "./src/exports/client.ts",
+      "types": "./src/exports/client.ts",
+      "default": "./src/exports/client.ts"
+    },
+    "./rsc": {
+      "import": "./src/exports/rsc.ts",
+      "types": "./src/exports/rsc.ts",
+      "default": "./src/exports/rsc.ts"
+    }
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "pnpm copyfiles && pnpm build:types && pnpm build:swc",
+    "build:swc": "swc ./src -d ./dist --config-file .swcrc --strip-leading-paths",
+    "build:types": "tsc --outDir dist",
+    "clean": "rimraf {dist,*.tsbuildinfo}",
+    "copyfiles": "copyfiles -u 1 \"src/**/*.{html,css,scss,ttf,woff,woff2,eot,svg,jpg,png,json}\" dist/",
+    "dev": "next dev dev --turbo",
+    "dev:generate-importmap": "pnpm dev:payload generate:importmap",
+    "dev:generate-types": "pnpm dev:payload generate:types",
+    "dev:payload": "cross-env PAYLOAD_CONFIG_PATH=./dev/payload.config.ts payload",
+    "lint": "eslint",
+    "lint:fix": "eslint ./src --fix",
+    "test": "vitest"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.2.0",
+    "@heroui/react": "^2.8.10",
+    "@iconify/react": "^6.0.2",
+    "@payloadcms/db-sqlite": "3.82.1",
+    "@payloadcms/next": "3.82.1",
+    "@payloadcms/richtext-lexical": "3.82.1",
+    "@payloadcms/ui": "3.82.1",
+    "@swc/cli": "0.6.0",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "24.12.3",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "copyfiles": "2.4.1",
+    "cross-env": "10.1.0",
+    "eslint": "^9.23.0",
+    "framer-motion": "^12.43.0",
+    "next": "16.2.7",
+    "payload": "3.82.1",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "rimraf": "3.0.2",
+    "sharp": "0.34.2",
+    "tailwindcss": "^4.3.3",
+    "typescript": "6.0.3",
+    "vitest": "4.1.6"
+  },
+  "peerDependencies": {
+    "next": "^16.0.0",
+    "payload": "^3.82.0",
+    "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@heroui/react": {
+      "optional": true
+    },
+    "framer-motion": {
+      "optional": true
+    },
+    "next-intl": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "node": ">=18.20.2"
+  },
+  "publishConfig": {
+    "exports": {
+      ".": {
+        "import": "./dist/index.js",
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./client": {
+        "import": "./dist/exports/client.js",
+        "types": "./dist/exports/client.d.ts",
+        "default": "./dist/exports/client.js"
+      },
+      "./rsc": {
+        "import": "./dist/exports/rsc.js",
+        "types": "./dist/exports/rsc.d.ts",
+        "default": "./dist/exports/rsc.js"
+      }
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@swc/core",
+      "sharp",
+      "esbuild"
+    ]
+  },
+  "registry": "https://registry.npmjs.org/"
+}
