@@ -358,6 +358,20 @@ Visit `http://localhost:3000/login` — all 5 auth pages wired with SQLite.
 
 ---
 
+## Usage with @main12/brevo-adapter
+
+```ts
+import { authLoginPlugin } from '@main12/auth-login'
+import { brevoAdapter } from '@main12/brevo-adapter'
+
+export default buildConfig({
+  email: brevoAdapter(),
+  plugins: [authLoginPlugin({ projectName: 'My App' })],
+})
+```
+
+The auth-login plugin uses `payload.sendEmail()` internally — which routes through Brevo automatically.
+
 ## Requirements
 
 | Dependency | Version | Required |
