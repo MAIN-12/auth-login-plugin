@@ -2,10 +2,10 @@
 
 import React, { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Button, Input, Divider, Spinner } from '../ui/index.js'
-import { useLoginFlow } from '../../auth/application/hooks/useLoginFlow.js'
-import { AuthLayout } from '../AuthLayout.js'
-import type { AuthLayoutConfig } from '../AuthLayout.js'
+import { Button, Input, Divider, Spinner } from '../ui/index'
+import { useLoginFlow } from '../../auth/application/hooks/useLoginFlow'
+import { AuthLayout } from '../AuthLayout'
+import type { AuthLayoutConfig } from '../AuthLayout'
 
 export interface LoginPageProps extends AuthLayoutConfig {
   onPasswordLogin: (credentials: { email: string; password: string }) => Promise<void>

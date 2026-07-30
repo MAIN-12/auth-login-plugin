@@ -1,10 +1,10 @@
 'use client'
 
 import React from 'react'
-import { Button, Input } from '../ui/index.js'
-import { useSetPasswordFlow } from '../../auth/application/hooks/useSetPasswordFlow.js'
-import { AuthLayout } from '../AuthLayout.js'
-import type { AuthLayoutConfig } from '../AuthLayout.js'
+import { Button, Input } from '../ui/index'
+import { useSetPasswordFlow } from '../../auth/application/hooks/useSetPasswordFlow'
+import { AuthLayout } from '../AuthLayout'
+import type { AuthLayoutConfig } from '../AuthLayout'
 
 export interface SetPasswordPageProps extends AuthLayoutConfig {
   redirectTo?: string

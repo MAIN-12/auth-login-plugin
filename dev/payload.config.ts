@@ -4,7 +4,7 @@ import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 
-import { authLoginPlugin } from '../src/index.js'
+import { plugins } from './plugins/index.js'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -54,12 +54,7 @@ export default buildConfig({
     client: { url: 'file:./dev.db' },
   }),
   editor: lexicalEditor(),
-  plugins: [
-    authLoginPlugin({
-      projectName: 'Dev Test',
-      domain: 'http://localhost:3000',
-    }),
-  ],
+  plugins,
   secret: process.env.PAYLOAD_SECRET || 'dev-secret-key-change-me',
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),

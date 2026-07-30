@@ -6,3 +6,4 @@ dev/payload-types.ts
 *.log
 *.tsbuildinfo
 dev/.env.local
+dev/.next/

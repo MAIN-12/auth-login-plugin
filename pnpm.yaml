@@ -1,0 +1,6 @@
+onlyBuiltDependencies:
+  - "@swc/core"
+  - sharp
+  - esbuild
+
+minimumReleaseAge: "0"

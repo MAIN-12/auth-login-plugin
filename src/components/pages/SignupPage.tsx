@@ -1,9 +1,9 @@
 'use client'
 
-import { pluginConfig } from '../../config.js'
-import SignupPageTailwind from './SignupPageTailwind.js'
-import SignupPageHero from './SignupPageHero.js'
-import type { AuthLayoutConfig } from '../AuthLayout.js'
+import { pluginConfig } from '../../config'
+import SignupPageTailwind from './SignupPageTailwind'
+import SignupPageHero from './SignupPageHero'
+import type { AuthLayoutConfig } from '../AuthLayout'
 
 export interface SignupPageProps extends AuthLayoutConfig {
   onSignup: (data: { name: string; email: string }) => Promise<void>

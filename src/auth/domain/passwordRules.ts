@@ -1,4 +1,4 @@
-import type { PasswordStrengthResult } from './types.js'
+import type { PasswordStrengthResult } from './types'
 
 export const MIN_PASSWORD_LENGTH = 8
 export const MIN_CRITERIA_COUNT = 3

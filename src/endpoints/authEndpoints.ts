@@ -1,6 +1,6 @@
 import type { Endpoint } from 'payload'
-import { generateOtp, hashOtp, verifyOtp, getOtpExpiry, isOtpExpired } from '../auth/domain/otp.js'
-import { generateWelcomeEmail, generateOtpEmail, generatePasswordResetEmail } from '../components/email/index.js'
+import { generateOtp, hashOtp, verifyOtp, getOtpExpiry, isOtpExpired } from '../auth/domain/otp'
+import { generateWelcomeEmail, generateOtpEmail, generatePasswordResetEmail } from '../components/email/index'
 
 interface OtpRecord {
   id: string

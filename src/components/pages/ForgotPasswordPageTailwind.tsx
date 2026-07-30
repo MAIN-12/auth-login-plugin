@@ -1,10 +1,10 @@
 'use client'
 
 import React from 'react'
-import { Button, Input } from '../ui/index.js'
-import { useForgotPasswordFlow } from '../../auth/application/hooks/useForgotPasswordFlow.js'
-import { AuthLayout } from '../AuthLayout.js'
-import type { AuthLayoutConfig } from '../AuthLayout.js'
+import { Button, Input } from '../ui/index'
+import { useForgotPasswordFlow } from '../../auth/application/hooks/useForgotPasswordFlow'
+import { AuthLayout } from '../AuthLayout'
+import type { AuthLayoutConfig } from '../AuthLayout'
 
 export interface ForgotPasswordPageProps extends AuthLayoutConfig {
   loginUrl?: string

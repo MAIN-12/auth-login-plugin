@@ -2,8 +2,8 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import type { LoginStep } from '../../domain/types.js'
-import { checkEmail, sendOtp, initiateGoogleLogin } from '../services/authService.js'
+import type { LoginStep } from '../../domain/types'
+import { checkEmail, sendOtp, initiateGoogleLogin } from '../services/authService'
 
 export interface UseLoginFlowOptions {
   redirectTo: string

@@ -1,9 +1,9 @@
 'use client'
 
-import { pluginConfig } from '../../config.js'
-import SetPasswordPageTailwind from './SetPasswordPageTailwind.js'
-import SetPasswordPageHero from './SetPasswordPageHero.js'
-import type { AuthLayoutConfig } from '../AuthLayout.js'
+import { pluginConfig } from '../../config'
+import SetPasswordPageTailwind from './SetPasswordPageTailwind'
+import SetPasswordPageHero from './SetPasswordPageHero'
+import type { AuthLayoutConfig } from '../AuthLayout'
 
 export interface SetPasswordPageProps extends AuthLayoutConfig { redirectTo?: string }
 

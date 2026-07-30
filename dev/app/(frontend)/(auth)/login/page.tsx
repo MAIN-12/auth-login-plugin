@@ -1,17 +1,10 @@
 'use client'
 
-import { useState } from 'react'
-import { LoginPage } from '../../../src/components/pages/LoginPage.js'
-
-/** Simple inline logo for dev testing */
-const DevLogo = () => (
-  <div className="text-2xl font-bold text-gray-900">🔐 Auth Test</div>
-)
+import { LoginPage } from '@main12/auth-login/client'
+import Logo from '../../../../components/Logo'
 
 export default function DevLoginPage() {
-  // Simulate Payload's login — in real project this comes from useAuth()
   const handlePasswordLogin = async ({ email, password }: { email: string; password: string }) => {
-    // Call the real Payload login endpoint
     const res = await fetch('/api/users/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -25,11 +18,10 @@ export default function DevLoginPage() {
 
   return (
     <LoginPage
-      logo={<DevLogo />}
       onPasswordLogin={handlePasswordLogin}
       redirectTo="/admin"
       signupUrl="/signup"
-      poweredBy={{ enabled: true }}
+      logo={<Logo />}
     />
   )
 }

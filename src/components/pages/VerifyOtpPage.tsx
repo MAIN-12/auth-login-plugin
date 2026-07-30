@@ -1,9 +1,9 @@
 'use client'
 
-import { pluginConfig } from '../../config.js'
-import VerifyOtpPageTailwind from './VerifyOtpPageTailwind.js'
-import VerifyOtpPageHero from './VerifyOtpPageHero.js'
-import type { AuthLayoutConfig } from '../AuthLayout.js'
+import { pluginConfig } from '../../config'
+import VerifyOtpPageTailwind from './VerifyOtpPageTailwind'
+import VerifyOtpPageHero from './VerifyOtpPageHero'
+import type { AuthLayoutConfig } from '../AuthLayout'
 
 export interface VerifyOtpPageProps extends AuthLayoutConfig { loginUrl?: string }
 

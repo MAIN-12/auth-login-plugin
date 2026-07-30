@@ -1,7 +1,7 @@
 import type { Config } from 'payload'
-import { authEndpoints } from './endpoints/authEndpoints.js'
-import { googleOAuthEndpoints } from './endpoints/googleOAuth.js'
-import { pluginConfig, type AuthStyle } from './config.js'
+import { authEndpoints } from './endpoints/authEndpoints'
+import { googleOAuthEndpoints } from './endpoints/googleOAuth'
+import { pluginConfig, type AuthStyle } from './config'
 
 export interface GoogleOAuthConfig {
   /** Client ID from Google Cloud Console */
@@ -23,7 +23,7 @@ export interface AuthLoginPluginOptions {
   contactEmail?: string
   domain?: string
   style?: AuthStyle
-  logo?: string
+  logo?: string | React.ComponentType
   /**
    * OAuth providers configuration.
    * - Omit entirely → auto-detect from env vars (GOOGLE_CLIENT_ID, etc.)
@@ -82,7 +82,11 @@ export const authLoginPlugin =
 
     // Set global config — all components read this at render time
     pluginConfig.style = options.style || 'tailwind'
-    pluginConfig.logoUrl = options.logo
+    if (typeof options.logo === 'string') {
+      pluginConfig.logoUrl = options.logo
+    } else {
+      pluginConfig.Logo = options.logo
+    }
     pluginConfig.googleOAuthEnabled = googleConfig.enabled
 
     // Register auth API endpoints

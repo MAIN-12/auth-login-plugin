@@ -3,6 +3,8 @@ allowBuilds:
   ',': true
   /: true
   '@': true
+  '@heroui/shared-utils': true
+  '@swc/core': true
   '[': true
   ']': true
   a: true
@@ -10,6 +12,7 @@ allowBuilds:
   c: true
   d: true
   e: true
+  esbuild: true
   h: true
   i: true
   l: true
@@ -17,5 +20,6 @@ allowBuilds:
   p: true
   r: true
   s: true
+  sharp: true
   u: true
   w: true

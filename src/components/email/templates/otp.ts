@@ -1,6 +1,6 @@
-import { DEFAULT_COLORS, type SocialLink } from '../constants.js'
-import { wrapInBaseTemplate, type BaseTemplateOptions } from '../baseTemplate.js'
-import { getEmailTranslations, type SupportedLanguage } from '../translations.js'
+import { DEFAULT_COLORS, type SocialLink } from '../constants'
+import { wrapInBaseTemplate, type BaseTemplateOptions } from '../baseTemplate'
+import { getEmailTranslations, type SupportedLanguage } from '../translations'
 
 export interface OtpEmailParams {
   userName: string

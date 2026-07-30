@@ -1,17 +1,13 @@
 'use client'
 
-import VerifyOtpPage from '../../../../src/components/pages/VerifyOtpPage.js'
-
-const DevLogo = () => (
-  <div className="text-2xl font-bold text-gray-900">🔐 Auth Test</div>
-)
+import { VerifyOtpPage } from '@main12/auth-login/client'
+import Logo from '../../../../components/Logo'
 
 export default function DevVerifyOtpPage() {
   return (
     <VerifyOtpPage
-      logo={<DevLogo />}
       loginUrl="/login"
-      poweredBy={{ enabled: true }}
+      logo={<Logo />}
     />
   )
 }

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { sendOtp, checkEmail } from '../services/authService.js'
+import { sendOtp, checkEmail } from '../services/authService'
 
 /**
  * Forgot password flow: enter email → check exists → send OTP → redirect to verify-otp.

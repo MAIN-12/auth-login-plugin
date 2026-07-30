@@ -4,7 +4,7 @@ import type {
   VerifyOtpResponse,
   SetPasswordResponse,
   SignupResponse,
-} from '../../domain/types.js'
+} from '../../domain/types'
 
 const API_PREFIX = '/api/auth'
 

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { verifyOtp, sendOtp } from '../services/authService.js'
+import { verifyOtp, sendOtp } from '../services/authService'
 
 export interface UseVerifyOtpFlowOptions {
   email: string

@@ -14,22 +14,22 @@ export {
   generateWelcomeEmail,
   generatePasswordResetEmail,
   generatePasswordChangedEmail,
-} from '../components/email/index.js'
+} from '../components/email/index'
 
 export type {
   BaseTemplateOptions,
-} from '../components/email/baseTemplate.js'
+} from '../components/email/baseTemplate'
 
 export type {
   EmailColors,
   SocialLink,
   SocialPlatform,
-} from '../components/email/constants.js'
+} from '../components/email/constants'
 
 export type {
   SupportedLanguage,
   EmailTranslations,
-} from '../components/email/translations.js'
+} from '../components/email/translations'
 
 export type {
   OtpEmailParams,
@@ -40,7 +40,7 @@ export type {
   PasswordResetEmailResult,
   PasswordChangedEmailParams,
   PasswordChangedEmailResult,
-} from '../components/email/index.js'
+} from '../components/email/index'
 
 // Auth plugin config types
-export type { AuthLoginPluginOptions } from '../index.js'
+export type { AuthLoginPluginOptions } from '../index'

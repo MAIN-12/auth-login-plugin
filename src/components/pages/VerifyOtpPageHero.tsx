@@ -2,12 +2,12 @@
 
 import React, { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Button, InputOtp, Spinner as HSpinner } from '@heroui/react'
+import { Button, InputOTP, Spinner } from '@heroui/react'
 import { Icon } from '@iconify/react'
 import { motion } from 'framer-motion'
-import { useVerifyOtpFlow } from '../../auth/application/hooks/useVerifyOtpFlow.js'
-import { AuthLayout } from '../AuthLayout.js'
-import type { AuthLayoutConfig } from '../AuthLayout.js'
+import { useVerifyOtpFlow } from '../../auth/application/hooks/useVerifyOtpFlow'
+import { AuthLayout } from '../AuthLayout'
+import type { AuthLayoutConfig } from '../AuthLayout'
 
 export interface VerifyOtpPageHeroProps extends AuthLayoutConfig { loginUrl?: string }
 
@@ -26,9 +26,23 @@ function VerifyOtpHeroContent({ loginUrl = '/login', logo, poweredBy, cardClassN
       footer={<a href={loginUrl} className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"><Icon icon="lucide:arrow-left" width={16} />Back to Login</a>}>
       <div className="flex flex-col items-center gap-4">
         <p className="text-gray-700 text-sm font-medium">{email}</p>
-        <InputOtp length={6} value={otp} onValueChange={setOtp} isDisabled={isLoading} autoFocus />
+        <InputOTP maxLength={6} value={otp} onChange={setOtp} isDisabled={isLoading} autoFocus>
+          <InputOTP.Group>
+            <InputOTP.Slot index={0} />
+            <InputOTP.Slot index={1} />
+            <InputOTP.Slot index={2} />
+          </InputOTP.Group>
+          <InputOTP.Separator />
+          <InputOTP.Group>
+            <InputOTP.Slot index={3} />
+            <InputOTP.Slot index={4} />
+            <InputOTP.Slot index={5} />
+          </InputOTP.Group>
+        </InputOTP>
         {error && <motion.div className="w-full bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.div>}
-        <Button fullWidth size="lg" color="primary" isLoading={isLoading} isDisabled={otp.length !== 6} onPress={handleSubmit} className="h-12 font-semibold">Verify</Button>
+        <Button fullWidth size="lg" isPending={isLoading} isDisabled={otp.length !== 6} onPress={handleSubmit} className="h-12 font-semibold">
+          {({ isPending }) => (<>{isPending && <Spinner color="current" size="sm" />}Verify</>)}
+        </Button>
         <div className="text-center"><p className="text-gray-600 text-sm mb-2">Didn't receive a code?</p>
           <button onClick={handleResendCode} disabled={isResending || resendCooldown > 0} className="text-primary font-medium text-sm hover:underline disabled:opacity-50">
             {isResending ? 'Sending...' : resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
@@ -39,5 +53,5 @@ function VerifyOtpHeroContent({ loginUrl = '/login', logo, poweredBy, cardClassN
   )
 }
 export default function VerifyOtpPageHero(props: VerifyOtpPageHeroProps) {
-  return <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><HSpinner size="lg" /></div>}><VerifyOtpHeroContent {...props} /></Suspense>
+  return <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Spinner size="lg" /></div>}><VerifyOtpHeroContent {...props} /></Suspense>
 }

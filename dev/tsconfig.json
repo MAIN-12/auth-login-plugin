@@ -17,15 +17,6 @@
     "paths": {
       "@payload-config": [
         "./payload.config.ts"
-      ],
-      "plugin-package-name-placeholder": [
-        "../src/index.ts"
-      ],
-      "plugin-package-name-placeholder/client": [
-        "../src/exports/client.ts"
-      ],
-      "plugin-package-name-placeholder/rsc": [
-        "../src/exports/rsc.ts"
       ]
     },
     "noEmit": true,

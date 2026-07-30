@@ -1,4 +1,10 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+@import '@heroui/styles';
+
+/* Scan dev app files */
+@source '../../**/*.{ts,tsx}';
+/* Scan plugin source files outside the Next.js root */
+@source '../../../src/**/*.{ts,tsx}';
 
 body {
   margin: 0;

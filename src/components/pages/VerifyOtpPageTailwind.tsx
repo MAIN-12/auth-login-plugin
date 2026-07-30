@@ -2,10 +2,10 @@
 
 import React, { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Button, OtpInput, Spinner } from '../ui/index.js'
-import { useVerifyOtpFlow } from '../../auth/application/hooks/useVerifyOtpFlow.js'
-import { AuthLayout } from '../AuthLayout.js'
-import type { AuthLayoutConfig } from '../AuthLayout.js'
+import { Button, OtpInput, Spinner } from '../ui/index'
+import { useVerifyOtpFlow } from '../../auth/application/hooks/useVerifyOtpFlow'
+import { AuthLayout } from '../AuthLayout'
+import type { AuthLayoutConfig } from '../AuthLayout'
 
 export interface VerifyOtpPageProps extends AuthLayoutConfig {
   loginUrl?: string

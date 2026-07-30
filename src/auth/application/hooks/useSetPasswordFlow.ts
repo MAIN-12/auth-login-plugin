@@ -2,8 +2,8 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { setUserPassword } from '../services/authService.js'
-import { evaluatePasswordStrength } from '../../domain/passwordRules.js'
+import { setUserPassword } from '../services/authService'
+import { evaluatePasswordStrength } from '../../domain/passwordRules'
 
 export interface UseSetPasswordFlowOptions {
   redirectTo?: string

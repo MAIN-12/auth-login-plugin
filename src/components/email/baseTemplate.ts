@@ -1,5 +1,5 @@
-import { DEFAULT_COLORS, SOCIAL_ICONS, type EmailColors, type SocialLink, type SocialPlatform } from './constants.js'
-import { getEmailTranslations, type SupportedLanguage } from './translations.js'
+import { DEFAULT_COLORS, SOCIAL_ICONS, type EmailColors, type SocialLink, type SocialPlatform } from './constants'
+import { getEmailTranslations, type SupportedLanguage } from './translations'
 
 export interface BaseTemplateOptions {
   logoUrl?: string

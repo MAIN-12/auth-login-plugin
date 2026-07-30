@@ -1,17 +1,13 @@
 'use client'
 
-import SetPasswordPage from '../../../../src/components/pages/SetPasswordPage.js'
-
-const DevLogo = () => (
-  <div className="text-2xl font-bold text-gray-900">🔐 Auth Test</div>
-)
+import { SetPasswordPage } from '@main12/auth-login/client'
+import Logo from '../../../../components/Logo'
 
 export default function DevSetPasswordPage() {
   return (
     <SetPasswordPage
-      logo={<DevLogo />}
       redirectTo="/admin"
-      poweredBy={{ enabled: true }}
+      logo={<Logo />}
     />
   )
 }

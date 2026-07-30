@@ -2,12 +2,12 @@
 
 import React, { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Button, Input, Divider, Spinner as HSpinner } from '@heroui/react'
+import { Button, Input, Label, TextField, Separator, Spinner } from '@heroui/react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Icon } from '@iconify/react'
-import { useLoginFlow } from '../../auth/application/hooks/useLoginFlow.js'
-import { AuthLayout } from '../AuthLayout.js'
-import type { AuthLayoutConfig } from '../AuthLayout.js'
+import { useLoginFlow } from '../../auth/application/hooks/useLoginFlow'
+import { AuthLayout } from '../AuthLayout'
+import type { AuthLayoutConfig } from '../AuthLayout'
 
 export interface LoginPageHeroProps extends AuthLayoutConfig {
   onPasswordLogin: (credentials: { email: string; password: string }) => Promise<void>
@@ -47,18 +47,22 @@ function LoginHeroContent({
           <motion.div key="email" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }}>
             {showGoogleOAuth && (
               <>
-                <Button fullWidth variant="bordered" size="lg" className="mb-4 h-12 border-gray-300 rounded-full text-gray-700 hover:bg-gray-50"
-                  startContent={<Icon icon="flat-color-icons:google" width={20} />} onPress={handleGoogleLogin}>
+                <Button fullWidth variant="outline" size="lg" className="mb-4 h-12 border-gray-300 rounded-full text-gray-700 hover:bg-gray-50" onPress={handleGoogleLogin}>
+                  <Icon icon="flat-color-icons:google" width={20} />
                   Continue with Google
                 </Button>
-                <div className="flex items-center gap-4 my-4"><Divider className="flex-1" /><span className="text-gray-500 text-sm">or</span><Divider className="flex-1" /></div>
+                <div className="flex items-center gap-4 my-4"><Separator className="flex-1" /><span className="text-gray-500 text-sm">or</span><Separator className="flex-1" /></div>
               </>
             )}
             <form onSubmit={handleEmailSubmit} className="space-y-4">
               {error && <motion.div className="bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.div>}
-              <Input type="email" label="Email" value={email} onValueChange={setEmail} variant="bordered" size="lg" isRequired
-                classNames={{ input: 'text-gray-900', label: 'text-gray-600', inputWrapper: 'border-gray-300 hover:border-gray-400 bg-white' }} />
-              <Button type="submit" fullWidth size="lg" color="primary" isLoading={isLoading} className="h-12 font-semibold">Continue</Button>
+              <TextField type="email" value={email} onChange={setEmail} isRequired fullWidth>
+                <Label className="text-gray-600">Email</Label>
+                <Input className="bg-white" />
+              </TextField>
+              <Button type="submit" fullWidth size="lg" isPending={isLoading} className="h-12 font-semibold">
+                {({ isPending }) => (<>{isPending && <Spinner color="current" size="sm" />}Continue</>)}
+              </Button>
             </form>
           </motion.div>
         )}
@@ -70,12 +74,19 @@ function LoginHeroContent({
             </div>
             <form onSubmit={handlePasswordSubmit} className="space-y-4">
               {error && <motion.div className="bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.div>}
-              <Input type={showPassword ? 'text' : 'password'} label="Password" value={password} onValueChange={setPassword}
-                variant="bordered" size="lg" isRequired autoFocus
-                classNames={{ input: 'text-gray-900', label: 'text-gray-600', inputWrapper: 'border-gray-300 hover:border-gray-400 bg-white' }}
-                endContent={<button type="button" onClick={() => setShowPassword(!showPassword)}><Icon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} className="text-gray-400" width={20} /></button>} />
+              <TextField type={showPassword ? 'text' : 'password'} value={password} onChange={setPassword} isRequired autoFocus fullWidth>
+                <Label className="text-gray-600">Password</Label>
+                <div className="relative">
+                  <Input className="w-full pr-10 bg-white" />
+                  <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2" onClick={() => setShowPassword(!showPassword)}>
+                    <Icon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} className="text-gray-400" width={20} />
+                  </button>
+                </div>
+              </TextField>
               <div className="text-left"><a href="/forgot-password" className="text-sm text-gray-700 hover:underline">Forgot password?</a></div>
-              <Button type="submit" fullWidth size="lg" color="primary" isLoading={isLoading} className="h-12 font-semibold">Continue</Button>
+              <Button type="submit" fullWidth size="lg" isPending={isLoading} className="h-12 font-semibold">
+                {({ isPending }) => (<>{isPending && <Spinner color="current" size="sm" />}Continue</>)}
+              </Button>
             </form>
           </motion.div>
         )}
@@ -90,8 +101,8 @@ function LoginHeroContent({
               <Icon icon="lucide:mail" className="text-blue-500 mt-0.5" width={20} />
               <p className="text-sm text-blue-700">We'll send a verification code to this email.</p>
             </div>
-            <Button fullWidth size="lg" color="primary" isLoading={isSendingOtp} onPress={handleSendOtp} className="h-12 font-semibold">
-              {isSendingOtp ? 'Sending...' : 'Send Code'}
+            <Button fullWidth size="lg" isPending={isSendingOtp} onPress={handleSendOtp} className="h-12 font-semibold">
+              {({ isPending }) => (<>{isPending && <Spinner color="current" size="sm" />}{isPending ? 'Sending...' : 'Send Code'}</>)}
             </Button>
           </motion.div>
         )}
@@ -102,7 +113,7 @@ function LoginHeroContent({
 
 export default function LoginPageHero(props: LoginPageHeroProps) {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><HSpinner size="lg" /></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Spinner size="lg" /></div>}>
       <LoginHeroContent {...props} />
     </Suspense>
   )

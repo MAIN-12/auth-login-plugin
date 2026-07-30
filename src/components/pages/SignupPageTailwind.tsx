@@ -1,9 +1,9 @@
 'use client'
 
 import React from 'react'
-import { Button, Input, Divider } from '../ui/index.js'
-import { AuthLayout } from '../AuthLayout.js'
-import type { AuthLayoutConfig } from '../AuthLayout.js'
+import { Button, Input, Divider } from '../ui/index'
+import { AuthLayout } from '../AuthLayout'
+import type { AuthLayoutConfig } from '../AuthLayout'
 
 export interface SignupPageProps extends AuthLayoutConfig {
   onSignup: (data: { name: string; email: string }) => Promise<void>

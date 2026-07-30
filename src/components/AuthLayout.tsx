@@ -1,12 +1,12 @@
 'use client'
 
 import React from 'react'
-import { Card, CardContent, CardFooter } from './ui/index.js'
-import { PoweredBy } from './PoweredBy.js'
-import { pluginConfig } from '../config.js'
+import { Card, CardContent, CardFooter } from './ui/index'
+import { PoweredBy } from './PoweredBy'
+import { pluginConfig } from '../config'
 
 export interface AuthLayoutConfig {
-  /** Logo as a React node. Falls back to pluginConfig.logoUrl if not provided. */
+  /** Component or URL. Falls back to pluginConfig when omitted. */
   logo?: React.ReactNode
   title?: string
   subtitle?: string
@@ -22,8 +22,9 @@ export interface AuthLayoutConfig {
 }
 
 function DefaultLogo() {
-  if (!pluginConfig.logoUrl) return null
-  return <img src={pluginConfig.logoUrl} alt="" width={180} height={42} className="object-contain" />
+  if (pluginConfig.Logo) { const L = pluginConfig.Logo; return <L /> }
+  if (pluginConfig.logoUrl) return <img src={pluginConfig.logoUrl} alt="" width={180} height={42} className="object-contain" />
+  return null
 }
 
 export interface AuthLayoutProps extends AuthLayoutConfig {
