@@ -4,6 +4,11 @@
  */
 export type AuthStyle = 'tailwind' | 'hero-ui'
 
-export const pluginConfig: { style: AuthStyle; logoUrl?: string } = {
+export const pluginConfig: {
+  style: AuthStyle
+  logoUrl?: string
+  googleOAuthEnabled: boolean
+} = {
   style: 'tailwind',
+  googleOAuthEnabled: true,
 }

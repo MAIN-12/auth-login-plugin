@@ -10,7 +10,7 @@ export interface AuthLoginPluginOptions {
   domain?: string
   style?: AuthStyle
   logo?: string
-  /** Enable Google OAuth — reads GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET from env */
+  /** Enable Google OAuth. Default: auto-detects GOOGLE_CLIENT_ID env var. Set false to force-disable. */
   googleOAuth?: boolean
 }
 
@@ -19,15 +19,23 @@ export const authLoginPlugin =
   (config: Config): Config => {
     if (options.enabled === false) return config
 
-    // Set global style config — all page components read this at render time
+    // Set global config — all components read this at render time
     pluginConfig.style = options.style || 'tailwind'
     pluginConfig.logoUrl = options.logo
+
+    // Google OAuth: auto-detect from env vars
+    if (options.googleOAuth === false) {
+      pluginConfig.googleOAuthEnabled = false
+    } else {
+      const hasGoogleCreds = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
+      pluginConfig.googleOAuthEnabled = options.googleOAuth === true || hasGoogleCreds
+    }
 
     // Register auth API endpoints
     config.endpoints = [...(config.endpoints || []), ...authEndpoints]
 
-    // Register Google OAuth endpoints if enabled
-    if (options.googleOAuth !== false) {
+    // Register Google OAuth endpoints only if enabled
+    if (pluginConfig.googleOAuthEnabled) {
       config.endpoints = [...config.endpoints, ...googleOAuthEndpoints]
     }
 
@@ -35,7 +43,9 @@ export const authLoginPlugin =
     const incomingOnInit = config.onInit
     config.onInit = async (payload) => {
       if (incomingOnInit) await incomingOnInit(payload)
-      payload.logger.info(`[auth-login] Initialized (style: ${pluginConfig.style}) for ${options.projectName || 'project'}`)
+      payload.logger.info(
+        `[auth-login] Initialized (style: ${pluginConfig.style}, googleOAuth: ${pluginConfig.googleOAuthEnabled}) for ${options.projectName || 'project'}`,
+      )
     }
 
     return config

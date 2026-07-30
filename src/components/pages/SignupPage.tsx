@@ -12,5 +12,6 @@ export interface SignupPageProps extends AuthLayoutConfig {
 }
 
 export default function SignupPage(props: SignupPageProps) {
-  return pluginConfig.style === 'hero-ui' ? <SignupPageHero {...props} /> : <SignupPageTailwind {...props} />
+  const resolved = { showGoogleOAuth: pluginConfig.googleOAuthEnabled, ...props }
+  return pluginConfig.style === 'hero-ui' ? <SignupPageHero {...resolved} /> : <SignupPageTailwind {...resolved} />
 }

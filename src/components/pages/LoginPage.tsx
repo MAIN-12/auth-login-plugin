@@ -13,5 +13,6 @@ export interface LoginPageProps extends AuthLayoutConfig {
 }
 
 export default function LoginPage(props: LoginPageProps) {
-  return pluginConfig.style === 'hero-ui' ? <LoginPageHero {...props} /> : <LoginPageTailwind {...props} />
+  const resolved = { showGoogleOAuth: pluginConfig.googleOAuthEnabled, ...props }
+  return pluginConfig.style === 'hero-ui' ? <LoginPageHero {...resolved} /> : <LoginPageTailwind {...resolved} />
 }
