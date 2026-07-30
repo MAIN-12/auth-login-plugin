@@ -3,6 +3,20 @@ import { authEndpoints } from './endpoints/authEndpoints.js'
 import { googleOAuthEndpoints } from './endpoints/googleOAuth.js'
 import { pluginConfig, type AuthStyle } from './config.js'
 
+export interface GoogleOAuthConfig {
+  /** Client ID from Google Cloud Console */
+  clientId?: string
+  /** Client Secret from Google Cloud Console */
+  clientSecret?: string
+  /** Toggle provider on/off */
+  enabled?: boolean
+}
+
+export interface AuthProvidersConfig {
+  google?: GoogleOAuthConfig | boolean
+  // Future: facebook, apple, etc.
+}
+
 export interface AuthLoginPluginOptions {
   enabled?: boolean
   projectName?: string
@@ -10,8 +24,51 @@ export interface AuthLoginPluginOptions {
   domain?: string
   style?: AuthStyle
   logo?: string
-  /** Enable Google OAuth. Default: auto-detects GOOGLE_CLIENT_ID env var. Set false to force-disable. */
-  googleOAuth?: boolean
+  /**
+   * OAuth providers configuration.
+   * - Omit entirely → auto-detect from env vars (GOOGLE_CLIENT_ID, etc.)
+   * - `{ google: true }` → use env vars
+   * - `{ google: { clientId, clientSecret } }` → use explicit values
+   * - `{ google: false }` → force-disable
+   * - `{ google: { enabled: false } }` → temporarily disable without losing config
+   */
+  providers?: AuthProvidersConfig
+}
+
+function resolveGoogleConfig(providers?: AuthProvidersConfig): {
+  enabled: boolean
+  clientId: string
+  clientSecret: string
+} {
+  const google = providers?.google
+
+  // Explicitly disabled
+  if (google === false || (typeof google === 'object' && google.enabled === false)) {
+    return { enabled: false, clientId: '', clientSecret: '' }
+  }
+
+  // Explicit config provided
+  if (typeof google === 'object' && google.clientId && google.clientSecret) {
+    return { enabled: true, clientId: google.clientId, clientSecret: google.clientSecret }
+  }
+
+  // Auto-detect from env
+  const envId = process.env.GOOGLE_CLIENT_ID || ''
+  const envSecret = process.env.GOOGLE_CLIENT_SECRET || ''
+  const hasEnvCreds = !!(envId && envSecret)
+
+  return { enabled: hasEnvCreds, clientId: envId, clientSecret: envSecret }
+}
+
+/**
+ * Merge provider credentials into process.env so the OAuth endpoint can read them.
+ * This allows explicit plugin config values to work alongside env vars.
+ */
+function setOAuthEnv(googleConfig: ReturnType<typeof resolveGoogleConfig>) {
+  if (googleConfig.enabled && googleConfig.clientId) {
+    process.env.GOOGLE_CLIENT_ID = googleConfig.clientId
+    process.env.GOOGLE_CLIENT_SECRET = googleConfig.clientSecret
+  }
 }
 
 export const authLoginPlugin =
@@ -19,17 +76,14 @@ export const authLoginPlugin =
   (config: Config): Config => {
     if (options.enabled === false) return config
 
+    // Resolve provider config
+    const googleConfig = resolveGoogleConfig(options.providers)
+    setOAuthEnv(googleConfig)
+
     // Set global config — all components read this at render time
     pluginConfig.style = options.style || 'tailwind'
     pluginConfig.logoUrl = options.logo
-
-    // Google OAuth: auto-detect from env vars
-    if (options.googleOAuth === false) {
-      pluginConfig.googleOAuthEnabled = false
-    } else {
-      const hasGoogleCreds = !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
-      pluginConfig.googleOAuthEnabled = options.googleOAuth === true || hasGoogleCreds
-    }
+    pluginConfig.googleOAuthEnabled = googleConfig.enabled
 
     // Register auth API endpoints
     config.endpoints = [...(config.endpoints || []), ...authEndpoints]
