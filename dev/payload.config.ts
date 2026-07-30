@@ -4,7 +4,7 @@ import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 
-import { plugins } from './plugins/index.js'
+import { plugins } from './plugins/index'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)

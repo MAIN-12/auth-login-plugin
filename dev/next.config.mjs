@@ -3,10 +3,14 @@ import { fileURLToPath } from 'url'
 import path from 'path'
 
 const dirname = path.dirname(fileURLToPath(import.meta.url))
+const repoRoot = path.resolve(dirname, '..')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ['@main12/auth-login'],
+  turbopack: {
+    root: repoRoot,
+  },
   webpack: (webpackConfig) => {
     webpackConfig.resolve.extensionAlias = {
       '.cjs': ['.cts', '.cjs'],

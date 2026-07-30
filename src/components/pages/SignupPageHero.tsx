@@ -30,7 +30,7 @@ export default function SignupPageHero({ onSignup, showGoogleOAuth = true, login
     <AuthLayout logo={logo} title="Create Account" subtitle="Enter your details to get started" poweredBy={poweredBy} cardClassName={cardClassName} backgroundClass={backgroundClass}
       footer={<p className="text-center text-gray-600 text-sm">Already have an account? <a href={loginUrl} className="text-gray-900 font-medium hover:underline">Sign in</a></p>}>
       {showGoogleOAuth && (<>
-        <Button fullWidth variant="outline" size="lg" className="mb-4 h-12 border-gray-300 rounded-full text-gray-700 hover:bg-gray-50">
+        <Button fullWidth color="secondary" size="lg" className="mb-4 h-12 rounded-full">
           <Icon icon="flat-color-icons:google" width={20} />
           Continue with Google
         </Button>
@@ -40,11 +40,11 @@ export default function SignupPageHero({ onSignup, showGoogleOAuth = true, login
         {error && <motion.div className="bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.div>}
         <TextField type="text" value={name} onChange={setName} isRequired fullWidth>
           <Label className="text-gray-600">Full Name</Label>
-          <Input className="bg-white" />
+          <Input variant="bordered" />
         </TextField>
         <TextField type="email" value={email} onChange={setEmail} isRequired fullWidth>
           <Label className="text-gray-600">Email</Label>
-          <Input className="bg-white" />
+          <Input variant="bordered" />
         </TextField>
         <p className="text-xs text-gray-600 text-center">By signing up, you agree to our <a href="/terms" className="text-gray-900 hover:underline">Terms</a> and <a href="/privacy" className="text-gray-900 hover:underline">Privacy</a></p>
         <Button type="submit" fullWidth size="lg" isPending={isLoading} className="h-12 font-semibold">

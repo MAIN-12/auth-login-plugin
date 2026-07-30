@@ -14,6 +14,7 @@
     ".next/types/**/*.ts"
   ],
   "compilerOptions": {
+    "rootDir": "..",
     "paths": {
       "@payload-config": [
         "./payload.config.ts"

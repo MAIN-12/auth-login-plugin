@@ -9,12 +9,13 @@ interface ButtonProps {
   isDisabled?: boolean
   onPress?: () => void
   onClick?: () => void
-  variant?: 'primary' | 'bordered' | 'ghost' | 'tertiary'
+  variant?: 'primary' | 'secondary' | 'bordered' | 'ghost' | 'tertiary'
   className?: string
 }
 
 const variantClasses: Record<string, string> = {
   primary: 'bg-[#D5E855] text-gray-900 hover:bg-[#C9DC4A] font-semibold',
+  secondary: 'bg-gray-100 text-gray-900 hover:bg-gray-200 font-medium',
   bordered: 'border border-gray-300 text-gray-700 hover:bg-gray-50 bg-white',
   ghost: 'text-gray-600 hover:text-gray-900 bg-transparent',
   tertiary: 'text-gray-600 hover:text-gray-900 bg-transparent underline',
@@ -55,11 +56,13 @@ interface InputProps {
   placeholder?: string
   className?: string
   name?: string
+  variant?: 'default' | 'secondary'
 }
 
 export const Input: React.FC<InputProps> = ({
   type = 'text', label, value, onChange, onValueChange,
   isRequired, isDisabled, autoFocus, autoComplete, placeholder, className = '', name,
+  variant = 'default',
 }) => (
   <div className="w-full">
     {label && <label className="block text-sm font-medium text-gray-600 mb-1">{label}{isRequired ? ' *' : ''}</label>}
@@ -73,7 +76,7 @@ export const Input: React.FC<InputProps> = ({
       autoComplete={autoComplete}
       placeholder={placeholder}
       name={name}
-      className={`w-full h-12 px-4 bg-white border border-gray-300 hover:border-gray-400 rounded-xl text-gray-900 text-base transition-colors outline-none focus:border-[#D5E855] focus:ring-2 focus:ring-[#D5E855]/30 ${className}`}
+      className={`w-full h-12 px-4 ${variant === 'secondary' ? 'bg-gray-100' : 'bg-white'} border border-gray-300 hover:border-gray-400 rounded-xl text-gray-900 text-base transition-colors outline-none focus:border-[#D5E855] focus:ring-2 focus:ring-[#D5E855]/30 ${className}`}
     />
   </div>
 )
