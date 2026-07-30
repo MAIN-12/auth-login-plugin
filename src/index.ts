@@ -9,6 +9,8 @@ export interface AuthLoginPluginOptions {
   domain?: string
   /** UI style for auth pages: 'tailwind' (default) or 'hero-ui' */
   style?: AuthStyle
+  /** Logo shown in all auth pages and email headers. Can be a URL string. */
+  logo?: string
 }
 
 export const authLoginPlugin =
@@ -18,6 +20,7 @@ export const authLoginPlugin =
 
     // Set global style config — all page components read this at render time
     pluginConfig.style = options.style || 'tailwind'
+    pluginConfig.logoUrl = options.logo
 
     // Register auth API endpoints
     config.endpoints = [...(config.endpoints || []), ...authEndpoints]

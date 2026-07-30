@@ -4,6 +4,6 @@
  */
 export type AuthStyle = 'tailwind' | 'hero-ui'
 
-export const pluginConfig: { style: AuthStyle } = {
+export const pluginConfig: { style: AuthStyle; logoUrl?: string } = {
   style: 'tailwind',
 }

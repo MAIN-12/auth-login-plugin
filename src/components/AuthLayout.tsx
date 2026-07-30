@@ -3,9 +3,11 @@
 import React from 'react'
 import { Card, CardContent, CardFooter } from './ui/index.js'
 import { PoweredBy } from './PoweredBy.js'
+import { pluginConfig } from '../config.js'
 
 export interface AuthLayoutConfig {
-  logo: React.ReactNode
+  /** Logo as a React node. Falls back to pluginConfig.logoUrl if not provided. */
+  logo?: React.ReactNode
   title?: string
   subtitle?: string
   poweredBy?: {
@@ -17,6 +19,11 @@ export interface AuthLayoutConfig {
   }
   cardClassName?: string
   backgroundClass?: string
+}
+
+function DefaultLogo() {
+  if (!pluginConfig.logoUrl) return null
+  return <img src={pluginConfig.logoUrl} alt="" width={180} height={42} className="object-contain" />
 }
 
 export interface AuthLayoutProps extends AuthLayoutConfig {
@@ -34,21 +41,21 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
   cardClassName = '',
   backgroundClass = 'bg-white md:bg-[#191919]',
 }) => {
+  const displayLogo = logo || <DefaultLogo />
+
   return (
     <main className={`flex flex-col min-h-screen ${backgroundClass}`}>
       <div className="min-h-screen flex items-center justify-center px-4 py-12">
         <div className="w-full max-w-[400px] animate-[fadeIn_0.5s_ease-out]">
           <Card className={cardClassName}>
-            {(logo || title) && (
+            {(displayLogo || title) && (
               <div className="flex flex-col items-center gap-2 pt-6 pb-2 px-6">
-                {logo && <div className="flex justify-center mb-2">{logo}</div>}
+                {displayLogo && <div className="flex justify-center mb-2">{displayLogo}</div>}
                 {title && <h1 className="text-xl font-semibold text-gray-900 text-center">{title}</h1>}
                 {subtitle && <p className="text-gray-600 text-sm text-center">{subtitle}</p>}
               </div>
             )}
-            <CardContent>
-              {children}
-            </CardContent>
+            <CardContent>{children}</CardContent>
             {footer && <CardFooter>{footer}</CardFooter>}
           </Card>
           <PoweredBy {...poweredBy} />
