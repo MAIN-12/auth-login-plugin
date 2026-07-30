@@ -1,5 +1,6 @@
 import type { Config } from 'payload'
 import { authEndpoints } from './endpoints/authEndpoints.js'
+import { googleOAuthEndpoints } from './endpoints/googleOAuth.js'
 import { pluginConfig, type AuthStyle } from './config.js'
 
 export interface AuthLoginPluginOptions {
@@ -7,10 +8,10 @@ export interface AuthLoginPluginOptions {
   projectName?: string
   contactEmail?: string
   domain?: string
-  /** UI style for auth pages: 'tailwind' (default) or 'hero-ui' */
   style?: AuthStyle
-  /** Logo shown in all auth pages and email headers. Can be a URL string. */
   logo?: string
+  /** Enable Google OAuth — reads GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET from env */
+  googleOAuth?: boolean
 }
 
 export const authLoginPlugin =
@@ -24,6 +25,11 @@ export const authLoginPlugin =
 
     // Register auth API endpoints
     config.endpoints = [...(config.endpoints || []), ...authEndpoints]
+
+    // Register Google OAuth endpoints if enabled
+    if (options.googleOAuth !== false) {
+      config.endpoints = [...config.endpoints, ...googleOAuthEndpoints]
+    }
 
     // Chain onInit
     const incomingOnInit = config.onInit
