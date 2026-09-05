@@ -40,11 +40,11 @@ export default function SignupPageHero({ onSignup, showGoogleOAuth = true, login
         {error && <motion.div className="bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.div>}
         <TextField type="text" value={name} onChange={setName} isRequired fullWidth>
           <Label className="text-gray-600">Full Name</Label>
-          <Input variant="bordered" />
+          <Input variant="secondary" />
         </TextField>
         <TextField type="email" value={email} onChange={setEmail} isRequired fullWidth>
           <Label className="text-gray-600">Email</Label>
-          <Input variant="bordered" />
+          <Input variant="secondary" />
         </TextField>
         <p className="text-xs text-gray-600 text-center">By signing up, you agree to our <a href="/terms" className="text-gray-900 hover:underline">Terms</a> and <a href="/privacy" className="text-gray-900 hover:underline">Privacy</a></p>
         <Button type="submit" fullWidth size="lg" isPending={isLoading} className="h-12 font-semibold">
