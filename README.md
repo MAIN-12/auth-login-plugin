@@ -10,8 +10,9 @@ plugins: [
   authLoginPlugin({
     projectName: 'My SaaS',
     domain: 'https://myapp.com',
-    logo: 'https://myapp.com/logo.png',  // shown in all auth pages + emails
-    style: 'hero-ui',                     // 'tailwind' (default) | 'hero-ui'
+    logo: 'https://myapp.com/logo.png',
+    style: 'tailwind',
+    routeRedirects: true,
   }),
 ]
 ```
@@ -21,12 +22,19 @@ plugins: [
 ## Features
 
 - **5 auth pages** — login (multi-step), signup, forgot password, verify OTP, set password
+- **Single catch-all route** — one file handles all auth pages (`AuthPages` component)
+- **Route redirects** — automatic `/login` → `/auth/login`, `/admin/login` → `/auth/login` via Next.js 16 proxy
 - **Multi-style** — `tailwind` (zero UI deps) or `hero-ui` (HeroUI + framer-motion). Set once in config
+- **Google OAuth** — optional, enable via `providers` config (hidden by default)
 - **5 API endpoints** — `check-email`, `otp/send`, `otp/verify`, `set-password`, `signup`
 - **OTP engine** — SHA-256 hashing + `timingSafeEqual` comparison, 10-min expiry, 3 attempts
 - **Email templates** — welcome, OTP login, password reset, password changed (EN/ES)
 - **Powered by Main 12** — bundled inline SVG, linked to main12.com by default (URL overridable)
 - **Global logo** — pass once in plugin config, automatically shown on all pages and email headers
+- **Configurable login methods** — `passwordLogin` and `otpLogin` options for flexible auth flows
+- **Auto-verify OTP** — automatically verifies when all 6 digits are entered
+- **Smart redirects** — logged-in users are redirected away from auth pages
+- **Google account picker** — always shows account selection by default (`prompt: 'select_account'`)
 - **Zero runtime deps** (Tailwind mode) — Next.js + React are peer dependencies
 
 ---
@@ -41,6 +49,20 @@ pnpm add @main12/auth-login
 
 No extra dependencies needed. The Tailwind style uses standard utility classes that work in any Tailwind project, including ShadCN-based ones.
 
+If you are using Tailwind CSS in your host app, add the plugin to your Tailwind source scanning so custom utility classes compile properly:
+
+- **Tailwind v4** (in your `globals.css`):
+  ```css
+  @source './node_modules/@main12/auth-login/**/*.{js,ts,jsx,tsx}';
+  ```
+- **Tailwind v3** (in your `tailwind.config.js`):
+  ```js
+  content: [
+    './node_modules/@main12/auth-login/**/*.{js,ts,jsx,tsx}',
+    './src/**/*.{js,ts,jsx,tsx}',
+  ]
+  ```
+
 ### HeroUI mode
 
 ```bash
@@ -49,11 +71,14 @@ pnpm add @heroui/react framer-motion @iconify/react
 
 ---
 
-## Quick Start
+## Quick Start (Simplified Setup)
+
+The fastest way to get all auth pages running with just **2 files**.
 
 ### 1. Add the plugin + Users collection
 
 ```ts
+// payload.config.ts
 import { authLoginPlugin } from '@main12/auth-login'
 
 export default buildConfig({
@@ -63,9 +88,6 @@ export default buildConfig({
       auth: { tokenExpiration: 7200, verify: false, maxLoginAttempts: 5 },
       fields: [
         { name: 'name', type: 'text' },
-        { name: 'otpHash', type: 'text', admin: { hidden: true } },
-        { name: 'otpAttempts', type: 'number', admin: { hidden: true } },
-        { name: 'otpExpiresAt', type: 'text', admin: { hidden: true } },
       ],
     },
   ],
@@ -74,44 +96,51 @@ export default buildConfig({
       projectName: 'My App',
       domain: 'https://myapp.com',
       logo: '/logo.png',
-      style: 'hero-ui',
+      style: 'tailwind',
+      routeRedirects: true,   // enables /login → /auth/login redirects
     }),
   ],
 })
 ```
 
-### 2. Create one-line route files
+> **Note:** OTP data is stored in a hidden `auth-otps` collection that the plugin registers automatically. No OTP fields needed on your `users` collection.
+
+### 2. Create the catch-all auth route (1 file)
 
 ```tsx
-// src/app/(frontend)/(auth)/login/page.tsx
-export { LoginPage as default } from '@main12/auth-login/client'
-
-// src/app/(frontend)/(auth)/signup/page.tsx
-export { SignupPage as default } from '@main12/auth-login/client'
-
-// src/app/(frontend)/(auth)/forgot-password/page.tsx
-export { ForgotPasswordPage as default } from '@main12/auth-login/client'
-
-// src/app/(frontend)/(auth)/verify-otp/page.tsx
-export { VerifyOtpPage as default } from '@main12/auth-login/client'
-
-// src/app/(frontend)/(auth)/set-password/page.tsx
-export { SetPasswordPage as default } from '@main12/auth-login/client'
-```
-
-### 3. Wire up the login action
-
-```tsx
-// login/page.tsx
+// src/app/(frontend)/(auth)/auth/[...slug]/page.tsx
 'use client'
-import { LoginPage } from '@main12/auth-login/client'
-import { useAuth } from '@/providers/Auth'
 
-export default function Page() {
-  const { login } = useAuth()
-  return <LoginPage onPasswordLogin={login} redirectTo="/dashboard" />
+import { use } from 'react'
+import { AuthPages } from '@main12/auth-login/client'
+
+export default function Page({ params }: { params: Promise<{ slug: string[] }> }) {
+  const { slug } = use(params)
+  return <AuthPages slug={slug} />
 }
 ```
+
+This single file handles all routes:
+- `/auth/login`
+- `/auth/signup`
+- `/auth/forgot-password`
+- `/auth/verify-otp`
+- `/auth/set-password`
+
+### 3. Add the proxy for route redirects (1 file)
+
+```ts
+// src/proxy.ts (Next.js 16+)
+export { proxy, config } from '@main12/auth-login/proxy'
+```
+
+This redirects:
+- `/login` → `/auth/login`
+- `/signup` → `/auth/signup`
+- `/forgot-password` → `/auth/forgot-password`
+- `/verify-otp` → `/auth/verify-otp`
+- `/set-password` → `/auth/set-password`
+- `/admin/login` → `/auth/login` (**always**, regardless of `routeRedirects` setting)
 
 ### 4. Visit `/login` — done.
 
@@ -121,26 +150,163 @@ export default function Page() {
 
 ```ts
 authLoginPlugin({
+  // Core
   projectName: 'My App',          // Email subjects + footers
   contactEmail: 'hi@myapp.com',   // Email footer contact
   domain: 'https://myapp.com',    // Links in emails
   logo: '/logo.png',              // All auth pages + email headers
   style: 'tailwind',              // 'tailwind' | 'hero-ui'
   enabled: true,
+
+  // Login methods
+  passwordLogin: true,            // Allow password-based login (default: true)
+  otpLogin: true,                 // Allow OTP-based login (default: true)
+
+  // Route redirects
+  routeRedirects: true,           // Enable /login → /auth/login redirects
+  // or with custom base path:
+  // routeRedirects: { basePath: '/auth' },
+
+  // OAuth providers (optional — hidden by default)
+  providers: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      prompt: 'select_account',   // Always show account picker (default)
+    },
+  },
 })
+```
+
+### Route Redirects
+
+| Value | Behavior |
+|-------|----------|
+| `false` (default) | No redirects. You manage your own routes. |
+| `true` | Redirects `/login`, `/signup`, etc. → `/auth/login`, `/auth/signup`, etc. |
+| `{ basePath: '/myauth' }` | Same, but redirects to `/myauth/login`, etc. |
+
+> **Note:** `/admin/login` is **always** redirected to the plugin login page when the proxy is active, regardless of the `routeRedirects` setting.
+
+### Google OAuth (Providers)
+
+Google OAuth is **hidden by default**. To enable it, just add `providers.google` — the plugin handles everything (UI buttons + server-side OAuth flow via `payload-oauth2` under the hood):
+
+```ts
+authLoginPlugin({
+  providers: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      successRedirect: '/dashboard',    // optional, defaults to '/admin'
+      failureRedirect: '/login?error=failed', // optional
+    },
+  },
+})
+```
+
+That's it. No extra packages to install, no extra plugins to configure.
+
+| Config | Behavior |
+|--------|----------|
+| Omitted / not set | Google OAuth hidden |
+| `google: true` | Auto-detect `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` from env |
+| `google: { clientId, clientSecret }` | Enable with explicit credentials |
+| `google: false` | Force disable |
+
+#### Google Account Picker
+
+By default, Google always shows the account selection screen (`prompt: 'select_account'`). This prevents confusion when users have multiple Google accounts.
+
+| `prompt` value | Behavior |
+|----------------|----------|
+| `'select_account'` (default) | Always show account picker |
+| `'consent'` | Prompt for consent every time |
+| `'none'` | Skip picker, use existing session |
+
+### Login Methods
+
+Control which login methods are available:
+
+```ts
+authLoginPlugin({
+  passwordLogin: false,  // Disable password login
+  otpLogin: true,        // Enable OTP login
+})
+```
+
+| `passwordLogin` | `otpLogin` | User has password | Behavior |
+|---|---|---|---|
+| ✅ | ✅ | Yes | Password step |
+| ✅ | ✅ | No | OTP → straight to app |
+| ❌ | ✅ | Any | OTP → straight to app |
+| ✅ | ❌ | No | OTP → set password prompt |
+| ✅ | ❌ | Yes | Password step |
+
+When `otpLogin` is enabled, users are never prompted to set a password after OTP verification — they go straight to the app. The set-password prompt only appears when `passwordLogin` is enabled and `otpLogin` is disabled.
+
+---
+
+## AuthPages Props
+
+The `AuthPages` component accepts these props for customization:
+
+```tsx
+<AuthPages
+  slug={slug}                    // Required — from catch-all route params
+  redirectTo="/dashboard"        // Where to go after login/set-password (default: '/admin')
+  logo={<MyLogo />}             // Custom logo component
+  basePath="/auth"               // Base path for sibling links (default: '/auth')
+  showGoogleOAuth={true}         // Override Google OAuth visibility
+  onPasswordLogin={customLogin}  // Custom login handler
+  onSignup={customSignup}        // Custom signup handler
+/>
+```
+
+---
+
+## Individual Page Setup (Advanced)
+
+If you need full control over each page, create separate route files instead of using `AuthPages`:
+
+```tsx
+// login/page.tsx
+'use client'
+import { LoginPage } from '@main12/auth-login/client'
+
+export default function Page() {
+  return (
+    <LoginPage
+      onPasswordLogin={async ({ email, password }) => {
+        const res = await fetch('/api/users/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        })
+        if (!res.ok) throw new Error('Login failed')
+      }}
+      redirectTo="/dashboard"
+      signupUrl="/signup"
+    />
+  )
+}
 ```
 
 ### Per-page overrides
 
 ```tsx
 <LoginPage
-  logo={<AppLogo width={180} />}  // Override global logo (optional)
-  onPasswordLogin={login}          // Required
+  logo={<AppLogo width={180} />}
+  onPasswordLogin={login}
   redirectTo="/dashboard"
   showGoogleOAuth={true}
   signupUrl="/signup"
-  poweredBy={{ enabled: true, logoUrl: '/custom.png', linkUrl: 'https://...' }}
 />
+
+<SignupPage onSignup={signup} loginUrl="/login" />
+<ForgotPasswordPage loginUrl="/login" />
+<VerifyOtpPage loginUrl="/login" />
+<SetPasswordPage redirectTo="/dashboard" />
 ```
 
 ---
@@ -289,9 +455,31 @@ await payload.sendEmail({
 
 ---
 
+## Exports
+
+| Import path | Contents |
+|-------------|----------|
+| `@main12/auth-login` | Plugin factory, types, server config |
+| `@main12/auth-login/client` | Page components, `AuthPages`, hooks, services, UI utilities |
+| `@main12/auth-login/rsc` | Email template generators, translations |
+| `@main12/auth-login/proxy` | Next.js 16 proxy for route redirects |
+
+---
+
 ## ShadCN Compatibility
 
 The `tailwind` style works in ShadCN projects out of the box. For ShadCN components, build a [custom page](#building-custom-pages) — import the plugin's hooks and use your `@/components/ui/button`, `@/components/ui/input`, etc.
+
+---
+
+## Setup Comparison
+
+| Approach | Files needed | Best for |
+|----------|-------------|----------|
+| **Catch-all + proxy** (recommended) | 2 files | Most projects — fastest setup |
+| **Individual pages** | 5 files | Full control over each page |
+| **Custom pages with hooks** | Your own files | Completely custom UI |
+| **Backend only** (`routeRedirects: false`, no `AuthPages`) | 0 frontend files | Custom frontend using only the API endpoints + hooks |
 
 ---
 
@@ -299,7 +487,7 @@ The `tailwind` style works in ShadCN projects out of the box. For ShadCN compone
 
 Copy these prompts into Claude, Cursor, Copilot, or any AI agent.
 
-### Prompt: Set up the auth plugin in a new Payload project
+### Prompt: Set up the auth plugin (simplified catch-all)
 
 ```
 Add @main12/auth-login to this Payload project:
@@ -307,15 +495,38 @@ Add @main12/auth-login to this Payload project:
 1. Install: pnpm add @main12/auth-login
 2. In payload.config.ts, add:
    - Users collection with auth enabled + otpHash, otpAttempts, otpExpiresAt fields
-   - Plugin: authLoginPlugin({ projectName: "<PROJECT>", domain: "<URL>", logo: "/logo.png", style: "hero-ui" })
-3. Create route files under src/app/(frontend)/(auth)/:
-   - login/page.tsx      → export { LoginPage as default } from '@main12/auth-login/client'
-   - signup/page.tsx     → export { SignupPage as default } from '@main12/auth-login/client'
-   - forgot-password/page.tsx  → export { ForgotPasswordPage as default } from '@main12/auth-login/client'
-   - verify-otp/page.tsx → export { VerifyOtpPage as default } from '@main12/auth-login/client'
-   - set-password/page.tsx → export { SetPasswordPage as default } from '@main12/auth-login/client'
-4. In login/page.tsx, wrap LoginPage with useAuth() to pass onPasswordLogin={login}.
-5. Verify: visit /login
+   - Plugin: authLoginPlugin({ projectName: "<PROJECT>", domain: "<URL>", logo: "/logo.png", style: "tailwind", routeRedirects: true })
+3. Create catch-all route: src/app/(frontend)/(auth)/auth/[...slug]/page.tsx
+   - 'use client', import { use } from 'react', import { AuthPages } from '@main12/auth-login/client'
+   - export default function Page({ params }) { const { slug } = use(params); return <AuthPages slug={slug} /> }
+4. Create proxy: src/proxy.ts
+   - export { proxy, config } from '@main12/auth-login/proxy'
+5. Verify: visit /login → should redirect to /auth/login
+```
+
+### Prompt: Set up with Google OAuth
+
+```
+Add @main12/auth-login with Google OAuth to this Payload project:
+
+1. Install: pnpm add @main12/auth-login
+2. In payload.config.ts, add:
+   - Users collection with auth enabled + otpHash, otpAttempts, otpExpiresAt fields
+   - Plugin: authLoginPlugin({
+       projectName: "<PROJECT>",
+       domain: "<URL>",
+       style: "tailwind",
+       routeRedirects: true,
+       providers: {
+         google: {
+           clientId: process.env.GOOGLE_CLIENT_ID,
+           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+         }
+       }
+     })
+3. Create catch-all route + proxy (same as simplified setup)
+4. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env
+5. Verify: visit /login → should show Google OAuth button
 ```
 
 ### Prompt: Build a custom login page with HeroUI components

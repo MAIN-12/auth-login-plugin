@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import type { LoginStep } from '../../domain/types'
 import { checkEmail, sendOtp, initiateGoogleLogin } from '../services/authService'
+import { pluginConfig } from '../../../config'
 
 export interface UseLoginFlowOptions {
   redirectTo: string
@@ -39,14 +40,28 @@ export function useLoginFlow({ redirectTo, onPasswordLogin }: UseLoginFlowOption
           setError('noAccountFound')
           return
         }
-        setStep(data.hasPassword ? 'password' : 'otp-prompt')
+        const { passwordLogin: passwordLoginEnabled, otpLogin: otpLoginEnabled } = pluginConfig
+
+        if (data.hasPassword && passwordLoginEnabled) {
+          // Show password step if user has a password and password login is enabled
+          setStep('password')
+          return
+        }
+        // OTP login — send OTP immediately and redirect to verify page
+        const otpData = await sendOtp(email, 'login')
+        if (otpData.success) {
+          const redirectParam = redirectTo !== '/' ? `&redirect=${encodeURIComponent(redirectTo)}` : ''
+          router.push(`/verify-otp?email=${encodeURIComponent(email.trim())}${redirectParam}`)
+        } else {
+          setError(otpData.message || 'otpSendFailed')
+        }
       } catch {
         setError('genericError')
       } finally {
         setIsLoading(false)
       }
     },
-    [email],
+    [email, redirectTo, router],
   )
 
   const handlePasswordSubmit = useCallback(

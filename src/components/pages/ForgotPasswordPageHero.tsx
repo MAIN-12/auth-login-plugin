@@ -19,7 +19,7 @@ export default function ForgotPasswordPageHero({ loginUrl = '/login', logo, powe
         {error && <motion.div className="bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.div>}
         <TextField type="email" value={email} onChange={setEmail} isRequired fullWidth>
           <Label className="text-gray-600">Email</Label>
-          <Input className="bg-white" />
+          <Input variant="secondary" />
         </TextField>
         <Button type="submit" fullWidth size="lg" isPending={isLoading} className="h-12 font-semibold">
           {({ isPending }) => (<>{isPending && <Spinner color="current" size="sm" />}Send Reset Code</>)}

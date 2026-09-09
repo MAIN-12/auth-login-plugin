@@ -2,6 +2,10 @@
 // RSC (React Server Components) exports for @main12/auth-login/rsc
 // ============================================================
 
+// Server component auth pages (reads plugin config automatically)
+export { default as AuthPages } from '../components/AuthPagesServer'
+export type { AuthPagesProps } from '../components/AuthPagesServer'
+
 // Email template system (server-only — uses Node APIs)
 export {
   wrapInBaseTemplate,

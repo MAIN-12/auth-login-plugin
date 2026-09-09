@@ -26,7 +26,7 @@ function VerifyOtpHeroContent({ loginUrl = '/login', logo, poweredBy, cardClassN
       footer={<a href={loginUrl} className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1"><Icon icon="lucide:arrow-left" width={16} />Back to Login</a>}>
       <div className="flex flex-col items-center gap-4">
         <p className="text-gray-700 text-sm font-medium">{email}</p>
-        <InputOTP maxLength={6} value={otp} onChange={setOtp} isDisabled={isLoading} autoFocus>
+        <InputOTP maxLength={6} value={otp} onChange={setOtp} isDisabled={isLoading} autoFocus variant="secondary">
           <InputOTP.Group>
             <InputOTP.Slot index={0} />
             <InputOTP.Slot index={1} />

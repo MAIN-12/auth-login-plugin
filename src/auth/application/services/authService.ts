@@ -84,11 +84,12 @@ export async function signup(
 
 /**
  * Redirect the browser to the Google OAuth login endpoint.
+ * Uses payload-oauth2 plugin's route at /api/users/oauth/google.
  */
 export function initiateGoogleLogin(redirectTo = '/'): void {
   const params = new URLSearchParams()
   if (redirectTo !== '/') {
-    params.set('redirect', redirectTo)
+    params.set('state', redirectTo)
   }
   const qs = params.toString()
   window.location.href = `/api/users/oauth/google${qs ? `?${qs}` : ''}`

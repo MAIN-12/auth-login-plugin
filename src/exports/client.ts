@@ -6,6 +6,8 @@
 
 // Plugin client config initializer
 export { initClientConfig } from '../config'
+export { AuthClientInit } from '../components/AuthClientInit'
+export type { AuthClientInitProps } from '../components/AuthClientInit'
 
 // Auth hooks
 export { useLoginFlow } from '../auth/application/hooks/useLoginFlow'
@@ -32,6 +34,10 @@ export { default as SignupPage } from '../components/pages/SignupPage'
 export { default as ForgotPasswordPage } from '../components/pages/ForgotPasswordPage'
 export { default as VerifyOtpPage } from '../components/pages/VerifyOtpPage'
 export { default as SetPasswordPage } from '../components/pages/SetPasswordPage'
+
+// Catch-all auth pages (single-file setup)
+export { default as AuthPages } from '../components/AuthPages'
+export type { AuthPagesProps } from '../components/AuthPages'
 
 // Layout & shared components
 export { AuthLayout } from '../components/AuthLayout'

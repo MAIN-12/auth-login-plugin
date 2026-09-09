@@ -30,7 +30,7 @@ export default function SignupPageHero({ onSignup, showGoogleOAuth = true, login
     <AuthLayout logo={logo} title="Create Account" subtitle="Enter your details to get started" poweredBy={poweredBy} cardClassName={cardClassName} backgroundClass={backgroundClass}
       footer={<p className="text-center text-gray-600 text-sm">Already have an account? <a href={loginUrl} className="text-gray-900 font-medium hover:underline">Sign in</a></p>}>
       {showGoogleOAuth && (<>
-        <Button fullWidth color="secondary" size="lg" className="mb-4 h-12 rounded-full">
+        <Button fullWidth size="lg" className="mb-4 h-12 rounded-full">
           <Icon icon="flat-color-icons:google" width={20} />
           Continue with Google
         </Button>

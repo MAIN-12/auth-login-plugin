@@ -55,7 +55,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
   return (
     <main className={`flex flex-col min-h-screen ${backgroundClass}`}>
 
-      <div className="md:hidden flex flex-col">
+      <div className="md:hidden flex flex-col w-full max-w-md mx-auto" style={{ maxWidth: '400px' }}>
         {header}
         <div className="px-6 pb-4">{children}</div>
         {footer && <div className="px-6 pb-6 flex justify-center">{footer}</div>}
@@ -63,7 +63,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
       </div>
 
       <div className="hidden md:flex min-h-screen items-center justify-center px-4 py-12">
-        <div className="w-full max-w-[400px] animate-[fadeIn_0.5s_ease-out]">
+        <div className="w-full max-w-md max-w-[400px] animate-[fadeIn_0.5s_ease-out]" style={{ maxWidth: '400px' }}>
           <Card className={cardClassName}>
             {header}
             <CardContent>{children}</CardContent>

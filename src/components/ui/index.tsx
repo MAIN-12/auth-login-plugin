@@ -87,7 +87,7 @@ interface CardProps {
 }
 
 export const Card: React.FC<CardProps> = ({ children, className = '' }) => (
-  <div className={`bg-white rounded-2xl shadow-2xl ${className}`}>
+  <div className={`bg-white rounded-2xl shadow-2xl w-full ${className}`} style={{ maxWidth: '400px' }}>
     {children}
   </div>
 )

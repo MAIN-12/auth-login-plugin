@@ -1,6 +1,6 @@
 {
   "name": "@main12/auth-login",
-  "version": "0.2.2",
+  "version": "0.3.2",
   "description": "Reusable Payload CMS auth plugin — login, signup, OTP, forgot password, branded emails, Powered by Main12",
   "license": "MIT",
   "type": "module",
@@ -19,6 +19,11 @@
       "import": "./dist/exports/rsc.js",
       "types": "./dist/exports/rsc.d.ts",
       "default": "./dist/exports/rsc.js"
+    },
+    "./proxy": {
+      "import": "./dist/proxy.js",
+      "types": "./dist/proxy.d.ts",
+      "default": "./dist/proxy.js"
     }
   },
   "main": "./dist/index.js",
@@ -118,5 +123,11 @@
       "esbuild"
     ]
   },
-  "registry": "https://registry.npmjs.org/"
+  "registry": "https://registry.npmjs.org/",
+  "dependencies": {
+    "@main12/brevo-adapter": "^0.1.1",
+    "axios": "^1.20.0",
+    "jose": "^6.2.12",
+    "payload-oauth2": "^1.0.21"
+  }
 }

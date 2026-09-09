@@ -5,7 +5,6 @@ import '@payloadcms/next/css'
 /* DO NOT MODIFY IT BECAUSE IT COULD BE REWRITTEN AT ANY TIME. */
 import config from '@payload-config'
 import {
-  generatePayloadViewport,
   handleServerFunctions,
   RootLayout,
 } from '@payloadcms/next/layouts'
@@ -13,8 +12,6 @@ import React from 'react'
 
 import { importMap } from './admin/importMap.js'
 import './custom.css'
-
-export const generateViewport = generatePayloadViewport
 
 type Args = {
   children: React.ReactNode

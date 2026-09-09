@@ -35,12 +35,12 @@ function LoginHeroContent({
   return (
     <AuthLayout logo={logo} title={stepTitle} subtitle={stepSubtitle}
       poweredBy={poweredBy} cardClassName={cardClassName} backgroundClass={backgroundClass}
-      footer={
+      footer={signupUrl ? (
         <p className="text-center text-gray-600 text-sm">
           Don't have an account?{' '}
           <a href={signupUrl} className="text-gray-900 font-medium hover:underline">Sign up</a>
         </p>
-      }
+      ) : undefined}
     >
       <AnimatePresence mode="wait">
         {step === 'email' && (

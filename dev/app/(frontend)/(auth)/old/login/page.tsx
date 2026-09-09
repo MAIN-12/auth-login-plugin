@@ -22,6 +22,7 @@ export default function DevLoginPage() {
       redirectTo="/admin"
       signupUrl="/signup"
       logo={<Logo />}
+      backgroundClass="bg-white md:bg-blue-500" 
     />
   )
 }

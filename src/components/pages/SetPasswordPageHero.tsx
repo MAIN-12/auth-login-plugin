@@ -21,7 +21,7 @@ export default function SetPasswordPageHero({ redirectTo = '/', logo, poweredBy,
         <TextField type={showPassword ? 'text' : 'password'} value={password} onChange={setPassword} isRequired autoFocus fullWidth>
           <Label className="text-gray-600">New Password</Label>
           <div className="relative">
-            <Input className="w-full pr-10 bg-white" />
+            <Input variant="secondary" className="w-full pr-10" />
             <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2" onClick={() => setShowPassword(!showPassword)}>
               <Icon icon={showPassword ? 'lucide:eye-off' : 'lucide:eye'} className="text-gray-400" width={20} />
             </button>
@@ -30,7 +30,7 @@ export default function SetPasswordPageHero({ redirectTo = '/', logo, poweredBy,
         {password.length > 0 && <div className="flex gap-1">{bars.map((a, i) => <div key={i} className={`h-1 flex-1 rounded-full ${a ? 'bg-[#D5E855]' : 'bg-gray-200'}`} />)}</div>}
         <TextField type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={setConfirmPassword} isRequired fullWidth>
           <Label className="text-gray-600">Confirm Password</Label>
-          <Input className="w-full bg-white" />
+          <Input variant="secondary" className="w-full" />
         </TextField>
         <Button type="submit" fullWidth size="lg" isPending={isLoading} className="h-12 font-semibold">
           {({ isPending }) => (<>{isPending && <Spinner color="current" size="sm" />}Set Password</>)}

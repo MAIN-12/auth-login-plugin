@@ -1,5 +1,8 @@
 import { sqliteAdapter } from '@payloadcms/db-sqlite'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { brevoAdapter } from '@main12/brevo-adapter'
+// import brevoAdapter from './utilities/brevoAdapter'
+
 import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
@@ -30,23 +33,7 @@ export default buildConfig({
       },
       fields: [
         { name: 'name', type: 'text' },
-        // OTP fields used by the plugin
-        { name: 'otpHash', type: 'text', admin: { hidden: true } },
-        { name: 'otpPurpose', type: 'text', admin: { hidden: true } },
-        { name: 'otpAttempts', type: 'number', admin: { hidden: true } },
-        { name: 'otpExpiresAt', type: 'text', admin: { hidden: true } },
         { name: 'authProvider', type: 'text', admin: { hidden: true } },
-      ],
-    },
-    // Dedicated OTP collection (fallback if users don't have OTP fields)
-    {
-      slug: 'otps',
-      fields: [
-        { name: 'email', type: 'email', required: true },
-        { name: 'hash', type: 'text', required: true },
-        { name: 'purpose', type: 'text' },
-        { name: 'attempts', type: 'number', defaultValue: 0 },
-        { name: 'expiresAt', type: 'date' },
       ],
     },
   ],
@@ -54,6 +41,7 @@ export default buildConfig({
     client: { url: 'file:./dev.db' },
   }),
   editor: lexicalEditor(),
+  email: brevoAdapter(),
   plugins,
   secret: process.env.PAYLOAD_SECRET || 'dev-secret-key-change-me',
   typescript: {
