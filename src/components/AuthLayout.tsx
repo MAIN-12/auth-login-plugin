@@ -55,7 +55,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
   return (
     <main className={`flex flex-col min-h-screen ${backgroundClass}`}>
 
-      <div className="md:hidden flex flex-col w-full max-w-md mx-auto" style={{ maxWidth: '400px' }}>
+      <div className="md:hidden flex flex-col w-full max-w-md mx-auto light [color-scheme:light]" data-theme="light" style={{ maxWidth: '400px' }}>
         {header}
         <div className="px-6 pb-4">{children}</div>
         {footer && <div className="px-6 pb-6 flex justify-center">{footer}</div>}
