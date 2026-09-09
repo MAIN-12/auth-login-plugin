@@ -40,14 +40,14 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
   footer,
   poweredBy,
   cardClassName = '',
-  backgroundClass = 'bg-white md:bg-[#191919]',
+  backgroundClass = 'bg-accent',
 }) => {
   const displayLogo = logo || <DefaultLogo />
 
   const header = (displayLogo || title) && (
-    <div className="flex flex-col items-center gap-2 pt-6 pb-2 px-6">
-      {displayLogo && <div className="flex justify-center mb-2">{displayLogo}</div>}
-      {title && <h1 className="text-xl font-semibold text-gray-900 text-center">{title}</h1>}
+    <div className="flex flex-col items-center gap-2 pt-8 pb-4 px-8">
+      {displayLogo && <div className="flex justify-center mb-3">{displayLogo}</div>}
+      {title && <h1 className="text-2xl font-bold text-gray-900 text-center tracking-tight">{title}</h1>}
       {subtitle && <p className="text-gray-600 text-sm text-center">{subtitle}</p>}
     </div>
   )
@@ -55,15 +55,15 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
   return (
     <main className={`flex flex-col min-h-screen ${backgroundClass}`}>
 
-      <div className="md:hidden flex flex-col w-full max-w-md mx-auto light [color-scheme:light]" data-theme="light" style={{ maxWidth: '400px' }}>
+      <div className="md:hidden flex flex-col w-full max-w-md mx-auto light [color-scheme:light] px-4 py-8" data-theme="light" style={{ maxWidth: '448px' }}>
         {header}
-        <div className="px-6 pb-4">{children}</div>
-        {footer && <div className="px-6 pb-6 flex justify-center">{footer}</div>}
+        <div className="px-8 pb-6">{children}</div>
+        {footer && <div className="px-8 pb-8 flex justify-center">{footer}</div>}
         <PoweredBy {...poweredBy} />
       </div>
 
       <div className="hidden md:flex min-h-screen items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md max-w-[400px] animate-[fadeIn_0.5s_ease-out]" style={{ maxWidth: '400px' }}>
+        <div className="w-full max-w-md animate-[fadeIn_0.5s_ease-out]" style={{ maxWidth: '448px' }}>
           <Card className={cardClassName}>
             {header}
             <CardContent>{children}</CardContent>

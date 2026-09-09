@@ -90,22 +90,22 @@ export const Card: React.FC<CardProps> = ({ children, className = '' }) => (
   <div
     className={`bg-white text-gray-900 rounded-2xl shadow-2xl w-full light [color-scheme:light] ${className}`}
     data-theme="light"
-    style={{ maxWidth: '400px' }}
+    style={{ maxWidth: '448px' }}
   >
     {children}
   </div>
 )
 
 export const CardHeader: React.FC<CardProps> = ({ children, className = '' }) => (
-  <div className={`flex flex-col items-center gap-2 pt-8 pb-2 px-6 ${className}`}>{children}</div>
+  <div className={`flex flex-col items-center gap-2 pt-8 pb-4 px-8 ${className}`}>{children}</div>
 )
 
 export const CardContent: React.FC<CardProps> = ({ children, className = '' }) => (
-  <div className={`px-6 pb-4 ${className}`}>{children}</div>
+  <div className={`px-8 pb-6 ${className}`}>{children}</div>
 )
 
 export const CardFooter: React.FC<CardProps> = ({ children, className = '' }) => (
-  <div className={`px-6 pb-6 flex justify-center ${className}`}>{children}</div>
+  <div className={`px-8 pb-8 flex justify-center ${className}`}>{children}</div>
 )
 
 export const CardTitle: React.FC<CardProps> = ({ children, className = '' }) => (
