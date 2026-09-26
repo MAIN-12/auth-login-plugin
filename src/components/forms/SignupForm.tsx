@@ -2,29 +2,39 @@
 
 import React from 'react'
 import { Button, Input, Divider } from '../ui/index'
-import { AuthLayout } from '../AuthLayout'
-import type { AuthLayoutConfig } from '../AuthLayout'
-import { AuthCard } from '../AuthCard'
-import type { AuthCardConfig } from '../AuthCard'
-import { getUiTranslations } from '../ui/translations'
+import { getUiTranslations, type DeepPartial, type UiTranslations } from '../ui/translations'
 
-export interface SignupPageProps extends AuthLayoutConfig, AuthCardConfig {
+export interface SignupFormProps {
   onSignup: (data: { name: string; email: string }) => Promise<void>
   showGoogleOAuth?: boolean
   loginUrl?: string
+  verifyOtpUrl?: string
+  locale?: string
+  messages?: Record<string, DeepPartial<UiTranslations>>
 }
 
-export default function SignupPage({
+export function SignupForm({
   onSignup,
   showGoogleOAuth = true,
   loginUrl = '/login',
-  logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages,
-}: SignupPageProps) {
+  verifyOtpUrl = '/verify-otp',
+  locale,
+  messages,
+}: SignupFormProps) {
   const [name, setName] = React.useState('')
   const [email, setEmail] = React.useState('')
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const t = getUiTranslations(locale, messages).signup
+  const translations = getUiTranslations(locale, messages)
+  const t = translations.signup
+  const errors = translations.errors
+
+  // Helper to translate error keys
+  const getErrorMessage = (err: string | null): string | null => {
+    if (!err) return null
+    if (err in errors) return errors[err as keyof typeof errors]
+    return err
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,7 +42,7 @@ export default function SignupPage({
     setError(null)
     try {
       await onSignup({ name, email })
-      window.location.href = `/verify-otp?email=${encodeURIComponent(email)}&purpose=signup`
+      window.location.href = `${verifyOtpUrl}?email=${encodeURIComponent(email)}&purpose=signup`
     } catch (err: any) {
       setError(err.message || 'Signup failed')
     } finally {
@@ -41,17 +51,7 @@ export default function SignupPage({
   }
 
   return (
-    <AuthLayout backgroundClass={backgroundClass}>
-    <AuthCard
-      logo={logo} title={t.title} subtitle={t.subtitle}
-      poweredBy={poweredBy} cardClassName={cardClassName} removeBorder={removeBorder} removeShadow={removeShadow} mobileVariant={mobileVariant}
-      footer={
-        <p className="text-center text-gray-600 text-sm">
-          {t.haveAccount}{' '}
-          <a href={loginUrl} className="text-gray-900 font-medium hover:underline">{t.loginLink}</a>
-        </p>
-      }
-    >
+    <>
       {showGoogleOAuth && (
         <>
           <Button fullWidth variant="bordered" size="lg" className="mb-4">
@@ -66,7 +66,7 @@ export default function SignupPage({
         </>
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
-        {error && <div className="bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm animate-[fadeIn_0.2s_ease-out]">{error}</div>}
+        {error && <div className="bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm animate-[fadeIn_0.2s_ease-out]">{getErrorMessage(error)}</div>}
         <Input label={t.fullNameLabel} value={name} onValueChange={setName} isRequired />
         <Input type="email" label={t.emailLabel} value={email} onValueChange={setEmail} isRequired />
         <p className="text-xs text-gray-600 text-center">
@@ -76,7 +76,10 @@ export default function SignupPage({
         </p>
         <Button type="submit" variant="primary" isLoading={isLoading}>{t.createAccount}</Button>
       </form>
-    </AuthCard>
-    </AuthLayout>
+      <p className="text-center text-gray-600 text-sm mt-6">
+        {t.haveAccount}{' '}
+        <a href={loginUrl} className="text-gray-900 font-medium hover:underline">{t.loginLink}</a>
+      </p>
+    </>
   )
 }

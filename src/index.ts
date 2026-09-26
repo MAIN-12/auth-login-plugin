@@ -123,15 +123,24 @@ function setOAuthEnv(googleConfig: ReturnType<typeof resolveGoogleConfig>) {
 }
 
 export const authLoginPlugin =
-  (options: AuthLoginPluginOptions = {}) =>
-  async (config: Config): Promise<Config> => {
-    if (options.enabled === false) return config
+  (options: AuthLoginPluginOptions = {}) => {
+    if (options.enabled !== false) {
+      process.env.AUTH_LOGIN_ALLOW_SIGNUP = String(options.allowSignup !== false)
+      const googleConfig = resolveGoogleConfig(options.providers)
+      process.env.AUTH_LOGIN_GOOGLE_OAUTH = String(googleConfig.enabled)
+    }
+
+    return async (config: Config): Promise<Config> => {
+      if (options.enabled === false) return config
 
     // Resolve provider config
     const googleConfig = resolveGoogleConfig(options.providers)
     setOAuthEnv(googleConfig)
 
-    // Set global config — all components read this at render time
+    // Set global config — all components (server and client) read this
+    // shared singleton directly at render time. This is the single source
+    // of truth for the main entry point.
+    pluginConfig._initialized = true
     pluginConfig.style = options.style || 'tailwind'
     if (typeof options.logo === 'string') {
       pluginConfig.logoUrl = options.logo
@@ -139,16 +148,11 @@ export const authLoginPlugin =
       pluginConfig.Logo = options.logo
     }
     pluginConfig.googleOAuthEnabled = googleConfig.enabled
-
-    // Set env vars so RSC components can read config across module boundaries
-    process.env.AUTH_PLUGIN_STYLE = pluginConfig.style
-    process.env.AUTH_PLUGIN_GOOGLE_OAUTH = String(pluginConfig.googleOAuthEnabled)
-    process.env.AUTH_PLUGIN_ALLOW_SIGNUP = String(options.allowSignup !== false)
-    process.env.AUTH_PLUGIN_PASSWORD_LOGIN = String(options.passwordLogin !== false)
-    process.env.AUTH_PLUGIN_OTP_LOGIN = String(options.otpLogin !== false)
+    process.env.AUTH_LOGIN_GOOGLE_OAUTH = String(pluginConfig.googleOAuthEnabled)
+    pluginConfig.allowSignup = options.allowSignup !== false
+    process.env.AUTH_LOGIN_ALLOW_SIGNUP = String(pluginConfig.allowSignup)
     pluginConfig.passwordLogin = options.passwordLogin !== false
     pluginConfig.otpLogin = options.otpLogin !== false
-    process.env.AUTH_PLUGIN_ROUTE_REDIRECTS = String(pluginConfig.routeRedirects)
 
     // Route redirects config
     if (options.routeRedirects) {
@@ -220,7 +224,8 @@ export const authLoginPlugin =
       )
     }
 
-    return config
+      return config
+    }
   }
 
 export { pluginConfig }

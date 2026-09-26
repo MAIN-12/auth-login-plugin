@@ -28,6 +28,11 @@ export {
 // Domain utilities
 export { evaluatePasswordStrength, isPasswordValid, MIN_PASSWORD_LENGTH } from '../auth/domain/passwordRules'
 
+// UI translations / locale utilities
+export { getUiTranslations, uiTranslations } from '../components/ui/translations'
+export type { UiTranslations, DeepPartial } from '../components/ui/translations'
+export { detectClientLocale } from '../components/ui/locale'
+
 // Page components
 export { default as LoginPage } from '../components/pages/LoginPage'
 export { default as SignupPage } from '../components/pages/SignupPage'
@@ -41,7 +46,16 @@ export type { AuthPagesProps } from '../components/AuthPages'
 
 // Layout & shared components
 export { AuthLayout } from '../components/AuthLayout'
+export { AuthCard } from '../components/AuthCard'
+export type { AuthCardProps, AuthCardConfig, AuthCardWithSlugProps, AuthCardWithChildrenProps } from '../components/AuthCard'
 export { PoweredBy } from '../components/PoweredBy'
+
+// Form components (for custom compositions)
+export { LoginForm, SignupForm, ForgotPasswordForm, VerifyOtpForm, SetPasswordForm } from '../components/forms/index'
+export type { LoginFormProps, SignupFormProps, ForgotPasswordFormProps, VerifyOtpFormProps, SetPasswordFormProps } from '../components/forms/index'
+
+// Form registry (for advanced usage / extending)
+export { AUTH_FORMS, getFormBySlug, type AuthFormSlug } from '../components/forms/index'
 
 // Types
 export type {

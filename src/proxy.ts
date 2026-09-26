@@ -34,8 +34,8 @@ export function createAuthProxy({ basePath, routes = AUTH_ROUTES }: AuthProxyOpt
   const routeSet = new Set(routes)
 
   return function proxy(request: NextRequest) {
-    // Check route redirects — use env var (set by plugin) as it survives module boundaries
-    const redirectsEnabled = pluginConfig.routeRedirects || process.env.AUTH_PLUGIN_ROUTE_REDIRECTS === 'true'
+    // Check route redirects directly from the shared plugin config singleton
+    const redirectsEnabled = pluginConfig.routeRedirects
     if (!redirectsEnabled && !basePath) {
       return NextResponse.next()
     }

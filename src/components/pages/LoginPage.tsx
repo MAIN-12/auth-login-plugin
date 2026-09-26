@@ -4,8 +4,9 @@ import { pluginConfig } from '../../config'
 import LoginPageTailwind from './LoginPageTailwind'
 import LoginPageHero from './LoginPageHero'
 import type { AuthLayoutConfig } from '../AuthLayout'
+import type { AuthCardConfig } from '../AuthCard'
 
-export interface LoginPageProps extends AuthLayoutConfig {
+export interface LoginPageProps extends AuthLayoutConfig, AuthCardConfig {
   onPasswordLogin: (credentials: { email: string; password: string }) => Promise<void>
   redirectTo?: string
   showGoogleOAuth?: boolean

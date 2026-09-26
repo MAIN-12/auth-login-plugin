@@ -141,35 +141,63 @@ export const OtpInput: React.FC<OtpInputProps> = ({
 }) => {
   const setValue = onChange || onValueChange || (() => {})
   const inputs = Array.from({ length }, (_, i) => i)
+  const inputRefs = React.useRef<(HTMLInputElement | null)[]>([])
+
+  const focusInput = (index: number) => {
+    inputRefs.current[index]?.focus()
+    inputRefs.current[index]?.select()
+  }
 
   return (
     <div className="flex justify-center gap-2">
       {inputs.map(i => (
         <input
           key={i}
+          ref={el => { inputRefs.current[i] = el }}
           type="text"
           inputMode="numeric"
+          autoComplete="one-time-code"
           maxLength={1}
           value={value[i] || ''}
           disabled={isDisabled}
           autoFocus={autoFocus && i === 0}
           onChange={e => {
-            const char = e.target.value.replace(/[^0-9]/g, '').slice(0, 1)
+            const char = e.target.value.replace(/[^0-9]/g, '').slice(-1)
             const newVal = value.split('')
             newVal[i] = char
-            setValue(newVal.join(''))
-            // Auto-focus next
+            setValue(newVal.join('').slice(0, length))
+            // Auto-focus next input once a digit is entered
             if (char && i < length - 1) {
-              const next = e.target.parentElement?.nextElementSibling?.querySelector('input')
-              next?.focus()
+              focusInput(i + 1)
             }
           }}
           onKeyDown={e => {
-            if (e.key === 'Backspace' && !value[i] && i > 0) {
-              const prev = (e.target as HTMLElement).parentElement?.previousElementSibling?.querySelector('input')
-              prev?.focus()
+            if (e.key === 'Backspace') {
+              if (!value[i] && i > 0) {
+                // Empty box — move to previous box and clear it
+                e.preventDefault()
+                const newVal = value.split('')
+                newVal[i - 1] = ''
+                setValue(newVal.join(''))
+                focusInput(i - 1)
+              }
+            } else if (e.key === 'ArrowLeft' && i > 0) {
+              e.preventDefault()
+              focusInput(i - 1)
+            } else if (e.key === 'ArrowRight' && i < length - 1) {
+              e.preventDefault()
+              focusInput(i + 1)
             }
           }}
+          onPaste={e => {
+            e.preventDefault()
+            const pasted = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, length)
+            if (!pasted) return
+            setValue(pasted)
+            const nextIndex = Math.min(pasted.length, length - 1)
+            focusInput(nextIndex)
+          }}
+          onFocus={e => e.target.select()}
           className="w-12 h-14 text-center text-2xl font-semibold text-gray-900 border-2 border-gray-300 rounded-xl focus:border-[#D5E855] focus:ring-2 focus:ring-[#D5E855]/30 outline-none transition-all bg-white"
         />
       ))}

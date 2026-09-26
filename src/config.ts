@@ -6,7 +6,17 @@ import type React from 'react'
  */
 export type AuthStyle = 'tailwind' | 'hero-ui'
 
+/** Serializable auth config that can be written to/read from file */
+export interface SerializableAuthConfig {
+  googleOAuthEnabled: boolean
+  style: AuthStyle
+  allowSignup: boolean
+  passwordLogin: boolean
+  otpLogin: boolean
+}
+
 export const pluginConfig: {
+  _initialized: boolean
   style: AuthStyle
   logoUrl?: string
   Logo?: React.ComponentType
@@ -15,13 +25,29 @@ export const pluginConfig: {
   authBasePath: string
   passwordLogin: boolean
   otpLogin: boolean
+  allowSignup: boolean
 } = {
+  _initialized: false,
   style: 'tailwind',
   googleOAuthEnabled: false,
   routeRedirects: false,
   authBasePath: '/auth',
   passwordLogin: true,
   otpLogin: true,
+  allowSignup: true,
+}
+
+/** Resolve config across Payload and Next server module boundaries. */
+export function getServerAllowSignup(): boolean {
+  if (process.env.AUTH_LOGIN_ALLOW_SIGNUP === 'false') return false
+  if (process.env.AUTH_LOGIN_ALLOW_SIGNUP === 'true') return true
+  return pluginConfig.allowSignup
+}
+
+export function getServerGoogleOAuthEnabled(): boolean {
+  if (process.env.AUTH_LOGIN_GOOGLE_OAUTH === 'false') return false
+  if (process.env.AUTH_LOGIN_GOOGLE_OAUTH === 'true') return true
+  return pluginConfig.googleOAuthEnabled || Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
 }
 
 /** Call this client-side to mirror the server plugin config. */

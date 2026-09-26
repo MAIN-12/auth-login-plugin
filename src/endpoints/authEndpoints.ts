@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import type { Endpoint } from 'payload'
 import { generateOtp, hashOtp, verifyOtp, getOtpExpiry, isOtpExpired } from '../auth/domain/otp'
 import { generateWelcomeEmail, generateOtpEmail, generatePasswordResetEmail } from '../components/email/index'
+import { pluginConfig } from '../config'
 
 interface OtpRecord {
   id: string
@@ -263,7 +264,7 @@ export const signupEndpoint: Endpoint = {
   path: '/auth/signup',
   method: 'post',
   handler: async (req) => {
-    if (process.env.AUTH_PLUGIN_ALLOW_SIGNUP === 'false') {
+    if (!pluginConfig.allowSignup) {
       return Response.json({ success: false, message: 'Signups are currently disabled' }, { status: 403 })
     }
 

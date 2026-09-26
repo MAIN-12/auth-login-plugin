@@ -1,5 +1,6 @@
 @import 'tailwindcss';
 @import '@heroui/styles';
+@import './heroui-theme.css';
 
 /* Scan dev app files */
 @source '../../**/*.{ts,tsx}';

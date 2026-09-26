@@ -36,6 +36,7 @@ plugins: [
 - **Smart redirects** — logged-in users are redirected away from auth pages
 - **Google account picker** — always shows account selection by default (`prompt: 'select_account'`)
 - **Zero runtime deps** (Tailwind mode) — Next.js + React are peer dependencies
+- **Multi-language** — built-in English/Spanish, auto-detected per-request, fully overridable via `messages` prop, works with or without next-intl/next-i18next
 
 ---
 
@@ -143,6 +144,41 @@ This redirects:
 - `/admin/login` → `/auth/login` (**always**, regardless of `routeRedirects` setting)
 
 ### 4. Visit `/login` — done.
+
+---
+
+## Testing All Pages
+
+Once the catch-all route is set up, every auth page is reachable directly by URL. Some pages require query params to have meaningful content (they're normally reached by clicking through the flow, e.g. signup → verify-otp), so use the URLs below to test each one in isolation:
+
+| Page | URL to test | Notes |
+|------|-------------|-------|
+| **Login** | `/auth/login` | 3 sub-states, driven by user interaction: email step (default) → password step or OTP-prompt step, depending on whether the account has a password and `passwordLogin`/`otpLogin` config |
+| **Signup** | `/auth/signup` | Hidden entirely if `allowSignup: false` — falls back to rendering Login instead |
+| **Forgot Password** | `/auth/forgot-password` | No query params required |
+| **Verify OTP** | `/auth/verify-otp?email=test@example.com&purpose=signup` | ⚠️ **Renders a blank page if `email` is missing** — always include `?email=...`. `purpose` can be `login`, `signup`, or `password-reset` (changes the title/subtitle) |
+| **Set Password** | `/auth/set-password` | No query params required |
+
+> **Why does `/auth/verify-otp` show a blank page?** The page intentionally renders `null` when there's no `email` in the URL, since in real usage it's always reached via a redirect from signup/login/forgot-password that appends `?email=...&purpose=...`. This is expected — not a bug. Always test it with the full query string above.
+
+### Testing the Login page's 3 sub-states
+
+The Login page's step is internal UI state, not driven by the URL — to see each one:
+1. **Email step** (default) — just load `/auth/login`.
+2. **Password step** — enter an email that belongs to a user *with* a password set, then submit. Requires `passwordLogin: true` (default).
+3. **OTP-prompt step** — enter an email that belongs to a user *without* a password set (e.g. a Google OAuth-only user), with `otpLogin: true` and `passwordLogin: true`.
+
+### Testing Google OAuth
+
+Google OAuth buttons only render when `providers.google` is configured with valid credentials (see [Google OAuth](#google-oauth-providers) below). With no credentials, the button is hidden — this is expected in a fresh setup.
+
+### Testing different locales
+
+Every page also respects the `locale` prop / auto-detection (see [Multi-Language Support](#multi-language-support)). To manually verify a specific language without changing your browser or OS settings, append the plugin's `locale` prop explicitly in your route file, or set the `NEXT_LOCALE` cookie / send an `Accept-Language` header:
+
+```bash
+curl -H "Accept-Language: es-MX,es;q=0.9" http://localhost:3000/auth/login
+```
 
 ---
 
@@ -260,7 +296,89 @@ The `AuthPages` component accepts these props for customization:
   showGoogleOAuth={true}         // Override Google OAuth visibility
   onPasswordLogin={customLogin}  // Custom login handler
   onSignup={customSignup}        // Custom signup handler
+  locale="es"                    // Override auto-detected locale (see Multi-Language Support)
+  messages={{ es: { login: { title: 'Bienvenido' } } }} // Partial translation overrides
 />
+```
+
+---
+
+## Multi-Language Support
+
+Built-in support for **English (`en`)** and **Spanish (`es`)** — works out of the box, no configuration required. The plugin never depends on next-intl, next-i18next, or any i18n library; it reads the same conventional signals those libraries already write, so it plugs into whatever your app already does automatically.
+
+### Automatic locale detection
+
+If you don't pass a `locale` prop, it's resolved per-request in this order:
+
+1. `NEXT_LOCALE` cookie (written by next-intl, next-i18next, and most i18n routing middlewares by convention)
+2. `Accept-Language` request header
+3. `<html lang="...">` attribute (client-side fallback)
+4. `'en'` (default)
+
+This means if your app already uses next-intl or next-i18next, the auth pages automatically match your site's current language — **zero extra code needed**.
+
+### Explicit locale override
+
+Pass `locale` directly on `<AuthPages />` (or any individual page component) to force a specific language for that render, regardless of auto-detection — useful if you resolve the locale yourself server-side:
+
+```tsx
+// app/(auth)/auth/[...slug]/page.tsx
+import { AuthPages } from '@main12/auth-login/rsc'
+import { getLocale } from 'next-intl/server' // or however your app resolves it
+
+export default async function Page({ params }: { params: Promise<{ slug: string[] }> }) {
+  const { slug } = await params
+  const locale = await getLocale()
+  return <AuthPages slug={slug} locale={locale} />
+}
+```
+
+### Overriding copy / adding new languages
+
+Pass a `messages` object — a partial override, keyed by locale. Any key you don't specify falls back to the built-in English/Spanish copy automatically. You can also introduce entirely new locales this way (e.g. French, Portuguese):
+
+```tsx
+<AuthPages
+  slug={slug}
+  messages={{
+    en: {
+      login: { title: 'Welcome Back!' }, // override just this one key
+    },
+    es: {
+      login: { title: '¡Bienvenido de nuevo!' },
+    },
+    fr: { // brand new locale, not built-in — falls back to English for any key not provided
+      login: { title: 'Content de vous revoir', subtitle: 'Connectez-vous pour continuer.' },
+      signup: { title: 'Créer un compte' },
+    },
+  }}
+/>
+```
+
+Resolution order per key: `messages[locale]` → `messages.en` → built-in `[locale]` dictionary → built-in `en` dictionary.
+
+### Available translation keys
+
+Each page has its own section — see `UiTranslations` (exported from `@main12/auth-login/client`) for the full shape:
+
+| Section | Covers |
+|---------|--------|
+| `login` | Title/subtitle for all 3 sub-states (email, password, OTP-prompt), Google button, form labels, links |
+| `signup` | Title/subtitle, form labels, Google button, terms/privacy links, login link |
+| `forgotPassword` | Title/subtitle, form labels, back-to-login link |
+| `verifyOtp` | Title/subtitle for both variants (code verification vs password-reset), resend button (supports `{seconds}` interpolation) |
+| `setPassword` | Title/subtitle, form labels, password requirements text |
+
+### Using translations in custom pages
+
+If you're building fully custom pages with the hooks (see [Building Custom Pages](#building-custom-pages)), import `getUiTranslations` directly:
+
+```tsx
+import { getUiTranslations } from '@main12/auth-login/client'
+
+const t = getUiTranslations(locale, messages).login
+// t.title, t.continueWithGoogle, t.emailLabel, etc.
 ```
 
 ---
@@ -455,14 +573,72 @@ await payload.sendEmail({
 
 ---
 
-## Exports
+## Exports & Components Reference
 
 | Import path | Contents |
 |-------------|----------|
-| `@main12/auth-login` | Plugin factory, types, server config |
-| `@main12/auth-login/client` | Page components, `AuthPages`, hooks, services, UI utilities |
-| `@main12/auth-login/rsc` | Email template generators, translations |
+| `@main12/auth-login` | Plugin factory (`authLoginPlugin`), types, server config |
+| `@main12/auth-login/client` | Page components, `AuthPages`, hooks, services, UI/locale utilities |
+| `@main12/auth-login/rsc` | Server component `AuthPages` wrapper, email template generators, email translations |
 | `@main12/auth-login/proxy` | Next.js 16 proxy for route redirects |
+
+### Components (`@main12/auth-login/client` unless noted)
+
+| Component | Description | Typical usage |
+|-----------|-------------|----------------|
+| `AuthPages` (also `@main12/auth-login/rsc`) | Catch-all component — renders the correct page based on `slug`. The `/rsc` version is a server component that auto-resolves plugin config + locale from headers; the `/client` version needs `'use client'` and manual config props | `<AuthPages slug={slug} />` in your `[...slug]/page.tsx` |
+| `LoginPage` | Standalone login page (email → password/OTP flow) | Individual route setup, or full customization via props |
+| `SignupPage` | Standalone signup page | Individual route setup |
+| `ForgotPasswordPage` | Standalone forgot-password page | Individual route setup |
+| `VerifyOtpPage` | Standalone OTP verification page — **requires `?email=...` in the URL** | Reached via redirect from signup/login/forgot-password |
+| `SetPasswordPage` | Standalone set/reset password page | Individual route setup, or post-OTP password creation |
+| `AuthLayout` | Shared card/background/logo/footer chrome used by every page — use it directly when building fully custom pages | `<AuthLayout title="..." subtitle="...">{children}</AuthLayout>` |
+| `AuthClientInit` | Drop into your root layout to sync server plugin config (`style`, Google OAuth flag) to client bundles. Optional — only needed if you hit issues with plugin config not reaching client components in certain bundler setups | `<AuthClientInit />` inside `<body>` |
+| `PoweredBy` | The "Powered by Main 12" footer badge, rendered automatically on every page (configurable via `poweredBy` prop) | Rarely used standalone — mostly internal |
+
+### Hooks (`@main12/auth-login/client`)
+
+| Hook | Returns | Key inputs |
+|------|---------|------------|
+| `useLoginFlow({ redirectTo, onPasswordLogin })` | `step, email, password, error, isLoading, handleEmailSubmit, handlePasswordSubmit, handleSendOtp, handleEditEmail` | `redirectTo: string`, `onPasswordLogin: (creds) => Promise<void>` |
+| `useForgotPasswordFlow()` | `email, error, isLoading, setEmail, handleSubmit` | none |
+| `useVerifyOtpFlow({ email, purpose, redirectTo })` | `otp, error, isLoading, isResending, resendCooldown, setOtp, handleSubmit, handleResendCode` | `email: string`, `purpose: 'login'\|'signup'\|'password-reset'` |
+| `useSetPasswordFlow({ redirectTo })` | `password, confirmPassword, error, isLoading, strength, setPassword, setConfirmPassword, handleSubmit` | `redirectTo: string` |
+
+### Service functions (`@main12/auth-login/client`)
+
+Low-level `fetch` wrappers used internally by the hooks — call directly for fully custom flows:
+
+| Function | Description |
+|----------|--------------|
+| `checkEmail(email)` | Checks whether an email is already registered |
+| `sendOtp(email, purpose)` | Requests a new OTP code |
+| `verifyOtp(email, otp, purpose)` | Verifies an OTP code, logs the user in on success |
+| `setUserPassword(password)` | Sets/updates the current user's password |
+| `signup(name, email)` | Creates a new account, triggers welcome email + OTP verification |
+| `initiateGoogleLogin()` | Redirects to the Google OAuth flow |
+
+### Utilities & config (`@main12/auth-login/client`)
+
+| Export | Description |
+|--------|--------------|
+| `initClientConfig(opts)` | Manually sync plugin config into the client bundle (used internally by `AuthPages`/`AuthClientInit`) |
+| `evaluatePasswordStrength(password)` | Returns `{ score, isValid, ... }` — used by the password strength meter |
+| `isPasswordValid(password)` / `MIN_PASSWORD_LENGTH` | Password validation helpers |
+| `getUiTranslations(locale, messages)` | Resolve translated UI copy — see [Multi-Language Support](#multi-language-support) |
+| `uiTranslations` | Raw built-in `{ en, es }` dictionaries, if you need to read them directly |
+| `detectClientLocale()` | Client-side locale auto-detection (cookie → `<html lang>` → `'en'`) |
+
+### Email templates (`@main12/auth-login/rsc`)
+
+| Export | Description |
+|--------|--------------|
+| `generateWelcomeEmail(params)` | Welcome email after signup |
+| `generateOtpEmail(params)` | OTP code email (login/signup/password-reset) |
+| `generatePasswordResetEmail(params)` | Password reset code email |
+| `generatePasswordChangedEmail(params)` | Confirmation after password change |
+| `getEmailTranslations(locale)` | English/Spanish email copy (separate dictionary from the UI translations above) |
+| `wrapInBaseTemplate(options)` | Wraps any HTML body in the plugin's branded email shell |
 
 ---
 

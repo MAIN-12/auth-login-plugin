@@ -1,6 +1,6 @@
 {
   "name": "@main12/auth-login",
-  "version": "0.3.4",
+  "version": "1.0.0",
   "description": "Reusable Payload CMS auth plugin — login, signup, OTP, forgot password, branded emails, Powered by Main12",
   "license": "MIT",
   "type": "module",
@@ -77,7 +77,10 @@
     "vitest": "4.1.6"
   },
   "peerDependencies": {
+    "@heroui/react": ">=3.2.0",
+    "framer-motion": ">=12.0.0",
     "next": "^16.0.0",
+    "next-intl": "*",
     "payload": "^3.82.0",
     "react": "^19.0.0"
   },
@@ -128,6 +131,7 @@
     "@main12/brevo-adapter": "^0.1.1",
     "axios": "^1.20.0",
     "jose": "^6.2.12",
-    "payload-oauth2": "^1.0.21"
+    "payload-oauth2": "^1.0.21",
+    "server-only": "^0.0.1"
   }
 }
