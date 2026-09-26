@@ -35,7 +35,7 @@ plugins: [
 - **Auto-verify OTP** — automatically verifies when all 6 digits are entered
 - **Smart redirects** — logged-in users are redirected away from auth pages
 - **Google account picker** — always shows account selection by default (`prompt: 'select_account'`)
-- **Zero runtime deps** (Tailwind mode) — Next.js + React are peer dependencies
+- **No UI library required** (Tailwind mode) — only Next.js/React/Payload peers; `style: 'hero-ui'` additionally requires HeroUI + Framer Motion
 - **Multi-language** — built-in English/Spanish, auto-detected per-request, fully overridable via `messages` prop, works with or without next-intl/next-i18next
 
 ---
@@ -194,6 +194,9 @@ authLoginPlugin({
   style: 'tailwind',              // 'tailwind' | 'hero-ui'
   enabled: true,
 
+  // Signup
+  allowSignup: true,               // Allow new users to sign up (default: true)
+
   // Login methods
   passwordLogin: true,            // Allow password-based login (default: true)
   otpLogin: true,                 // Allow OTP-based login (default: true)
@@ -294,10 +297,20 @@ The `AuthPages` component accepts these props for customization:
   logo={<MyLogo />}             // Custom logo component
   basePath="/auth"               // Base path for sibling links (default: '/auth')
   showGoogleOAuth={true}         // Override Google OAuth visibility
+  allowSignup={true}             // Override plugin's allowSignup setting for this render
+  passwordLogin={true}           // Override plugin's passwordLogin setting for this render
+  otpLogin={true}                // Override plugin's otpLogin setting for this render
   onPasswordLogin={customLogin}  // Custom login handler
   onSignup={customSignup}        // Custom signup handler
   locale="es"                    // Override auto-detected locale (see Multi-Language Support)
   messages={{ es: { login: { title: 'Bienvenido' } } }} // Partial translation overrides
+
+  // Card chrome — same options accepted by <AuthCard> (see Components Reference)
+  poweredBy={{ enabled: true }}  // Configure/hide the "Powered by Main 12" badge
+  cardClassName=""               // Extra classes on the card wrapper
+  removeBorder={false}           // Remove the card border (useful for split/custom layouts)
+  removeShadow={false}           // Remove the card shadow
+  mobileVariant="plain"          // 'plain' | 'card' — how the card renders on mobile widths
 />
 ```
 
@@ -429,6 +442,39 @@ export default function Page() {
 
 ---
 
+## Custom Layouts (Split-Screen, etc.)
+
+For layouts `AuthPages` can't express (e.g. a split-screen with an image pane), compose `AuthLayout` + `AuthCard` directly — the same primitives every built-in page is built from. Pass `slug` to auto-render the matching form (with full translation/config support), and use `removeBorder`/`removeShadow`/`cardClassName` to fit the card into your own layout:
+
+```tsx
+// app/(auth)/auth/[...slug]/page.tsx  (server component, no 'use client' needed)
+import { AuthLayout, AuthCard } from '@main12/auth-login/rsc'
+
+export default async function Page({ params }: { params: Promise<{ slug: string[] }> }) {
+  const { slug } = await params
+  return (
+    <AuthLayout backgroundClass="bg-white">
+      <div className="min-h-screen grid md:grid-cols-2">
+        <div className="hidden md:block bg-cover bg-center" style={{ backgroundImage: 'url(/hero.jpg)' }} />
+        <div className="flex items-center justify-center">
+          <AuthCard
+            slug={slug?.[0] ?? 'login'}
+            removeShadow
+            removeBorder
+            basePath="/auth"
+            redirectTo="/admin"
+          />
+        </div>
+      </div>
+    </AuthLayout>
+  )
+}
+```
+
+`AuthCard` also accepts `children` instead of `slug` for fully custom form content — see [Building Custom Pages](#building-custom-pages) below.
+
+---
+
 ## Building Custom Pages
 
 Use the plugin's hooks to build your own UI with any component library (HeroUI, shadcn, plain Tailwind).
@@ -437,10 +483,10 @@ Use the plugin's hooks to build your own UI with any component library (HeroUI, 
 
 | Hook | Returns | Key inputs |
 |------|---------|------------|
-| `useLoginFlow({ redirectTo, onPasswordLogin })` | `step, email, password, error, isLoading, handleEmailSubmit, handlePasswordSubmit, handleSendOtp, handleEditEmail` | `redirectTo: string`, `onPasswordLogin: (creds) => Promise<void>` |
+| `useLoginFlow({ redirectTo, onPasswordLogin })` | `step, email, password, error, isLoading, isSendingOtp, showPassword, setEmail, setPassword, setShowPassword, handleEmailSubmit, handlePasswordSubmit, handleSendOtp, handleEditEmail, handleGoogleLogin` | `redirectTo: string`, `onPasswordLogin: (creds) => Promise<void>` |
 | `useForgotPasswordFlow()` | `email, error, isLoading, setEmail, handleSubmit` | none |
 | `useVerifyOtpFlow({ email, purpose, redirectTo })` | `otp, error, isLoading, isResending, resendCooldown, setOtp, handleSubmit, handleResendCode` | `email: string`, `purpose: 'login'\|'signup'\|'password-reset'` |
-| `useSetPasswordFlow({ redirectTo })` | `password, confirmPassword, error, isLoading, strength, setPassword, setConfirmPassword, handleSubmit` | `redirectTo: string` |
+| `useSetPasswordFlow({ redirectTo })` | `password, confirmPassword, error, isLoading, showPassword, strength, setPassword, setConfirmPassword, setShowPassword, handleSubmit` | `redirectTo?: string` |
 
 > **Signup note:** No hook needed — call `signup(name, email)` from `@main12/auth-login/client`, then redirect to `/verify-otp?email=...&purpose=signup`.
 
@@ -592,7 +638,8 @@ await payload.sendEmail({
 | `ForgotPasswordPage` | Standalone forgot-password page | Individual route setup |
 | `VerifyOtpPage` | Standalone OTP verification page — **requires `?email=...` in the URL** | Reached via redirect from signup/login/forgot-password |
 | `SetPasswordPage` | Standalone set/reset password page | Individual route setup, or post-OTP password creation |
-| `AuthLayout` | Shared card/background/logo/footer chrome used by every page — use it directly when building fully custom pages | `<AuthLayout title="..." subtitle="...">{children}</AuthLayout>` |
+| `AuthCard` | The card chrome (logo, title/subtitle, footer, "Powered by" badge) — pass `slug` to auto-render the matching form, or `children` for fully custom content. `removeBorder`/`removeShadow`/`cardClassName`/`mobileVariant` support custom layouts like split-screen | `<AuthCard slug="login" removeShadow basePath="/auth" />` or `<AuthCard title="..." subtitle="...">{children}</AuthCard>` |
+| `AuthLayout` | Outermost full-height background wrapper used by every page — compose it with `AuthCard` (and e.g. a split-screen image) when building fully custom layouts | `<AuthLayout backgroundClass="bg-white"><AuthCard slug="login" /></AuthLayout>` |
 | `AuthClientInit` | Drop into your root layout to sync server plugin config (`style`, Google OAuth flag) to client bundles. Optional — only needed if you hit issues with plugin config not reaching client components in certain bundler setups | `<AuthClientInit />` inside `<body>` |
 | `PoweredBy` | The "Powered by Main 12" footer badge, rendered automatically on every page (configurable via `poweredBy` prop) | Rarely used standalone — mostly internal |
 
@@ -600,10 +647,10 @@ await payload.sendEmail({
 
 | Hook | Returns | Key inputs |
 |------|---------|------------|
-| `useLoginFlow({ redirectTo, onPasswordLogin })` | `step, email, password, error, isLoading, handleEmailSubmit, handlePasswordSubmit, handleSendOtp, handleEditEmail` | `redirectTo: string`, `onPasswordLogin: (creds) => Promise<void>` |
+| `useLoginFlow({ redirectTo, onPasswordLogin })` | `step, email, password, error, isLoading, isSendingOtp, showPassword, setEmail, setPassword, setShowPassword, handleEmailSubmit, handlePasswordSubmit, handleSendOtp, handleEditEmail, handleGoogleLogin` | `redirectTo: string`, `onPasswordLogin: (creds) => Promise<void>` |
 | `useForgotPasswordFlow()` | `email, error, isLoading, setEmail, handleSubmit` | none |
 | `useVerifyOtpFlow({ email, purpose, redirectTo })` | `otp, error, isLoading, isResending, resendCooldown, setOtp, handleSubmit, handleResendCode` | `email: string`, `purpose: 'login'\|'signup'\|'password-reset'` |
-| `useSetPasswordFlow({ redirectTo })` | `password, confirmPassword, error, isLoading, strength, setPassword, setConfirmPassword, handleSubmit` | `redirectTo: string` |
+| `useSetPasswordFlow({ redirectTo })` | `password, confirmPassword, error, isLoading, showPassword, strength, setPassword, setConfirmPassword, setShowPassword, handleSubmit` | `redirectTo?: string` |
 
 ### Service functions (`@main12/auth-login/client`)
 
@@ -766,7 +813,7 @@ The auth-login plugin uses `payload.sendEmail()` internally — which routes thr
 | Payload CMS | `^3.82.0` | ✅ |
 | Next.js | `^16.0.0` | ✅ |
 | React | `^19.0.0` | ✅ |
-| HeroUI | `^2.x` | Only for `style: 'hero-ui'` |
+| HeroUI | `>=3.2.0` | Only for `style: 'hero-ui'` |
 | Framer Motion | `^12.x` | Only for `style: 'hero-ui'` |
 
 ---
