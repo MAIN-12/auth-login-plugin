@@ -810,8 +810,8 @@ The auth-login plugin uses `payload.sendEmail()` internally — which routes thr
 
 | Dependency | Version | Required |
 |------------|---------|----------|
-| Payload CMS | `^3.82.0` | ✅ |
-| Next.js | `^16.0.0` | ✅ |
+| Payload CMS | `^3.90.0` | ✅ |
+| Next.js | `^16.3.3` | ✅ |
 | React | `^19.0.0` | ✅ |
 | HeroUI | `>=3.2.0` | Only for `style: 'hero-ui'` |
 | Framer Motion | `^12.x` | Only for `style: 'hero-ui'` |
