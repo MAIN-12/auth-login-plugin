@@ -87,7 +87,7 @@ export function AuthCardShell({
         {footer && <div className="px-8 pb-8 flex justify-center">{footer}</div>}
         <PoweredBy {...poweredBy} />
       </div>
-      <div className="hidden md:flex items-center justify-center px-4 py-12 w-full h-full">
+      <div className="hidden md:flex justify-center px-4 py-12 w-full">
         {cardBody}
       </div>
     </>
