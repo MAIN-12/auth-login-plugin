@@ -14,13 +14,13 @@ import type { AuthCardConfig } from '../AuthCard'
 
 export interface SetPasswordPageHeroProps extends AuthLayoutConfig, AuthCardConfig { redirectTo?: string }
 
-export default function SetPasswordPageHero({ redirectTo = '/', logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages }: SetPasswordPageHeroProps) {
+export default function SetPasswordPageHero({ redirectTo = '/', logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, texture, locale, messages }: SetPasswordPageHeroProps) {
   const { password, confirmPassword, error, isLoading, showPassword, strength, setPassword, setConfirmPassword, setShowPassword, handleSubmit } = useSetPasswordFlow({ redirectTo })
   const bars = Array.from({ length: 5 }, (_, i) => i < strength.score)
   const t = useAuthTranslations(locale, messages).setPassword
 
   return (
-    <AuthLayout backgroundClass={backgroundClass}>
+    <AuthLayout backgroundClass={backgroundClass} texture={texture}>
     <AuthCard logo={logo} title={t.title} subtitle={t.subtitle} poweredBy={poweredBy} cardClassName={cardClassName} removeBorder={removeBorder} removeShadow={removeShadow} mobileVariant={mobileVariant}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <motion.div className="bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>{error}</motion.div>}

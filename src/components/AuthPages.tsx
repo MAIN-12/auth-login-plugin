@@ -17,6 +17,7 @@ export interface AuthPagesProps extends AuthCardConfig, AuthLayoutConfig {
 export default function AuthPages({
   style,
   backgroundClass,
+  texture = 'spotlight-dots',
   verticalAlign,
   slug,
   redirectTo = '/admin',
@@ -36,7 +37,7 @@ export default function AuthPages({
   mobileVariant,
 }: AuthPagesProps) {
   return (
-    <AuthLayout backgroundClass={backgroundClass} verticalAlign={verticalAlign}>
+    <AuthLayout texture={texture} backgroundClass={backgroundClass} verticalAlign={verticalAlign}>
       <AuthCard
         style={style}
         slug={slug?.[0] ?? 'login'}

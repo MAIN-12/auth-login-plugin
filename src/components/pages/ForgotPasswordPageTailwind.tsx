@@ -16,13 +16,13 @@ export interface ForgotPasswordPageProps extends AuthLayoutConfig, AuthCardConfi
 
 export default function ForgotPasswordPage({
   loginUrl = '/login',
-  logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages,
+  logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, texture, locale, messages,
 }: ForgotPasswordPageProps) {
   const { email, error, isLoading, setEmail, handleSubmit } = useForgotPasswordFlow()
   const t = useAuthTranslations(locale, messages).forgotPassword
 
   return (
-    <AuthLayout backgroundClass={backgroundClass}>
+    <AuthLayout backgroundClass={backgroundClass} texture={texture}>
     <AuthCard
       logo={logo} title={t.title} subtitle={t.subtitle}
       poweredBy={poweredBy} cardClassName={cardClassName} removeBorder={removeBorder} removeShadow={removeShadow} mobileVariant={mobileVariant}

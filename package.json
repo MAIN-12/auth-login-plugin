@@ -1,6 +1,6 @@
 {
   "name": "@main12/auth-login",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Reusable Payload CMS auth plugin \u2014 login, signup, OTP, forgot password, branded emails, Powered by Main12",
   "license": "MIT",
   "type": "module",

@@ -78,7 +78,7 @@ export type { SignupPageProps } from '../components/pages/SignupPage'
 export type { ForgotPasswordPageProps } from '../components/pages/ForgotPasswordPage'
 export type { VerifyOtpPageProps } from '../components/pages/VerifyOtpPage'
 export type { SetPasswordPageProps } from '../components/pages/SetPasswordPage'
-export type { AuthLayoutConfig, AuthLayoutProps } from '../components/AuthLayout'
+export type { AuthLayoutConfig, AuthLayoutProps, AuthTexture } from '../components/AuthLayout'
 export type { PoweredByProps } from '../components/PoweredBy'
 
 export { AuthProvider, useAuth } from '../components/AuthProvider'

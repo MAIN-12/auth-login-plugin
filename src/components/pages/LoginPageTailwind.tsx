@@ -22,7 +22,7 @@ export interface LoginPageProps extends AuthLayoutConfig, AuthCardConfig {
 
 function LoginContent({
   onPasswordLogin, redirectTo = '/', showGoogleOAuth = true, signupUrl = '/signup',
-  logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages,
+  logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, texture, locale, messages,
 }: LoginPageProps) {
   const allowSignup = useAllowSignup()
   const searchParams = useSearchParams()
@@ -39,7 +39,7 @@ function LoginContent({
   const stepSubtitle = step === 'otp-prompt' ? t.otpPromptSubtitle : step === 'email' ? t.subtitle : t.passwordStepSubtitle
 
   return (
-    <AuthLayout backgroundClass={backgroundClass}>
+    <AuthLayout backgroundClass={backgroundClass} texture={texture}>
     <AuthCard logo={logo} title={stepTitle} subtitle={stepSubtitle}
       poweredBy={poweredBy} cardClassName={cardClassName} removeBorder={removeBorder} removeShadow={removeShadow} mobileVariant={mobileVariant}
       footer={allowSignup && signupUrl ? (

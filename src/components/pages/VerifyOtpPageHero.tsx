@@ -15,7 +15,7 @@ import type { AuthCardConfig } from '../AuthCard'
 
 export interface VerifyOtpPageHeroProps extends AuthLayoutConfig, AuthCardConfig { loginUrl?: string }
 
-function VerifyOtpHeroContent({ loginUrl = '/login', logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages }: VerifyOtpPageHeroProps) {
+function VerifyOtpHeroContent({ loginUrl = '/login', logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, texture, locale, messages }: VerifyOtpPageHeroProps) {
   const searchParams = useSearchParams()
   const email = searchParams.get('email') || ''
   const purpose = (searchParams.get('purpose') || 'login') as 'login' | 'signup' | 'password-reset'
@@ -25,7 +25,7 @@ function VerifyOtpHeroContent({ loginUrl = '/login', logo, poweredBy, cardClassN
   if (!email) return null
 
   return (
-    <AuthLayout backgroundClass={backgroundClass}>
+    <AuthLayout backgroundClass={backgroundClass} texture={texture}>
     <AuthCard logo={logo} title={purpose === 'password-reset' ? t.passwordResetTitle : t.title}
       subtitle={purpose === 'password-reset' ? t.passwordResetSubtitle : t.subtitle}
       poweredBy={poweredBy} cardClassName={cardClassName} removeBorder={removeBorder} removeShadow={removeShadow} mobileVariant={mobileVariant}

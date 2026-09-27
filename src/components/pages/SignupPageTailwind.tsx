@@ -19,7 +19,7 @@ export default function SignupPage({
   onSignup,
   showGoogleOAuth = true,
   loginUrl = '/login',
-  logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages,
+  logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, texture, locale, messages,
 }: SignupPageProps) {
   const [name, setName] = React.useState('')
   const [email, setEmail] = React.useState('')
@@ -42,7 +42,7 @@ export default function SignupPage({
   }
 
   return (
-    <AuthLayout backgroundClass={backgroundClass}>
+    <AuthLayout backgroundClass={backgroundClass} texture={texture}>
     <AuthCard
       logo={logo} title={t.title} subtitle={t.subtitle}
       poweredBy={poweredBy} cardClassName={cardClassName} removeBorder={removeBorder} removeShadow={removeShadow} mobileVariant={mobileVariant}

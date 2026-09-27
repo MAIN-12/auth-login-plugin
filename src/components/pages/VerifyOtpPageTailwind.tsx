@@ -17,7 +17,7 @@ export interface VerifyOtpPageProps extends AuthLayoutConfig, AuthCardConfig {
 
 function VerifyOtpContent({
   loginUrl = '/login',
-  logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages,
+  logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, texture, locale, messages,
 }: VerifyOtpPageProps) {
   const searchParams = useSearchParams()
   const email = searchParams.get('email') || ''
@@ -33,7 +33,7 @@ function VerifyOtpContent({
   const isPasswordReset = purpose === 'password-reset'
 
   return (
-    <AuthLayout backgroundClass={backgroundClass}>
+    <AuthLayout backgroundClass={backgroundClass} texture={texture}>
     <AuthCard
       logo={logo}
       title={isPasswordReset ? t.passwordResetTitle : t.title}

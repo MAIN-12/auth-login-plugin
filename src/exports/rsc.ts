@@ -12,7 +12,7 @@ export type { AuthCardProps, AuthCardWithSlugProps, AuthCardWithChildrenProps } 
 
 // Layout component (can be used in server or client components)
 export { AuthLayout } from '../components/AuthLayout'
-export type { AuthLayoutConfig, AuthLayoutProps } from '../components/AuthLayout'
+export type { AuthLayoutConfig, AuthLayoutProps, AuthTexture } from '../components/AuthLayout'
 
 // Form components (for custom compositions — re-exported from client)
 export { LoginForm, SignupForm, ForgotPasswordForm, VerifyOtpForm, SetPasswordForm } from '../components/forms/index'

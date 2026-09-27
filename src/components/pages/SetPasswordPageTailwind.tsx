@@ -16,7 +16,7 @@ export interface SetPasswordPageProps extends AuthLayoutConfig, AuthCardConfig {
 
 export default function SetPasswordPage({
   redirectTo = '/',
-  logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages,
+  logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, texture, locale, messages,
 }: SetPasswordPageProps) {
   const {
     password, confirmPassword, error, isLoading, showPassword, strength,
@@ -27,7 +27,7 @@ export default function SetPasswordPage({
   const t = useAuthTranslations(locale, messages).setPassword
 
   return (
-    <AuthLayout backgroundClass={backgroundClass}>
+    <AuthLayout backgroundClass={backgroundClass} texture={texture}>
     <AuthCard
       logo={logo} title={t.title} subtitle={t.subtitle}
       poweredBy={poweredBy} cardClassName={cardClassName} removeBorder={removeBorder} removeShadow={removeShadow} mobileVariant={mobileVariant}

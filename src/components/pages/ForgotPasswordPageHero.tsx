@@ -14,11 +14,11 @@ import type { AuthCardConfig } from '../AuthCard'
 
 export interface ForgotPasswordPageHeroProps extends AuthLayoutConfig, AuthCardConfig { loginUrl?: string }
 
-export default function ForgotPasswordPageHero({ loginUrl = '/login', logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages }: ForgotPasswordPageHeroProps) {
+export default function ForgotPasswordPageHero({ loginUrl = '/login', logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, texture, locale, messages }: ForgotPasswordPageHeroProps) {
   const { email, error, isLoading, setEmail, handleSubmit } = useForgotPasswordFlow()
   const t = useAuthTranslations(locale, messages).forgotPassword
   return (
-    <AuthLayout backgroundClass={backgroundClass}>
+    <AuthLayout backgroundClass={backgroundClass} texture={texture}>
     <AuthCard logo={logo} title={t.title} subtitle={t.subtitle} poweredBy={poweredBy} cardClassName={cardClassName} removeBorder={removeBorder} removeShadow={removeShadow} mobileVariant={mobileVariant}
       footer={<a href={loginUrl} className="text-sm text-gray-600 hover:text-gray-900 inline-flex items-center gap-1"><Icon icon="lucide:arrow-left" width={16} />{t.backToLogin}</a>}>
       <form onSubmit={handleSubmit} className="space-y-4">

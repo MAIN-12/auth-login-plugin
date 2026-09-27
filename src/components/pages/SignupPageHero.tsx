@@ -17,7 +17,7 @@ export interface SignupPageHeroProps extends AuthLayoutConfig, AuthCardConfig {
   loginUrl?: string
 }
 
-export default function SignupPageHero({ onSignup, showGoogleOAuth = true, loginUrl = '/login', logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages }: SignupPageHeroProps) {
+export default function SignupPageHero({ onSignup, showGoogleOAuth = true, loginUrl = '/login', logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, texture, locale, messages }: SignupPageHeroProps) {
   const [name, setName] = React.useState('')
   const [email, setEmail] = React.useState('')
   const [isLoading, setIsLoading] = React.useState(false)
@@ -32,7 +32,7 @@ export default function SignupPageHero({ onSignup, showGoogleOAuth = true, login
   }
 
   return (
-    <AuthLayout backgroundClass={backgroundClass}>
+    <AuthLayout backgroundClass={backgroundClass} texture={texture}>
     <AuthCard logo={logo} title={t.title} subtitle={t.subtitle} poweredBy={poweredBy} cardClassName={cardClassName} removeBorder={removeBorder} removeShadow={removeShadow} mobileVariant={mobileVariant}
       footer={<p className="text-center text-gray-600 text-sm">{t.haveAccount} <a href={loginUrl} className="text-gray-900 font-medium hover:underline">{t.loginLink}</a></p>}>
       {showGoogleOAuth && (<>

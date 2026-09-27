@@ -402,6 +402,20 @@ const t = getUiTranslations(locale, messages).login
 - Mount the server `AuthProvider` as shown below to share plugin settings with client auth components. `modalLogin: true` takes precedence over the plugin's proxy redirects.
 - `AuthCard` forms now honor `style: 'hero-ui'` for cards, buttons, inputs, and OTP controls. Both page and modal flows use these shared forms. The older standalone page exports remain available.
 
+## Optional page textures
+
+`AuthLayout` and `AuthPages` accept `texture="spotlight-dots"` or `texture="spotlight-grid"`. `AuthPages` defaults to `"spotlight-dots"`; pass `texture="none"` to disable it. `AuthLayout` remains opt-in and defaults to `"none"`. Textures are transparent overlays: your background color, gradient, or image stays visible underneath, and the auth content stays above them. They do not affect the login modal.
+
+```tsx
+<AuthLayout backgroundClass="bg-black" texture="spotlight-dots">
+  <AuthCard slug="login" mobileVariant="card" />
+</AuthLayout>
+```
+
+Dots gently brighten near the pointer; the grid also highlights its intersections. The highlight trails the pointer softly and fades on exit, with no continuous animation or animation-library dependency. Touch devices and reduced-motion users receive a static pattern. Optionally set `--auth-texture-color` on an ancestor to adapt the neutral pattern color to your background. Texture CSS ships with the component.
+
+Try `<TextureBackgroundLoginDemo />` at `/texture-demo` in the dev app; its Dots / Grid / None controls preview both presets over a black background with the default login card.
+
 ## Modal login and shared session state
 
 Enable modal login in the plugin:

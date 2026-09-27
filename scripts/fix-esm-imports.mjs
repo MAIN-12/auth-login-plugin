@@ -19,7 +19,8 @@ async function walk(dir) {
 function rewriteRelativeSpecifier(specifier) {
   if (!specifier.startsWith('./') && !specifier.startsWith('../')) return specifier
   if (specifier.endsWith('.js') || specifier.endsWith('.mjs') || specifier.endsWith('.cjs')) return specifier
-  if (specifier.endsWith('.json')) return specifier
+  // Stylesheets are emitted as assets, not JavaScript modules.
+  if (/\.(?:json|css|scss|sass|less)(?:[?#].*)?$/.test(specifier)) return specifier
   return `${specifier}.js`
 }
 

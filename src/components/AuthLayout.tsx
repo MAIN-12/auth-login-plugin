@@ -1,9 +1,13 @@
 'use client'
 
 import React from 'react'
+import { AuthPageTexture, type AuthTexture } from './AuthPageTexture'
+export type { AuthTexture } from './AuthPageTexture'
 
 export interface AuthLayoutConfig {
   backgroundClass?: string
+  /** Transparent page decoration. Disabled by default; never applied to modals. */
+  texture?: AuthTexture
   /**
    * Vertical placement of the content within the viewport.
    * Defaults to `'center'`; pass `'top'` to align content to the top instead.
@@ -45,10 +49,12 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
   children,
   backgroundClass = 'bg-accent',
   verticalAlign = 'center',
+  texture = 'none',
 }) => {
   return (
-    <main className={`flex flex-col min-h-screen ${backgroundClass}`}>
-      <div className={`flex-1 flex flex-col ${verticalAlign === 'top' ? 'justify-start' : 'justify-center'}`}>
+    <main style={{ position: 'relative', isolation: 'isolate' }} className={`flex flex-col min-h-screen ${backgroundClass}`}>
+      {texture !== 'none' && <AuthPageTexture texture={texture} />}
+      <div style={{ position: 'relative', zIndex: 1 }} className={`flex-1 flex flex-col ${verticalAlign === 'top' ? 'justify-start' : 'justify-center'}`}>
         {children}
       </div>
     </main>
