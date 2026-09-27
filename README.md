@@ -304,12 +304,17 @@ The `AuthPages` component accepts these props for customization:
   locale="es"                    // Override auto-detected locale (see Multi-Language Support)
   messages={{ es: { login: { title: 'Bienvenido' } } }} // Partial translation overrides
 
+  // Page layout — these do not affect the login modal
+  backgroundClass="bg-black"    // Background classes (default: 'bg-accent')
+  verticalAlign="center"        // 'center' | 'top' (default: 'center')
+  texture="spotlight-dots"      // 'none' | 'spotlight-dots' | 'spotlight-grid'
+
   // Card chrome — same options accepted by <AuthCard> (see Components Reference)
   poweredBy={{ enabled: true }}  // Configure/hide the "Powered by Main 12" badge
   cardClassName=""               // Extra classes on the card wrapper
   removeBorder={false}           // Remove the card border (useful for split/custom layouts)
   removeShadow={false}           // Remove the card shadow
-  mobileVariant="plain"          // 'plain' | 'card' — how the card renders on mobile widths
+  mobileVariant="plain"          // 'plain' | 'card' | 'modal' — card presentation (default: 'plain')
 />
 ```
 
@@ -412,6 +417,29 @@ const t = getUiTranslations(locale, messages).login
 </AuthLayout>
 ```
 
+| Option | Accepted values | Default / behavior |
+| --- | --- | --- |
+| `texture` | `'none'`, `'spotlight-dots'`, `'spotlight-grid'` | `AuthPages`: dots. `AuthLayout` and standalone page components: none. |
+| `backgroundClass` | CSS utility class string | `'bg-accent'`; use `'bg-black'` for the demo appearance. The texture does not replace this background. |
+| `verticalAlign` | `'center'`, `'top'` | `'center'` on `AuthLayout` / `AuthPages`. |
+| `--auth-texture-color` | CSS color, set on an ancestor | `#94a3b8`; affects dots/grid only. |
+
+For example, set a custom texture color with a wrapper class:
+
+```css
+.login-surface {
+  --auth-texture-color: #a1a1aa;
+}
+```
+
+```tsx
+<div className="login-surface">
+  <AuthPages slug={slug} backgroundClass="bg-black" texture="spotlight-grid" />
+</div>
+```
+
+Set texture options on `AuthPages` or `AuthLayout`, not on `authLoginPlugin`, `AuthProvider`, or `AuthCard`. Pattern spacing, highlight radius, opacity, and motion timing are preset internals, not public configuration options. No extra animation dependency or manual texture stylesheet import is required.
+
 Dots gently brighten near the pointer; the grid also highlights its intersections. The highlight trails the pointer softly and fades on exit, with no continuous animation or animation-library dependency. Touch devices and reduced-motion users receive a static pattern. Optionally set `--auth-texture-color` on an ancestor to adapt the neutral pattern color to your background. Texture CSS ships with the component.
 
 Try `<TextureBackgroundLoginDemo />` at `/texture-demo` in the dev app; its Dots / Grid / None controls preview both presets over a black background with the default login card.
@@ -505,7 +533,7 @@ Configure shared presentation on the provider; both modal and page components in
 
 Precedence is **explicit component props → nearest provider → plugin/request/browser defaults**. Partial message dictionaries merge by translation key, and partial `poweredBy` settings merge by field. Undefined values inherit; `logo={null}` deliberately hides the logo. Custom children/forms inside a card inherit that card's language. Components also work without a provider.
 
-`AuthLayout` only accepts page wrapper options (`backgroundClass`, `verticalAlign`, and `children`). Move any former layout `locale`/`messages` props to `AuthProvider`, `AuthCard`, or the page component. The layout never applied those settings to children; page components continue accepting their existing localization props.
+`AuthLayout` only accepts page wrapper options (`backgroundClass`, `verticalAlign`, `texture`, and `children`). Move any former layout `locale`/`messages` props to `AuthProvider`, `AuthCard`, or the page component. The layout never applied those settings to children; page components continue accepting their existing localization props.
 
 For custom auth UI, `useAuthPresentation()` reads resolved presentation settings and `useAuthTranslations()` reads the shared dictionary. Both work independently of the session context. `getUiTranslations()` remains a pure function and only uses its explicit arguments.
 
