@@ -63,3 +63,8 @@ export type {
 
 // Auth plugin config types
 export type { AuthLoginPluginOptions } from '../index'
+
+export { AuthProvider } from '../components/AuthProviderServer'
+export type { AuthProviderProps, AuthUser } from '../components/AuthProvider'
+
+export type { AuthPresentationProps, AuthLocalizationProps, ResolvedAuthPresentation, PoweredByConfig } from '../components/auth-presentation/types'

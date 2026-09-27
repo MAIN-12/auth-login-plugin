@@ -281,3 +281,11 @@ export function getUiTranslations(
   if (locale !== 'en' && messages?.[locale]) result = deepMerge(result, messages[locale])
   return result
 }
+
+/** Merge partial dictionaries without resolving a locale or mutating either input. */
+export function mergeUiMessages(
+  base: Record<string, DeepPartial<UiTranslations>> = {},
+  overrides?: Record<string, DeepPartial<UiTranslations>>,
+): Record<string, DeepPartial<UiTranslations>> {
+  return deepMerge(base, overrides)
+}

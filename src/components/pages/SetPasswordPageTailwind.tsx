@@ -1,5 +1,7 @@
 'use client'
 
+import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
+
 import React from 'react'
 import { Button, Input } from '../ui/index'
 import { useSetPasswordFlow } from '../../auth/application/hooks/useSetPasswordFlow'
@@ -7,7 +9,6 @@ import { AuthLayout } from '../AuthLayout'
 import type { AuthLayoutConfig } from '../AuthLayout'
 import { AuthCard } from '../AuthCard'
 import type { AuthCardConfig } from '../AuthCard'
-import { getUiTranslations } from '../ui/translations'
 
 export interface SetPasswordPageProps extends AuthLayoutConfig, AuthCardConfig {
   redirectTo?: string
@@ -23,7 +24,7 @@ export default function SetPasswordPage({
   } = useSetPasswordFlow({ redirectTo })
 
   const strengthBars = Array.from({ length: 5 }, (_, i) => i < strength.score)
-  const t = getUiTranslations(locale, messages).setPassword
+  const t = useAuthTranslations(locale, messages).setPassword
 
   return (
     <AuthLayout backgroundClass={backgroundClass}>

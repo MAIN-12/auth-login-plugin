@@ -1,15 +1,12 @@
 import { AuthLayout, AuthCard } from '@main12/auth-login/rsc'
-import Logo from './Logo'
-import { authPluginOptions } from '../plugins'
 
 /**
  * Demo: custom split layout — AuthCard on the right, image on the left.
  * Built entirely from the plugin's exported AuthLayout + AuthCard primitives.
  *
  * Uses the slug-based API — just pass `slug="login"` and the form is auto-selected
- * with full translations support via the `messages` prop. `allowSignup` is
- * intentionally omitted so the server AuthCard falls back to the plugin's
- * `pluginConfig.allowSignup` singleton — the single source of truth.
+ * with shared branding and translations inherited from the layout provider.
+ * The plugin signup setting is supplied internally by the server provider.
  */
 export default async function SplitLoginDemo() {
   return (
@@ -25,22 +22,11 @@ export default async function SplitLoginDemo() {
         <div className="flex items-center justify-center">
           <AuthCard
             slug="login"
-            logo={<Logo />}
             removeShadow
             removeBorder
             redirectTo="/admin"
             basePath="/auth"
-            allowSignup={authPluginOptions.allowSignup}
-            messages={{
-              en: {
-                login: {
-                  title: 'Welcome Back',
-                  subtitle: 'Sign in with your email to continue.',
-                  noAccount: "Don't have an account?",
-                  signUpLink: 'Sign up',
-                },
-              },
-            }}
+
           />
         </div>
       </div>

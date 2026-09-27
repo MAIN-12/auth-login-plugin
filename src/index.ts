@@ -1,4 +1,5 @@
 import type { Config } from 'payload'
+import { safeAuthRedirect } from './auth/domain/redirect'
 import { OAuth2Plugin } from 'payload-oauth2'
 import { authEndpoints } from './endpoints/authEndpoints'
 import { pluginConfig, type AuthStyle } from './config'
@@ -56,6 +57,8 @@ export interface AuthLoginPluginOptions {
    * @default false
    */
   routeRedirects?: boolean | { basePath?: string }
+  /** Render login through AuthProvider. Overrides the plugin proxy redirects. @default false */
+  modalLogin?: boolean
   /**
    * Allow new users to sign up.
    * When false, signup page is hidden, signup link is removed from login,
@@ -125,9 +128,21 @@ function setOAuthEnv(googleConfig: ReturnType<typeof resolveGoogleConfig>) {
 export const authLoginPlugin =
   (options: AuthLoginPluginOptions = {}) => {
     if (options.enabled !== false) {
+      process.env.AUTH_LOGIN_MODAL_LOGIN = String(options.modalLogin === true)
       process.env.AUTH_LOGIN_ALLOW_SIGNUP = String(options.allowSignup !== false)
       const googleConfig = resolveGoogleConfig(options.providers)
       process.env.AUTH_LOGIN_GOOGLE_OAUTH = String(googleConfig.enabled)
+      process.env.AUTH_LOGIN_PROVIDER_CONFIG = JSON.stringify({
+        style: options.style || 'tailwind',
+        modalLogin: options.modalLogin === true,
+        routeRedirects: Boolean(options.routeRedirects),
+        authBasePath: typeof options.routeRedirects === 'object' ? options.routeRedirects.basePath || '/auth' : '/auth',
+        passwordLogin: options.passwordLogin !== false,
+        otpLogin: options.otpLogin !== false,
+        allowSignup: options.allowSignup !== false,
+        googleOAuthEnabled: googleConfig.enabled,
+        logoUrl: typeof options.logo === 'string' ? options.logo : undefined,
+      })
     }
 
     return async (config: Config): Promise<Config> => {
@@ -154,8 +169,12 @@ export const authLoginPlugin =
     pluginConfig.passwordLogin = options.passwordLogin !== false
     pluginConfig.otpLogin = options.otpLogin !== false
 
+    pluginConfig.modalLogin = options.modalLogin === true
+    pluginConfig.routeRedirects = false
+    pluginConfig.authBasePath = typeof options.routeRedirects === 'object' ? options.routeRedirects.basePath || '/auth' : '/auth'
+
     // Route redirects config
-    if (options.routeRedirects) {
+    if (options.routeRedirects && !pluginConfig.modalLogin) {
       pluginConfig.routeRedirects = true
       if (typeof options.routeRedirects === 'object' && options.routeRedirects.basePath) {
         pluginConfig.authBasePath = options.routeRedirects.basePath
@@ -210,8 +229,8 @@ export const authLoginPlugin =
           const user = await response.json() as { email: string; sub: string; name: string }
           return { email: user.email, sub: user.sub, name: user.name }
         },
-        successRedirect: () => googleOpts.successRedirect || '/admin',
-        failureRedirect: () => googleOpts.failureRedirect || '/login?error=Google login failed',
+        successRedirect: (req) => googleOpts.successRedirect || (options.modalLogin ? safeAuthRedirect(req.searchParams.get('state')) : '/admin'),
+        failureRedirect: () => googleOpts.failureRedirect || (options.modalLogin ? `${pluginConfig.authBasePath}/login?error=Google%20login%20failed` : '/login?error=Google login failed'),
       })(config)
     }
 

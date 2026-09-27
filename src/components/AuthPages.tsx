@@ -1,8 +1,7 @@
 'use client'
 
-import type { DeepPartial, UiTranslations } from './ui/translations'
 import { AuthLayout, type AuthLayoutConfig } from './AuthLayout'
-import { AuthCard, type AuthCardConfig, type AuthCardWithSlugProps } from './AuthCard'
+import { AuthCard, type AuthCardConfig } from './AuthCard'
 
 export interface AuthPagesProps extends AuthCardConfig, AuthLayoutConfig {
   slug?: string[]
@@ -11,14 +10,12 @@ export interface AuthPagesProps extends AuthCardConfig, AuthLayoutConfig {
   onSignup?: (data: { name: string; email: string }) => Promise<void>
   basePath?: string
   showGoogleOAuth?: boolean
-  allowSignup?: boolean
   passwordLogin?: boolean
   otpLogin?: boolean
-  locale?: string
-  messages?: Record<string, DeepPartial<UiTranslations>>
 }
 
 export default function AuthPages({
+  style,
   backgroundClass,
   verticalAlign,
   slug,
@@ -28,7 +25,6 @@ export default function AuthPages({
   onSignup,
   basePath = '/auth',
   showGoogleOAuth,
-  allowSignup = true,
   passwordLogin = true,
   otpLogin = true,
   locale,
@@ -42,6 +38,7 @@ export default function AuthPages({
   return (
     <AuthLayout backgroundClass={backgroundClass} verticalAlign={verticalAlign}>
       <AuthCard
+        style={style}
         slug={slug?.[0] ?? 'login'}
         redirectTo={redirectTo}
         logo={logo}
@@ -49,7 +46,6 @@ export default function AuthPages({
         onSignup={onSignup}
         basePath={basePath}
         showGoogleOAuth={showGoogleOAuth}
-        allowSignup={allowSignup}
         passwordLogin={passwordLogin}
         otpLogin={otpLogin}
         locale={locale}

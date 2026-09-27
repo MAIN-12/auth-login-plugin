@@ -297,7 +297,6 @@ The `AuthPages` component accepts these props for customization:
   logo={<MyLogo />}             // Custom logo component
   basePath="/auth"               // Base path for sibling links (default: '/auth')
   showGoogleOAuth={true}         // Override Google OAuth visibility
-  allowSignup={true}             // Override plugin's allowSignup setting for this render
   passwordLogin={true}           // Override plugin's passwordLogin setting for this render
   otpLogin={true}                // Override plugin's otpLogin setting for this render
   onPasswordLogin={customLogin}  // Custom login handler
@@ -395,6 +394,129 @@ const t = getUiTranslations(locale, messages).login
 ```
 
 ---
+
+## Migrating to 2.0
+
+- Configure `allowSignup` only in `authLoginPlugin(...)`; remove it from `AuthCard`, `AuthPages`, and provider `authCardProps`. Disabled signup renders Login at the signup URL and hides the signup prompt, without a signup-specific redirect.
+- Move `locale` and `messages` from `AuthLayout` to `AuthProvider` for shared page/modal defaults, or to an individual `AuthCard`. `AuthLayout` now handles only the page wrapper.
+- Mount the server `AuthProvider` as shown below to share plugin settings with client auth components. `modalLogin: true` takes precedence over the plugin's proxy redirects.
+- `AuthCard` forms now honor `style: 'hero-ui'` for cards, buttons, inputs, and OTP controls. Both page and modal flows use these shared forms. The older standalone page exports remain available.
+
+## Modal login and shared session state
+
+Enable modal login in the plugin:
+
+```ts
+// payload.config.ts
+plugins: [authLoginPlugin({ modalLogin: true, style: 'hero-ui' })]
+```
+
+Mount the server provider once in your frontend layout. Await your Payload configuration first so its plugin settings are initialized. The server wrapper passes UI settings and locale to the client provider; it does not send secrets to the browser.
+
+```tsx
+// app/(frontend)/layout.tsx
+import config from '@payload-config'
+import { AuthProvider } from '@main12/auth-login/rsc'
+
+export default async function Layout({ children }: { children: React.ReactNode }) {
+  await config
+  return <AuthProvider>{children}</AuthProvider>
+}
+```
+
+For a client-only integration, import `AuthProvider` from `@main12/auth-login/client` and pass `modalLogin`, `style`, and `authCardProps` explicitly. Client modules cannot automatically read the Payload server configuration.
+
+```tsx
+'use client'
+import { useAuth } from '@main12/auth-login/client'
+
+export function AccountActions() {
+  const { user, status, openLogin, isLoggedIn, logout } = useAuth()
+
+  async function protectedAction() {
+    try {
+      if (!(await isLoggedIn())) return
+      // The server confirmed the session. Continue your action here.
+    } catch {
+      // Session verification failed (for example, offline). Show a retry message.
+    }
+  }
+
+  return <>
+    <button onClick={() => openLogin()}>Sign in</button>
+    <button onClick={protectedAction}>Continue</button>
+  </>
+}
+```
+
+| Provider API | Behavior |
+| --- | --- |
+| `user` / `status` / `error` | Current user; status is `loading`, `authenticated`, `unauthenticated`, or `error` |
+| `openLogin({ redirectTo? })` | Opens login; navigates to the login page when modal mode is disabled |
+| `closeLogin()` / `isLoginOpen` | Dismisses or observes the modal |
+| `isLoggedIn({ redirectTo? })` | Fetches `/api/users/me` with cookies and no cache; returns true for a valid session, otherwise prompts for login and returns false |
+| `isLogedin()` | Alias for `isLoggedIn()` |
+| `refreshSession()` | Refreshes the user without prompting for login |
+| `logout()` | Ends the server session, clears the user, and refreshes the current route |
+
+The session check validates the server session instead of inspecting cookie presence. It rejects on network/server failures and preserves the last known user. Call it from an event handler or effect, not during rendering. An action that returns false is not automatically replayed after login. Continue enforcing authorization in your server endpoints and protected pages.
+
+Login, signup, password recovery, OTP, and setting a password all reuse `AuthCard` within the modal. By default, successful login closes it and refreshes server-rendered data while retaining the current URL and page state. Pass `openLogin({ redirectTo: '/checkout' })` to navigate after success. Destinations must be local paths. Google OAuth still visits Google, then returns to the original page in modal mode unless an explicit Google `successRedirect` is configured. Standalone auth pages remain available for direct links and OAuth error fallback.
+
+With `style: 'hero-ui'`, the provider loads the [HeroUI v3 Modal](https://heroui.com/en/docs/react/components/modal). Import `@heroui/styles` in your app CSS. Clicking the backdrop or empty area around the dialog dismisses login; clicking inside the form does not. Escape and the close button also dismiss it. Cancelling does not authenticate the user or continue a protected action. Tailwind mode uses the native modal dialog with Escape dismissal, focus restoration, and background scroll locking. Optional `modalLabel` and `closeLabel` customize accessible labels. Set shared branding and language directly on the provider; `authCardProps` supplies modal-only overrides and login-method settings. `initialUser` can provide a known user or null; otherwise the provider fetches the session on mount. No polling, inactivity timeout, or session watchdog is included.
+
+### Shared language and branding
+
+Configure shared presentation on the provider; both modal and page components inherit it:
+
+```tsx
+<AuthProvider
+  locale="es"
+  messages={{ es: { login: { title: 'Bienvenido' } } }}
+  logo={<Logo />}
+  poweredBy={{ enabled: false }}
+>
+  {children}
+</AuthProvider>
+```
+
+`AuthCard` still renders the logo and controls its placement. A card can override `logo`, `locale`, `messages`, `style`, or `poweredBy` for its subtree:
+
+```tsx
+<AuthLayout backgroundClass="bg-white">
+  <AuthCard slug="login" /> {/* Inherits the provider's branding and language */}
+  <AuthCard slug="signup" locale="en" logo={<PartnerLogo />} />
+</AuthLayout>
+```
+
+Precedence is **explicit component props → nearest provider → plugin/request/browser defaults**. Partial message dictionaries merge by translation key, and partial `poweredBy` settings merge by field. Undefined values inherit; `logo={null}` deliberately hides the logo. Custom children/forms inside a card inherit that card's language. Components also work without a provider.
+
+`AuthLayout` only accepts page wrapper options (`backgroundClass`, `verticalAlign`, and `children`). Move any former layout `locale`/`messages` props to `AuthProvider`, `AuthCard`, or the page component. The layout never applied those settings to children; page components continue accepting their existing localization props.
+
+For custom auth UI, `useAuthPresentation()` reads resolved presentation settings and `useAuthTranslations()` reads the shared dictionary. Both work independently of the session context. `getUiTranslations()` remains a pure function and only uses its explicit arguments.
+
+Server exports keep detected settings as fallback context, so an RSC `AuthCard` or `AuthPages` inside a provider cannot accidentally override the provider's language or logo. Session checks and authorization remain independent of presentation settings.
+
+### Proxy precedence
+
+`modalLogin: true` disables this plugin's auth redirects, including `/admin/login` and redirects away from auth pages when a cookie is present. It also takes precedence over an explicit proxy `basePath`. Application access checks and unrelated proxy logic remain your application's responsibility.
+
+Proxy runtimes may run separately from Payload. In the dev app, the proxy imports the plugin index to initialize the same settings; there is no second UI options file or repeated `modalLogin` setting:
+
+```ts
+// dev/proxy.ts
+import './plugins'
+export { proxy } from '@main12/auth-login/proxy'
+export const config = {
+  matcher: ['/admin/login', '/login', '/signup', '/forgot-password', '/verify-otp', '/set-password', '/auth/:path*'],
+}
+```
+
+`allowSignup` is not a proxy option. Set it only in `authLoginPlugin(...)`. The server provider/cards carry it internally to the UI: when false, `AuthCard` renders Login for the `signup` slug and omits the entire signup prompt. It does not redirect to another URL. Do not pass `allowSignup` to `AuthCard`, `AuthPages`, or `authCardProps`.
+
+If the application only uses modal login, the plugin proxy can be omitted altogether. Typing `/login` into the address bar does not open a modal over a previous page; use `openLogin()` or `isLoggedIn()` from the current page.
+
+The development frontend layout mounts the shared provider. Try it at `/modal-demo`; change `style` or `modalLogin` directly in `dev/plugins/index.ts` to switch the UI or test page login. The dev proxy consumes the same plugin configuration. Run the provider and proxy regression suite with `pnpm test --run`.
 
 ## Individual Page Setup (Advanced)
 

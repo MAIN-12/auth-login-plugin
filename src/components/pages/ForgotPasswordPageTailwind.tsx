@@ -1,5 +1,7 @@
 'use client'
 
+import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
+
 import React from 'react'
 import { Button, Input } from '../ui/index'
 import { useForgotPasswordFlow } from '../../auth/application/hooks/useForgotPasswordFlow'
@@ -7,7 +9,6 @@ import { AuthLayout } from '../AuthLayout'
 import type { AuthLayoutConfig } from '../AuthLayout'
 import { AuthCard } from '../AuthCard'
 import type { AuthCardConfig } from '../AuthCard'
-import { getUiTranslations } from '../ui/translations'
 
 export interface ForgotPasswordPageProps extends AuthLayoutConfig, AuthCardConfig {
   loginUrl?: string
@@ -18,7 +19,7 @@ export default function ForgotPasswordPage({
   logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages,
 }: ForgotPasswordPageProps) {
   const { email, error, isLoading, setEmail, handleSubmit } = useForgotPasswordFlow()
-  const t = getUiTranslations(locale, messages).forgotPassword
+  const t = useAuthTranslations(locale, messages).forgotPassword
 
   return (
     <AuthLayout backgroundClass={backgroundClass}>

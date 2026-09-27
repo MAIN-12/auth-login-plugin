@@ -1,5 +1,7 @@
 'use client'
 
+import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
+
 import React, { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button, InputOTP, Spinner } from '@heroui/react'
@@ -10,7 +12,6 @@ import { AuthLayout } from '../AuthLayout'
 import type { AuthLayoutConfig } from '../AuthLayout'
 import { AuthCard } from '../AuthCard'
 import type { AuthCardConfig } from '../AuthCard'
-import { getUiTranslations } from '../ui/translations'
 
 export interface VerifyOtpPageHeroProps extends AuthLayoutConfig, AuthCardConfig { loginUrl?: string }
 
@@ -20,7 +21,7 @@ function VerifyOtpHeroContent({ loginUrl = '/login', logo, poweredBy, cardClassN
   const purpose = (searchParams.get('purpose') || 'login') as 'login' | 'signup' | 'password-reset'
   const redirectTo = searchParams.get('redirect') || '/'
   const { otp, error, isLoading, isResending, resendCooldown, setOtp, handleSubmit, handleResendCode } = useVerifyOtpFlow({ email, purpose, redirectTo })
-  const t = getUiTranslations(locale, messages).verifyOtp
+  const t = useAuthTranslations(locale, messages).verifyOtp
   if (!email) return null
 
   return (

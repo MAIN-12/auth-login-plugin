@@ -1,6 +1,7 @@
 'use client'
 
-import { pluginConfig } from '../../config'
+import { useAuthPresentation } from '../auth-presentation/AuthPresentationContext'
+
 import ForgotPasswordPageTailwind from './ForgotPasswordPageTailwind'
 import ForgotPasswordPageHero from './ForgotPasswordPageHero'
 import type { AuthLayoutConfig } from '../AuthLayout'
@@ -9,5 +10,6 @@ import type { AuthCardConfig } from '../AuthCard'
 export interface ForgotPasswordPageProps extends AuthLayoutConfig, AuthCardConfig { loginUrl?: string }
 
 export default function ForgotPasswordPage(props: ForgotPasswordPageProps) {
-  return pluginConfig.style === 'hero-ui' ? <ForgotPasswordPageHero {...props} /> : <ForgotPasswordPageTailwind {...props} />
+  const { style } = useAuthPresentation(props)
+  return style === 'hero-ui' ? <ForgotPasswordPageHero {...props} /> : <ForgotPasswordPageTailwind {...props} />
 }

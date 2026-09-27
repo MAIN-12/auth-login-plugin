@@ -1,9 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { pluginConfig } from './config'
+import { getServerProviderConfig, getServerModalLogin } from './config'
 
 const AUTH_ROUTES = ['login', 'signup', 'forgot-password', 'verify-otp', 'set-password']
 
 export interface AuthProxyOptions {
+  /** Explicitly enable modal mode in separately bundled proxy runtimes. */
+  modalLogin?: boolean
   /** Base path where AuthPages catch-all is mounted. Defaults to '/auth' */
   basePath?: string
   /** Routes to redirect. Defaults to all auth routes. */
@@ -29,13 +31,15 @@ export interface AuthProxyOptions {
  * The basePath defaults to the value set in the plugin options
  * (`routeRedirects: { basePath: '/auth' }`), or '/auth' if not configured.
  */
-export function createAuthProxy({ basePath, routes = AUTH_ROUTES }: AuthProxyOptions = {}) {
-  const base = (basePath ?? pluginConfig.authBasePath).replace(/\/$/, '')
+export function createAuthProxy({ basePath, routes = AUTH_ROUTES, modalLogin }: AuthProxyOptions = {}) {
   const routeSet = new Set(routes)
 
   return function proxy(request: NextRequest) {
-    // Check route redirects directly from the shared plugin config singleton
-    const redirectsEnabled = pluginConfig.routeRedirects
+    if (modalLogin || getServerModalLogin()) return NextResponse.next()
+
+    const settings = getServerProviderConfig()
+    const base = (basePath ?? settings.authBasePath).replace(/\/$/, '')
+    const redirectsEnabled = settings.routeRedirects
     if (!redirectsEnabled && !basePath) {
       return NextResponse.next()
     }

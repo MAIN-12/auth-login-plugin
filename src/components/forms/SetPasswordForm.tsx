@@ -1,14 +1,14 @@
 'use client'
 
+import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
+
 import React from 'react'
 import { Button, Input } from '../ui/index'
 import { useSetPasswordFlow } from '../../auth/application/hooks/useSetPasswordFlow'
-import { getUiTranslations, type DeepPartial, type UiTranslations } from '../ui/translations'
+import type { AuthLocalizationProps } from '../auth-presentation/types'
 
-export interface SetPasswordFormProps {
+export interface SetPasswordFormProps extends AuthLocalizationProps {
   redirectTo?: string
-  locale?: string
-  messages?: Record<string, DeepPartial<UiTranslations>>
 }
 
 export function SetPasswordForm({
@@ -22,7 +22,7 @@ export function SetPasswordForm({
   } = useSetPasswordFlow({ redirectTo })
 
   const strengthBars = Array.from({ length: 5 }, (_, i) => i < strength.score)
-  const translations = getUiTranslations(locale, messages)
+  const translations = useAuthTranslations(locale, messages)
   const t = translations.setPassword
   const errors = translations.errors
 

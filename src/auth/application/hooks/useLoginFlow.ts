@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useAuthNavigation } from '../AuthFlowContext'
 import type { LoginStep } from '../../domain/types'
 import { checkEmail, sendOtp, initiateGoogleLogin } from '../services/authService'
 import { pluginConfig } from '../../../config'
@@ -17,7 +17,7 @@ export interface UseLoginFlowOptions {
  * The page component owns the UI; this hook owns the logic.
  */
 export function useLoginFlow({ redirectTo, onPasswordLogin }: UseLoginFlowOptions) {
-  const router = useRouter()
+  const router = useAuthNavigation()
 
   const [step, setStep] = useState<LoginStep>('email')
   const [email, setEmail] = useState('')
@@ -71,14 +71,14 @@ export function useLoginFlow({ redirectTo, onPasswordLogin }: UseLoginFlowOption
       setError(null)
       try {
         await onPasswordLogin({ email, password })
-        window.location.href = redirectTo
+        await router.complete(redirectTo)
       } catch {
         setError('error')
       } finally {
         setIsLoading(false)
       }
     },
-    [email, password, onPasswordLogin, redirectTo],
+    [email, password, onPasswordLogin, redirectTo, router],
   )
 
   const handleSendOtp = useCallback(async () => {

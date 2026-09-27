@@ -1,15 +1,15 @@
 'use client'
 
+import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
+
 import React, { Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useAuthSearchParams, AuthLink } from '../../auth/application/AuthFlowContext'
 import { Button, OtpInput, Spinner } from '../ui/index'
 import { useVerifyOtpFlow } from '../../auth/application/hooks/useVerifyOtpFlow'
-import { getUiTranslations, type DeepPartial, type UiTranslations } from '../ui/translations'
+import type { AuthLocalizationProps } from '../auth-presentation/types'
 
-export interface VerifyOtpFormProps {
+export interface VerifyOtpFormProps extends AuthLocalizationProps {
   loginUrl?: string
-  locale?: string
-  messages?: Record<string, DeepPartial<UiTranslations>>
   /** Callback to update the card title based on purpose */
   onPurposeChange?: (purpose: 'login' | 'signup' | 'password-reset', title: string, subtitle: string) => void
 }
@@ -20,14 +20,14 @@ function VerifyOtpFormContent({
   messages,
   onPurposeChange,
 }: VerifyOtpFormProps) {
-  const searchParams = useSearchParams()
+  const searchParams = useAuthSearchParams()
   const email = searchParams.get('email') || ''
   const purpose = (searchParams.get('purpose') || 'login') as 'login' | 'signup' | 'password-reset'
   const redirectTo = searchParams.get('redirect') || '/'
 
   const { otp, error, isLoading, isResending, resendCooldown, setOtp, handleSubmit, handleResendCode } =
     useVerifyOtpFlow({ email, purpose, redirectTo })
-  const translations = getUiTranslations(locale, messages)
+  const translations = useAuthTranslations(locale, messages)
   const t = translations.verifyOtp
   const errors = translations.errors
 
@@ -65,9 +65,9 @@ function VerifyOtpFormContent({
         </button>
       </div>
       <div className="text-center mt-2">
-        <a href={loginUrl} className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1 justify-center">
+        <AuthLink href={loginUrl} className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1 justify-center">
           ← {t.backToLogin}
-        </a>
+        </AuthLink>
       </div>
     </div>
   )

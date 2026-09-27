@@ -1,7 +1,6 @@
 'use client'
 
 import React from 'react'
-import type { DeepPartial, UiTranslations } from './ui/translations'
 
 export interface AuthLayoutConfig {
   backgroundClass?: string
@@ -10,14 +9,6 @@ export interface AuthLayoutConfig {
    * Defaults to `'center'`; pass `'top'` to align content to the top instead.
    */
   verticalAlign?: 'center' | 'top'
-  /**
-   * Locale for this page's copy. Built-in support for 'en' and 'es'.
-   * Auto-detected by `<AuthPages />` when omitted; pass explicitly when using
-   * individual page components directly. Falls back to 'en'.
-   */
-  locale?: string
-  /** Partial translation overrides, keyed by locale. See `getUiTranslations`. */
-  messages?: Record<string, DeepPartial<UiTranslations>>
 }
 
 export interface AuthLayoutProps extends AuthLayoutConfig {

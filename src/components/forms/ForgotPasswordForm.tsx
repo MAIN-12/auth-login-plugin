@@ -1,14 +1,15 @@
 'use client'
 
+import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
+
 import React from 'react'
+import { AuthLink } from '../../auth/application/AuthFlowContext'
 import { Button, Input } from '../ui/index'
 import { useForgotPasswordFlow } from '../../auth/application/hooks/useForgotPasswordFlow'
-import { getUiTranslations, type DeepPartial, type UiTranslations } from '../ui/translations'
+import type { AuthLocalizationProps } from '../auth-presentation/types'
 
-export interface ForgotPasswordFormProps {
+export interface ForgotPasswordFormProps extends AuthLocalizationProps {
   loginUrl?: string
-  locale?: string
-  messages?: Record<string, DeepPartial<UiTranslations>>
 }
 
 export function ForgotPasswordForm({
@@ -17,7 +18,7 @@ export function ForgotPasswordForm({
   messages,
 }: ForgotPasswordFormProps) {
   const { email, error, isLoading, setEmail, handleSubmit } = useForgotPasswordFlow()
-  const translations = getUiTranslations(locale, messages)
+  const translations = useAuthTranslations(locale, messages)
   const t = translations.forgotPassword
   const errors = translations.errors
 
@@ -36,9 +37,9 @@ export function ForgotPasswordForm({
         <Button type="submit" variant="primary" isLoading={isLoading}>{t.sendResetCode}</Button>
       </form>
       <div className="text-center mt-6">
-        <a href={loginUrl} className="text-sm text-gray-600 hover:text-gray-900 inline-flex items-center gap-1">
+        <AuthLink href={loginUrl} className="text-sm text-gray-600 hover:text-gray-900 inline-flex items-center gap-1">
           ← {t.backToLogin}
-        </a>
+        </AuthLink>
       </div>
     </>
   )

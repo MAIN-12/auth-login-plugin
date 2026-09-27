@@ -1,12 +1,13 @@
 'use client'
 
+import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
+
 import React from 'react'
 import { Button, Input, Divider } from '../ui/index'
 import { AuthLayout } from '../AuthLayout'
 import type { AuthLayoutConfig } from '../AuthLayout'
 import { AuthCard } from '../AuthCard'
 import type { AuthCardConfig } from '../AuthCard'
-import { getUiTranslations } from '../ui/translations'
 
 export interface SignupPageProps extends AuthLayoutConfig, AuthCardConfig {
   onSignup: (data: { name: string; email: string }) => Promise<void>
@@ -24,7 +25,7 @@ export default function SignupPage({
   const [email, setEmail] = React.useState('')
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const t = getUiTranslations(locale, messages).signup
+  const t = useAuthTranslations(locale, messages).signup
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

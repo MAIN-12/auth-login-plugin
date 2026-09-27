@@ -1,5 +1,7 @@
 'use client'
 
+import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
+
 import React from 'react'
 import { Button, Input, Label, TextField, Spinner } from '@heroui/react'
 import { Icon } from '@iconify/react'
@@ -9,13 +11,12 @@ import { AuthLayout } from '../AuthLayout'
 import type { AuthLayoutConfig } from '../AuthLayout'
 import { AuthCard } from '../AuthCard'
 import type { AuthCardConfig } from '../AuthCard'
-import { getUiTranslations } from '../ui/translations'
 
 export interface ForgotPasswordPageHeroProps extends AuthLayoutConfig, AuthCardConfig { loginUrl?: string }
 
 export default function ForgotPasswordPageHero({ loginUrl = '/login', logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages }: ForgotPasswordPageHeroProps) {
   const { email, error, isLoading, setEmail, handleSubmit } = useForgotPasswordFlow()
-  const t = getUiTranslations(locale, messages).forgotPassword
+  const t = useAuthTranslations(locale, messages).forgotPassword
   return (
     <AuthLayout backgroundClass={backgroundClass}>
     <AuthCard logo={logo} title={t.title} subtitle={t.subtitle} poweredBy={poweredBy} cardClassName={cardClassName} removeBorder={removeBorder} removeShadow={removeShadow} mobileVariant={mobileVariant}

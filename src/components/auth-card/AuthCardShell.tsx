@@ -3,15 +3,9 @@
 import React from 'react'
 import { Card, CardContent, CardFooter } from '../ui/index'
 import { PoweredBy } from '../PoweredBy'
-import { pluginConfig } from '../../config'
-
-export interface PoweredByConfig {
-  enabled?: boolean
-  logoUrl?: string
-  linkUrl?: string
-  width?: number
-  height?: number
-}
+import { useAuthPresentation } from '../auth-presentation/AuthPresentationContext'
+import type { PoweredByConfig } from '../auth-presentation/types'
+export type { PoweredByConfig } from '../auth-presentation/types'
 
 export interface AuthCardShellProps {
   children: React.ReactNode
@@ -23,18 +17,7 @@ export interface AuthCardShellProps {
   cardClassName?: string
   removeBorder?: boolean
   removeShadow?: boolean
-  mobileVariant?: 'plain' | 'card'
-}
-
-function DefaultLogo() {
-  if (pluginConfig.Logo) {
-    const L = pluginConfig.Logo
-    return <L />
-  }
-  if (pluginConfig.logoUrl) {
-    return <img src={pluginConfig.logoUrl} alt="" width={180} height={42} className="object-contain" />
-  }
-  return null
+  mobileVariant?: 'plain' | 'card' | 'modal'
 }
 
 export function AuthCardShell({
@@ -49,7 +32,8 @@ export function AuthCardShell({
   removeShadow = false,
   mobileVariant = 'plain',
 }: AuthCardShellProps) {
-  const displayLogo = logo || <DefaultLogo />
+  const presentation = useAuthPresentation({ logo, poweredBy })
+  const displayLogo = presentation.logo
 
   const header = (displayLogo || title) && (
     <div className="flex flex-col items-center gap-2 pt-8 pb-4 px-8">
@@ -71,9 +55,11 @@ export function AuthCardShell({
         <CardContent>{children}</CardContent>
         {footer && <CardFooter>{footer}</CardFooter>}
       </Card>
-      <PoweredBy {...poweredBy} />
+      <PoweredBy {...presentation.poweredBy} />
     </div>
   )
+
+  if (mobileVariant === 'modal') return cardBody
 
   if (mobileVariant === 'card') {
     return <div className="px-4 py-8 md:py-12">{cardBody}</div>
@@ -85,7 +71,7 @@ export function AuthCardShell({
         {header}
         <div className="px-8 pb-6">{children}</div>
         {footer && <div className="px-8 pb-8 flex justify-center">{footer}</div>}
-        <PoweredBy {...poweredBy} />
+        <PoweredBy {...presentation.poweredBy} />
       </div>
       <div className="hidden md:flex justify-center px-4 py-12 w-full">
         {cardBody}

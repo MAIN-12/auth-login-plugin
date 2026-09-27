@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useAuthNavigation } from '../AuthFlowContext'
 import { verifyOtp, sendOtp } from '../services/authService'
 import { pluginConfig } from '../../../config'
 
@@ -15,7 +15,7 @@ export interface UseVerifyOtpFlowOptions {
  * State machine for OTP verification: input → verify → redirect | resend.
  */
 export function useVerifyOtpFlow({ email, purpose, redirectTo = '/' }: UseVerifyOtpFlowOptions) {
-  const router = useRouter()
+  const router = useAuthNavigation()
 
   const [otp, setOtp] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -48,7 +48,7 @@ export function useVerifyOtpFlow({ email, purpose, redirectTo = '/' }: UseVerify
           router.push(`/set-password?redirect=${encodeURIComponent(redirectTo)}`)
         } else {
           // OTP login is enabled — go straight to the app
-          window.location.href = redirectTo
+          await router.complete(redirectTo)
         }
       } else {
         setError(data.error || 'error')

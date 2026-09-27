@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useAuthNavigation } from '../AuthFlowContext'
 import { setUserPassword } from '../services/authService'
 import { evaluatePasswordStrength } from '../../domain/passwordRules'
 
@@ -13,7 +13,7 @@ export interface UseSetPasswordFlowOptions {
  * Set password flow: enter new password + confirm → validate → submit.
  */
 export function useSetPasswordFlow({ redirectTo = '/' }: UseSetPasswordFlowOptions = {}) {
-  const router = useRouter()
+  const router = useAuthNavigation()
 
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -41,7 +41,7 @@ export function useSetPasswordFlow({ redirectTo = '/' }: UseSetPasswordFlowOptio
       try {
         const data = await setUserPassword(password, confirmPassword)
         if (data.success) {
-          window.location.href = redirectTo
+          await router.complete(redirectTo)
         } else {
           setError(data.message || 'error')
         }

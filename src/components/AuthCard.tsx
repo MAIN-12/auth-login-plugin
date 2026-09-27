@@ -2,16 +2,15 @@
 
 import React, { Suspense } from 'react'
 import { Spinner } from './ui/index'
-import type { DeepPartial, UiTranslations } from './ui/translations'
-import { AuthCardShell, FormRenderer, type PoweredByConfig } from './auth-card/index'
+import type { AuthPresentationProps } from './auth-presentation/types'
+import { AuthPresentationContext, useAuthPresentation } from './auth-presentation/AuthPresentationContext'
+import { AuthCardShell, FormRenderer } from './auth-card/index'
 
-export interface AuthCardConfig {
-  logo?: React.ReactNode
-  poweredBy?: PoweredByConfig
+export interface AuthCardConfig extends AuthPresentationProps {
   cardClassName?: string
   removeBorder?: boolean
   removeShadow?: boolean
-  mobileVariant?: 'plain' | 'card'
+  mobileVariant?: 'plain' | 'card' | 'modal'
 }
 
 export interface AuthCardWithSlugProps extends AuthCardConfig {
@@ -21,11 +20,8 @@ export interface AuthCardWithSlugProps extends AuthCardConfig {
   onSignup?: (data: { name: string; email: string }) => Promise<void>
   basePath?: string
   showGoogleOAuth?: boolean
-  allowSignup?: boolean
   passwordLogin?: boolean
   otpLogin?: boolean
-  locale?: string
-  messages?: Record<string, DeepPartial<UiTranslations>>
   footer?: React.ReactNode
   title?: string
   subtitle?: string
@@ -45,19 +41,24 @@ function hasSlug(props: AuthCardProps): props is AuthCardWithSlugProps {
 }
 
 export const AuthCard: React.FC<AuthCardProps> = (props) => {
+  const presentation = useAuthPresentation(props)
   if (hasSlug(props)) {
     return (
-      <Suspense fallback={<div className="flex items-center justify-center py-12"><Spinner size="lg" /></div>}>
-        <FormRenderer {...props} />
-      </Suspense>
+      <AuthPresentationContext.Provider value={presentation}>
+        <Suspense fallback={<div className="flex items-center justify-center py-12"><Spinner size="lg" /></div>}>
+          <FormRenderer {...props} />
+        </Suspense>
+      </AuthPresentationContext.Provider>
     )
   }
 
   const { children, ...shellProps } = props as AuthCardWithChildrenProps
 
   return (
-    <AuthCardShell {...shellProps}>
-      {children}
-    </AuthCardShell>
+    <AuthPresentationContext.Provider value={presentation}>
+      <AuthCardShell {...shellProps}>
+        {children}
+      </AuthCardShell>
+    </AuthPresentationContext.Provider>
   )
 }

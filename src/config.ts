@@ -21,6 +21,7 @@ export const pluginConfig: {
   logoUrl?: string
   Logo?: React.ComponentType
   googleOAuthEnabled: boolean
+  modalLogin: boolean
   routeRedirects: boolean
   authBasePath: string
   passwordLogin: boolean
@@ -30,6 +31,7 @@ export const pluginConfig: {
   _initialized: false,
   style: 'tailwind',
   googleOAuthEnabled: false,
+  modalLogin: false,
   routeRedirects: false,
   authBasePath: '/auth',
   passwordLogin: true,
@@ -61,4 +63,18 @@ export function initClientConfig(opts: {
   if (opts.googleOAuthEnabled !== undefined) pluginConfig.googleOAuthEnabled = opts.googleOAuthEnabled
   if (opts.passwordLogin !== undefined) pluginConfig.passwordLogin = opts.passwordLogin
   if (opts.otpLogin !== undefined) pluginConfig.otpLogin = opts.otpLogin
+}
+/** Server/proxy config may be bundled separately from the plugin factory. */
+export function getServerModalLogin(): boolean {
+  return process.env.AUTH_LOGIN_MODAL_LOGIN === 'true' || pluginConfig.modalLogin
+}
+
+/** Serializable settings bridge for separately bundled React server components. */
+export function getServerProviderConfig() {
+  const serialized = process.env.AUTH_LOGIN_PROVIDER_CONFIG
+  const settings = serialized ? JSON.parse(serialized) as {
+    style: AuthStyle; modalLogin: boolean; routeRedirects: boolean; authBasePath: string; passwordLogin: boolean;
+    otpLogin: boolean; allowSignup: boolean; googleOAuthEnabled: boolean; logoUrl?: string
+  } : pluginConfig
+  return settings
 }

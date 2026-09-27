@@ -1,5 +1,7 @@
 'use client'
 
+import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
+
 import React from 'react'
 import { Button, Input, Label, TextField, Spinner } from '@heroui/react'
 import { Icon } from '@iconify/react'
@@ -9,14 +11,13 @@ import { AuthLayout } from '../AuthLayout'
 import type { AuthLayoutConfig } from '../AuthLayout'
 import { AuthCard } from '../AuthCard'
 import type { AuthCardConfig } from '../AuthCard'
-import { getUiTranslations } from '../ui/translations'
 
 export interface SetPasswordPageHeroProps extends AuthLayoutConfig, AuthCardConfig { redirectTo?: string }
 
 export default function SetPasswordPageHero({ redirectTo = '/', logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages }: SetPasswordPageHeroProps) {
   const { password, confirmPassword, error, isLoading, showPassword, strength, setPassword, setConfirmPassword, setShowPassword, handleSubmit } = useSetPasswordFlow({ redirectTo })
   const bars = Array.from({ length: 5 }, (_, i) => i < strength.score)
-  const t = getUiTranslations(locale, messages).setPassword
+  const t = useAuthTranslations(locale, messages).setPassword
 
   return (
     <AuthLayout backgroundClass={backgroundClass}>

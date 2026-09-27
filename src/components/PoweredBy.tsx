@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { useAuthPresentation } from './auth-presentation/AuthPresentationContext'
 
 export interface PoweredByProps {
   enabled?: boolean
@@ -53,14 +54,16 @@ const Main12LogoSVG = ({ width = 28, height = 28 }: { width?: number; height?: n
   </svg>
 );
 
-export const PoweredBy: React.FC<PoweredByProps> = ({
-  enabled = true,
-  logoUrl,
-  linkUrl = 'https://main12.com',
-  width = 28,
-  height = 28,
-  className = '',
-}) => {
+export const PoweredBy: React.FC<PoweredByProps> = (props) => {
+  const presentation = useAuthPresentation({ poweredBy: props })
+  const {
+    enabled = true,
+    logoUrl,
+    linkUrl = 'https://main12.com',
+    width = 28,
+    height = 28,
+  } = presentation.poweredBy ?? {}
+  const { className = '' } = props
   if (!enabled) return null
 
   return (

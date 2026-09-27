@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useAuthNavigation } from '../AuthFlowContext'
 import { sendOtp, checkEmail } from '../services/authService'
 
 /**
  * Forgot password flow: enter email → check exists → send OTP → redirect to verify-otp.
  */
 export function useForgotPasswordFlow() {
-  const router = useRouter()
+  const router = useAuthNavigation()
 
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)

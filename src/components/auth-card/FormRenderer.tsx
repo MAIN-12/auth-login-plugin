@@ -1,8 +1,9 @@
 'use client'
 
 import React, { useState } from 'react'
+import { useAllowSignup } from '../AuthSignupConfig'
 import { pluginConfig, initClientConfig } from '../../config'
-import { detectClientLocale } from '../ui/locale'
+import { useAuthPresentation } from '../auth-presentation/AuthPresentationContext'
 import { getUiTranslations, type DeepPartial, type UiTranslations } from '../ui/translations'
 import { AUTH_FORMS, type AuthFormSlug } from '../forms/index'
 import { FORM_CONFIGS, type FormPropsContext } from './formConfigs'
@@ -15,7 +16,6 @@ export interface FormRendererProps {
   onSignup?: (data: { name: string; email: string }) => Promise<void>
   basePath?: string
   showGoogleOAuth?: boolean
-  allowSignup?: boolean
   passwordLogin?: boolean
   otpLogin?: boolean
   locale?: string
@@ -28,7 +28,7 @@ export interface FormRendererProps {
   cardClassName?: string
   removeBorder?: boolean
   removeShadow?: boolean
-  mobileVariant?: 'plain' | 'card'
+  mobileVariant?: 'plain' | 'card' | 'modal'
 }
 
 const defaultPasswordLogin = async ({ email, password }: { email: string; password: string }) => {
@@ -62,7 +62,6 @@ export function FormRenderer({
   onSignup = defaultSignup,
   basePath = '/auth',
   showGoogleOAuth,
-  allowSignup = true,
   passwordLogin = true,
   otpLogin = true,
   locale,
@@ -77,6 +76,7 @@ export function FormRenderer({
   removeShadow,
   mobileVariant,
 }: FormRendererProps) {
+  const allowSignup = useAllowSignup()
   initClientConfig({
     style: pluginConfig.style,
     googleOAuthEnabled: showGoogleOAuth ?? pluginConfig.googleOAuthEnabled,
@@ -84,8 +84,9 @@ export function FormRenderer({
     otpLogin,
   })
 
-  const resolvedLocale = locale ?? detectClientLocale()
-  const t = getUiTranslations(resolvedLocale, messages)
+  const presentation = useAuthPresentation({ locale, messages })
+  const resolvedLocale = presentation.locale
+  const t = getUiTranslations(resolvedLocale, presentation.messages)
   const normalizedSlug = (Array.isArray(slug) ? slug[0] : slug) as AuthFormSlug
   const base = basePath.replace(/\/$/, '')
 
@@ -107,7 +108,7 @@ export function FormRenderer({
     showGoogleOAuth: showGoogleOAuth ?? pluginConfig.googleOAuthEnabled,
     allowSignup,
     locale: resolvedLocale,
-    messages,
+    messages: presentation.messages,
     setDynamicTitle,
     setDynamicSubtitle,
   }

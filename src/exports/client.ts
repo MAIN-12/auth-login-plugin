@@ -80,3 +80,9 @@ export type { VerifyOtpPageProps } from '../components/pages/VerifyOtpPage'
 export type { SetPasswordPageProps } from '../components/pages/SetPasswordPage'
 export type { AuthLayoutConfig, AuthLayoutProps } from '../components/AuthLayout'
 export type { PoweredByProps } from '../components/PoweredBy'
+
+export { AuthProvider, useAuth } from '../components/AuthProvider'
+export type { AuthProviderProps, AuthContextValue, AuthUser, AuthStatus, OpenLoginOptions } from '../components/AuthProvider'
+
+export type { AuthPresentationProps, AuthLocalizationProps, ResolvedAuthPresentation, PoweredByConfig } from '../components/auth-presentation/types'
+export { useAuthPresentation, useAuthTranslations } from '../components/auth-presentation/AuthPresentationContext'

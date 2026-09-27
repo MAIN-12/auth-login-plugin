@@ -1,5 +1,9 @@
 'use client'
 
+import { useAllowSignup } from '../AuthSignupConfig'
+
+import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
+
 import React, { Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button, Input, Label, TextField, Separator, Spinner } from '@heroui/react'
@@ -10,7 +14,6 @@ import { AuthLayout } from '../AuthLayout'
 import type { AuthLayoutConfig } from '../AuthLayout'
 import { AuthCard } from '../AuthCard'
 import type { AuthCardConfig } from '../AuthCard'
-import { getUiTranslations } from '../ui/translations'
 
 export interface LoginPageHeroProps extends AuthLayoutConfig, AuthCardConfig {
   onPasswordLogin: (credentials: { email: string; password: string }) => Promise<void>
@@ -23,9 +26,10 @@ function LoginHeroContent({
   onPasswordLogin, redirectTo = '/', showGoogleOAuth = true, signupUrl = '/signup',
   logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, locale, messages,
 }: LoginPageHeroProps) {
+  const allowSignup = useAllowSignup()
   const searchParams = useSearchParams()
   const resolvedRedirect = searchParams.get('redirect') || redirectTo
-  const t = getUiTranslations(locale, messages).login
+  const t = useAuthTranslations(locale, messages).login
 
   const {
     step, email, password, error, isLoading, isSendingOtp, showPassword,
@@ -40,7 +44,7 @@ function LoginHeroContent({
     <AuthLayout backgroundClass={backgroundClass}>
     <AuthCard logo={logo} title={stepTitle} subtitle={stepSubtitle}
       poweredBy={poweredBy} cardClassName={cardClassName} removeBorder={removeBorder} removeShadow={removeShadow} mobileVariant={mobileVariant}
-      footer={signupUrl ? (
+      footer={allowSignup && signupUrl ? (
         <p className="text-center text-gray-600 text-sm">
           {t.noAccount}{' '}
           <a href={signupUrl} className="text-gray-900 font-medium hover:underline">{t.signUpLink}</a>
