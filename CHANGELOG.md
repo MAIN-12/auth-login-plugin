@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.2.1
+
+- Scope auth cards and HeroUI dialogs to the light theme so host dark mode does not mix dark surfaces with light-theme text.
+- Apply the same theme across desktop, mobile, and modal layouts without changing the host page theme.
+
 ## 2.2.0
 
 - Match Payload's native OTP login cookie configuration, including custom prefixes, expiry, domain, SameSite, Secure, and token-response suppression.

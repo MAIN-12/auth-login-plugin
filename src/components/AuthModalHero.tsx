@@ -15,7 +15,7 @@ export default function AuthModalHero({ children, onClose, label, closeLabel }: 
   return (
     <Modal.Backdrop isOpen isDismissable onClick={dismissOutside} onOpenChange={open => { if (!open) onClose() }}>
       <Modal.Container size="md" placement="center" scroll="outside">
-        <Modal.Dialog aria-label={label} className="relative bg-white p-2 text-gray-900">
+        <Modal.Dialog aria-label={label} className="light relative bg-white p-2 text-gray-900" data-theme="light" style={{ colorScheme: 'light' }}>
           <Modal.CloseTrigger aria-label={closeLabel} />
           {children}
         </Modal.Dialog>

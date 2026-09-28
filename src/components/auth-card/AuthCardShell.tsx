@@ -49,7 +49,7 @@ export function AuthCardShell({
   ].filter(Boolean).join(' ')
 
   const cardBody = (
-    <div className="w-full max-w-md mx-auto" style={{ maxWidth: '448px' }}>
+    <div className="w-full max-w-md mx-auto light" data-theme="light" style={{ maxWidth: '448px', colorScheme: 'light' }}>
       <Card className={`${cardBorderShadowClass} ${cardClassName}`.trim()}>
         {header}
         <CardContent>{children}</CardContent>
@@ -67,7 +67,7 @@ export function AuthCardShell({
 
   return (
     <>
-      <div className="md:hidden flex flex-col w-full max-w-md mx-auto light [color-scheme:light] px-4 py-8" data-theme="light" style={{ maxWidth: '448px' }}>
+      <div className="md:hidden flex flex-col w-full max-w-md mx-auto light [color-scheme:light] px-4 py-8" data-theme="light" style={{ maxWidth: '448px', colorScheme: 'light' }}>
         {header}
         <div className="px-8 pb-6">{children}</div>
         {footer && <div className="px-8 pb-8 flex justify-center">{footer}</div>}

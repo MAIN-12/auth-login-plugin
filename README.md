@@ -407,6 +407,10 @@ const t = getUiTranslations(locale, messages).login
 - Mount the server `AuthProvider` as shown below to share plugin settings with client auth components. `modalLogin: true` takes precedence over the plugin's proxy redirects.
 - `AuthCard` forms now honor `style: 'hero-ui'` for cards, buttons, inputs, and OTP controls. Both page and modal flows use these shared forms. The older standalone page exports remain available.
 
+## Auth theme
+
+Auth cards and HeroUI login dialogs always use a locally scoped light theme, including when the host app uses dark mode. This keeps the card, inputs, buttons, and text consistent across desktop, mobile, and modal layouts without changing the host page theme or background.
+
 ## Card loading and entrance animation
 
 `AuthCard` uses one loading boundary for its built-in forms and UI controls. While asynchronous UI modules load, it shows a dependency-free spinner with reserved vertical space. Once ready, the complete card appears together with a short Framer Motion fade and upward movement. The same behavior applies to page and modal cards; no extra props or artificial loading delay are needed. Reduced-motion preferences disable the entrance movement and fade.
