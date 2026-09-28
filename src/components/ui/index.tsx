@@ -1,6 +1,7 @@
 'use client'
 
-import React, { lazy, Suspense } from 'react'
+import React, { lazy } from 'react'
+import { AuthLoadingBoundary } from '../auth-card/AuthLoadingBoundary'
 import { useAuthPresentation } from '../auth-presentation/AuthPresentationContext'
 import * as Tailwind from './tailwind'
 
@@ -20,76 +21,76 @@ const HeroOtpInput = lazy(() => import('./hero').then(module => ({ default: modu
 export function Button(props: React.ComponentProps<typeof Tailwind.Button>) {
   const { style } = useAuthPresentation()
   return style === 'hero-ui'
-    ? <Suspense fallback={null}><HeroButton {...props} /></Suspense>
+    ? <AuthLoadingBoundary><HeroButton {...props} /></AuthLoadingBoundary>
     : <Tailwind.Button {...props} />
 }
 
 export function Input(props: React.ComponentProps<typeof Tailwind.Input>) {
   const { style } = useAuthPresentation()
   return style === 'hero-ui'
-    ? <Suspense fallback={null}><HeroInput {...props} /></Suspense>
+    ? <AuthLoadingBoundary><HeroInput {...props} /></AuthLoadingBoundary>
     : <Tailwind.Input {...props} />
 }
 
 export function Card(props: React.ComponentProps<typeof Tailwind.Card>) {
   const { style } = useAuthPresentation()
   return style === 'hero-ui'
-    ? <Suspense fallback={null}><HeroCard {...props} /></Suspense>
+    ? <AuthLoadingBoundary><HeroCard {...props} /></AuthLoadingBoundary>
     : <Tailwind.Card {...props} />
 }
 
 export function CardHeader(props: React.ComponentProps<typeof Tailwind.CardHeader>) {
   const { style } = useAuthPresentation()
   return style === 'hero-ui'
-    ? <Suspense fallback={null}><HeroCardHeader {...props} /></Suspense>
+    ? <AuthLoadingBoundary><HeroCardHeader {...props} /></AuthLoadingBoundary>
     : <Tailwind.CardHeader {...props} />
 }
 
 export function CardContent(props: React.ComponentProps<typeof Tailwind.CardContent>) {
   const { style } = useAuthPresentation()
   return style === 'hero-ui'
-    ? <Suspense fallback={null}><HeroCardContent {...props} /></Suspense>
+    ? <AuthLoadingBoundary><HeroCardContent {...props} /></AuthLoadingBoundary>
     : <Tailwind.CardContent {...props} />
 }
 
 export function CardFooter(props: React.ComponentProps<typeof Tailwind.CardFooter>) {
   const { style } = useAuthPresentation()
   return style === 'hero-ui'
-    ? <Suspense fallback={null}><HeroCardFooter {...props} /></Suspense>
+    ? <AuthLoadingBoundary><HeroCardFooter {...props} /></AuthLoadingBoundary>
     : <Tailwind.CardFooter {...props} />
 }
 
 export function CardTitle(props: React.ComponentProps<typeof Tailwind.CardTitle>) {
   const { style } = useAuthPresentation()
   return style === 'hero-ui'
-    ? <Suspense fallback={null}><HeroCardTitle {...props} /></Suspense>
+    ? <AuthLoadingBoundary><HeroCardTitle {...props} /></AuthLoadingBoundary>
     : <Tailwind.CardTitle {...props} />
 }
 
 export function CardDescription(props: React.ComponentProps<typeof Tailwind.CardDescription>) {
   const { style } = useAuthPresentation()
   return style === 'hero-ui'
-    ? <Suspense fallback={null}><HeroCardDescription {...props} /></Suspense>
+    ? <AuthLoadingBoundary><HeroCardDescription {...props} /></AuthLoadingBoundary>
     : <Tailwind.CardDescription {...props} />
 }
 
 export function Divider(props: React.ComponentProps<typeof Tailwind.Divider>) {
   const { style } = useAuthPresentation()
   return style === 'hero-ui'
-    ? <Suspense fallback={null}><HeroDivider {...props} /></Suspense>
+    ? <AuthLoadingBoundary><HeroDivider {...props} /></AuthLoadingBoundary>
     : <Tailwind.Divider {...props} />
 }
 
 export function Spinner(props: React.ComponentProps<typeof Tailwind.Spinner>) {
   const { style } = useAuthPresentation()
   return style === 'hero-ui'
-    ? <Suspense fallback={null}><HeroSpinner {...props} /></Suspense>
+    ? <AuthLoadingBoundary><HeroSpinner {...props} /></AuthLoadingBoundary>
     : <Tailwind.Spinner {...props} />
 }
 
 export function OtpInput(props: React.ComponentProps<typeof Tailwind.OtpInput>) {
   const { style } = useAuthPresentation()
   return style === 'hero-ui'
-    ? <Suspense fallback={null}><HeroOtpInput {...props} /></Suspense>
+    ? <AuthLoadingBoundary><HeroOtpInput {...props} /></AuthLoadingBoundary>
     : <Tailwind.OtpInput {...props} />
 }

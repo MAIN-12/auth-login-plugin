@@ -24,7 +24,7 @@ plugins: [
 - **5 auth pages** — login (multi-step), signup, forgot password, verify OTP, set password
 - **Single catch-all route** — one file handles all auth pages (`AuthPages` component)
 - **Route redirects** — automatic `/login` → `/auth/login`, `/admin/login` → `/auth/login` via Next.js 16 proxy
-- **Multi-style** — `tailwind` (zero UI deps) or `hero-ui` (HeroUI + framer-motion). Set once in config
+- **Multi-style** — `tailwind` or `hero-ui` (HeroUI), with shared Framer Motion card transitions. Set once in config
 - **Google OAuth** — optional, enable via `providers` config (hidden by default)
 - **5 API endpoints** — `check-email`, `otp/send`, `otp/verify`, `set-password`, `signup`
 - **OTP engine** — SHA-256 hashing + `timingSafeEqual` comparison, 10-min expiry, 3 attempts
@@ -35,7 +35,7 @@ plugins: [
 - **Auto-verify OTP** — automatically verifies when all 6 digits are entered
 - **Smart redirects** — logged-in users are redirected away from auth pages
 - **Google account picker** — always shows account selection by default (`prompt: 'select_account'`)
-- **No UI library required** (Tailwind mode) — only Next.js/React/Payload peers; `style: 'hero-ui'` additionally requires HeroUI + Framer Motion
+- **No UI library required** (Tailwind mode) — Next.js/React/Payload plus Framer Motion for card transitions; `style: 'hero-ui'` additionally requires HeroUI
 - **Multi-language** — built-in English/Spanish, auto-detected per-request, fully overridable via `messages` prop, works with or without next-intl/next-i18next
 
 ---
@@ -46,9 +46,9 @@ plugins: [
 pnpm add @main12/auth-login
 ```
 
-### Tailwind mode (default, zero UI deps — also ShadCN compatible)
+### Tailwind mode (default — also ShadCN compatible)
 
-No extra dependencies needed. The Tailwind style uses standard utility classes that work in any Tailwind project, including ShadCN-based ones.
+Install `framer-motion` for the shared card entrance animation (`pnpm add framer-motion`). The Tailwind style uses standard utility classes that work in any Tailwind project, including ShadCN-based ones.
 
 If you are using Tailwind CSS in your host app, add the plugin to your Tailwind source scanning so custom utility classes compile properly:
 
@@ -406,6 +406,12 @@ const t = getUiTranslations(locale, messages).login
 - Move `locale` and `messages` from `AuthLayout` to `AuthProvider` for shared page/modal defaults, or to an individual `AuthCard`. `AuthLayout` now handles only the page wrapper.
 - Mount the server `AuthProvider` as shown below to share plugin settings with client auth components. `modalLogin: true` takes precedence over the plugin's proxy redirects.
 - `AuthCard` forms now honor `style: 'hero-ui'` for cards, buttons, inputs, and OTP controls. Both page and modal flows use these shared forms. The older standalone page exports remain available.
+
+## Card loading and entrance animation
+
+`AuthCard` uses one loading boundary for its built-in forms and UI controls. While asynchronous UI modules load, it shows a dependency-free spinner with reserved vertical space. Once ready, the complete card appears together with a short Framer Motion fade and upward movement. The same behavior applies to page and modal cards; no extra props or artificial loading delay are needed. Reduced-motion preferences disable the entrance movement and fade.
+
+Install `framer-motion` for either UI style. Form submission spinners remain separate from initial card loading. Custom children that supply their own Suspense boundaries control their own loading behavior; remote images still need explicit dimensions to avoid layout shifts.
 
 ## Optional page textures
 
@@ -978,7 +984,7 @@ The auth-login plugin uses `payload.sendEmail()` internally — which routes thr
 | Next.js | `^16.3.3` | ✅ |
 | React | `^19.0.0` | ✅ |
 | HeroUI | `>=3.2.0` | Only for `style: 'hero-ui'` |
-| Framer Motion | `^12.x` | Only for `style: 'hero-ui'` |
+| Framer Motion | `^12.x` | Shared card entrance animation in both styles |
 
 ---
 

@@ -4,9 +4,10 @@ import { useAllowSignup } from '../AuthSignupConfig'
 
 import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
 
-import React, { Suspense } from 'react'
+import React from 'react'
+import { AuthLoadingBoundary } from '../auth-card/AuthLoadingBoundary'
 import { useAuthSearchParams, AuthLink } from '../../auth/application/AuthFlowContext'
-import { Button, Input, Divider, Spinner } from '../ui/index'
+import { Button, Input, Divider } from '../ui/index'
 import { useLoginFlow } from '../../auth/application/hooks/useLoginFlow'
 import type { AuthLocalizationProps } from '../auth-presentation/types'
 
@@ -132,8 +133,8 @@ function LoginFormContent({
 
 export function LoginForm(props: LoginFormProps) {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center py-8"><Spinner size="lg" /></div>}>
+    <AuthLoadingBoundary>
       <LoginFormContent {...props} />
-    </Suspense>
+    </AuthLoadingBoundary>
   )
 }

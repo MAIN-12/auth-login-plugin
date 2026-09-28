@@ -1,7 +1,8 @@
 'use client'
 
 import React, { Suspense } from 'react'
-import { Spinner } from './ui/index'
+import { AuthCardLoadingContext, AuthLoadingIndicator } from './auth-card/AuthLoadingBoundary'
+import { AuthCardReveal } from './auth-card/AuthCardReveal'
 import type { AuthPresentationProps } from './auth-presentation/types'
 import { AuthPresentationContext, useAuthPresentation } from './auth-presentation/AuthPresentationContext'
 import { AuthCardShell, FormRenderer } from './auth-card/index'
@@ -42,23 +43,19 @@ function hasSlug(props: AuthCardProps): props is AuthCardWithSlugProps {
 
 export const AuthCard: React.FC<AuthCardProps> = (props) => {
   const presentation = useAuthPresentation(props)
-  if (hasSlug(props)) {
-    return (
-      <AuthPresentationContext.Provider value={presentation}>
-        <Suspense fallback={<div className="flex items-center justify-center py-12"><Spinner size="lg" /></div>}>
-          <FormRenderer {...props} />
-        </Suspense>
-      </AuthPresentationContext.Provider>
-    )
-  }
-
-  const { children, ...shellProps } = props as AuthCardWithChildrenProps
+  const content = hasSlug(props)
+    ? <FormRenderer {...props} />
+    : <AuthCardShell {...props}>{props.children}</AuthCardShell>
 
   return (
     <AuthPresentationContext.Provider value={presentation}>
-      <AuthCardShell {...shellProps}>
-        {children}
-      </AuthCardShell>
+      <div style={{ width: '100%', minHeight: 'min(28rem, 70svh)', display: 'grid', alignItems: 'center' }}>
+        <Suspense fallback={<AuthLoadingIndicator />}>
+          <AuthCardLoadingContext.Provider value={true}>
+            <AuthCardReveal>{content}</AuthCardReveal>
+          </AuthCardLoadingContext.Provider>
+        </Suspense>
+      </div>
     </AuthPresentationContext.Provider>
   )
 }

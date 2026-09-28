@@ -40,3 +40,11 @@ it('returns OAuth to local modal destinations and keeps a usable failure page', 
   expect(oauth.options.failureRedirect()).toBe('/auth/login?error=Google%20login%20failed')
   expect(JSON.stringify(getServerProviderConfig())).not.toContain('test-secret')
 })
+
+it('keeps OTP records inaccessible through public collection APIs', async () => {
+  const config = await authLoginPlugin({ providers: { google: false } })({} as Config)
+  const collection = config.collections?.find(({ slug }) => slug === 'auth-otps')
+  for (const operation of ['create', 'read', 'update', 'delete'] as const) {
+    expect(await collection?.access?.[operation]?.({} as any)).toBe(false)
+  }
+})

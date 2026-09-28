@@ -1,6 +1,6 @@
 {
   "name": "@main12/auth-login",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Reusable Payload CMS auth plugin \u2014 login, signup, OTP, forgot password, branded emails, Powered by Main12",
   "license": "MIT",
   "type": "module",
@@ -87,9 +87,6 @@
   },
   "peerDependenciesMeta": {
     "@heroui/react": {
-      "optional": true
-    },
-    "framer-motion": {
       "optional": true
     },
     "next-intl": {

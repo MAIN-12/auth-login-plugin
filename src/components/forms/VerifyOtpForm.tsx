@@ -2,9 +2,10 @@
 
 import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
 
-import React, { Suspense } from 'react'
+import React from 'react'
+import { AuthLoadingBoundary } from '../auth-card/AuthLoadingBoundary'
 import { useAuthSearchParams, AuthLink } from '../../auth/application/AuthFlowContext'
-import { Button, OtpInput, Spinner } from '../ui/index'
+import { Button, OtpInput } from '../ui/index'
 import { useVerifyOtpFlow } from '../../auth/application/hooks/useVerifyOtpFlow'
 import type { AuthLocalizationProps } from '../auth-presentation/types'
 
@@ -75,8 +76,8 @@ function VerifyOtpFormContent({
 
 export function VerifyOtpForm(props: VerifyOtpFormProps) {
   return (
-    <Suspense fallback={<div className="flex items-center justify-center py-8"><Spinner size="lg" /></div>}>
+    <AuthLoadingBoundary>
       <VerifyOtpFormContent {...props} />
-    </Suspense>
+    </AuthLoadingBoundary>
   )
 }

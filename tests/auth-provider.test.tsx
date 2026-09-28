@@ -2,6 +2,7 @@
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { pluginConfig } from '../src/config'
+import { getUiTranslations } from '../src/components/ui/translations'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider, useAuth, type AuthContextValue, type AuthProviderProps } from '../src/components/AuthProvider'
 
@@ -192,5 +193,28 @@ describe('modal authentication flow', () => {
     authenticated = true
     await act(async () => { resolve(Response.json({ success: true })) })
     expect(auth.isLoginOpen).toBe(true)
+  })
+})
+
+
+describe('email lookup failures', () => {
+  it.each([
+    ['server failure', 500, { error: 'Failed to check email' }],
+    ['invalid success response', 200, { error: 'Unexpected response' }],
+  ])('does not report a missing account on %s', async (_name, status, body) => {
+    await mount(); await open()
+    fetchMock.mockResolvedValueOnce(Response.json(body, { status: status as number }))
+    await enterEmail()
+    const text = document.querySelector('dialog')!.textContent
+    expect(text).toContain(getUiTranslations('en').errors.genericError)
+    expect(text).not.toContain(getUiTranslations('en').errors.noAccountFound)
+    expect(document.querySelector('dialog input[type=email]')).toBeTruthy()
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/auth/otp/send', expect.anything())
+  })
+  it('reports a missing account only after a successful negative lookup', async () => {
+    await mount(); await open()
+    fetchMock.mockResolvedValueOnce(Response.json({ exists: false, hasPassword: false, authProvider: null }))
+    await enterEmail()
+    expect(document.querySelector('dialog')!.textContent).toContain(getUiTranslations('en').errors.noAccountFound)
   })
 })

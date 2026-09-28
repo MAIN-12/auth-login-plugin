@@ -49,7 +49,7 @@ export function AuthCardShell({
   ].filter(Boolean).join(' ')
 
   const cardBody = (
-    <div className="w-full max-w-md mx-auto animate-[fadeIn_0.5s_ease-out]" style={{ maxWidth: '448px' }}>
+    <div className="w-full max-w-md mx-auto" style={{ maxWidth: '448px' }}>
       <Card className={`${cardBorderShadowClass} ${cardClassName}`.trim()}>
         {header}
         <CardContent>{children}</CardContent>

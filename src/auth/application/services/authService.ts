@@ -18,7 +18,12 @@ export async function checkEmail(email: string): Promise<CheckEmailResponse> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email: email.trim() }),
   })
-  return response.json()
+  if (!response.ok) throw new Error('Unable to check the account. Please try again.')
+  const data = await response.json()
+  if (!data || typeof data.exists !== 'boolean' || typeof data.hasPassword !== 'boolean') {
+    throw new Error('Invalid account lookup response. Please try again.')
+  }
+  return data
 }
 
 /**

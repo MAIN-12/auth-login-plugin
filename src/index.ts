@@ -187,6 +187,8 @@ export const authLoginPlugin =
       {
         slug: 'auth-otps',
         admin: { hidden: true },
+        // Only trusted Local API operations may read or mutate OTP records.
+        access: { create: () => false, read: () => false, update: () => false, delete: () => false },
         fields: [
           { name: 'email', type: 'email', required: true, index: true },
           { name: 'hash', type: 'text', required: true },

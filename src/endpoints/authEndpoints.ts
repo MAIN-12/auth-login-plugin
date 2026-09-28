@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import type { Endpoint } from 'payload'
+import { generatePayloadCookie, headersWithCors, loginOperation, type Endpoint } from 'payload'
 import { generateOtp, hashOtp, verifyOtp, getOtpExpiry, isOtpExpired } from '../auth/domain/otp'
 import { generateWelcomeEmail, generateOtpEmail, generatePasswordResetEmail } from '../components/email/index'
 import { pluginConfig } from '../config'
@@ -183,33 +183,36 @@ export const verifyOtpEndpoint: Endpoint = {
       })
 
       // Login with the temp password to get a proper JWT token
-      const loginResult = await req.payload.login({
-        collection: 'users',
+      // Use the same operation as Payload's HTTP login handler. The Local API
+      // removes the token early when removeTokenFromResponses is enabled.
+      const collection = req.payload.collections.users
+      const loginResult = await loginOperation({
+        collection,
+        req,
         data: {
           email: email.toLowerCase().trim(),
           password: tempPassword,
         },
       })
 
-      if (!loginResult.user) {
+      if (!loginResult.user || !loginResult.token) {
         throw new Error('Login failed after OTP verification')
       }
 
-      // Set the auth cookie directly on the response
-      const response = Response.json({
-        success: true,
+      const cookie = generatePayloadCookie({
+        collectionAuthConfig: collection.config.auth,
+        cookiePrefix: req.payload.config.cookiePrefix,
         token: loginResult.token,
-        isNewUser: !user?.hasPassword,
       })
-
-      // Attach payload-token cookie
-      const cookieHeader = `payload-token=${loginResult.token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${7200}`
-      return new Response(response.body, {
-        status: 200,
-        headers: {
-          'Content-Type': 'application/json',
-          'Set-Cookie': cookieHeader,
-        },
+      return Response.json({
+        success: true,
+        ...(!collection.config.auth.removeTokenFromResponses ? { token: loginResult.token } : {}),
+        isNewUser: !user?.hasPassword,
+      }, {
+        headers: headersWithCors({
+          headers: new Headers({ 'Set-Cookie': cookie }),
+          req,
+        }),
       })
     } catch (err: any) {
       console.error('OTP verify error:', err)
@@ -240,7 +243,7 @@ export const setPasswordEndpoint: Endpoint = {
 
     try {
       const user = (req as any).user
-      if (!user) {
+      if (!user || user.collection !== 'users') {
         return Response.json({ success: false, message: 'Not authenticated' }, { status: 401 })
       }
 
@@ -248,6 +251,7 @@ export const setPasswordEndpoint: Endpoint = {
         collection: 'users',
         id: user.id,
         data: { password, confirmPassword } as any,
+        req,
       })
 
       return Response.json({ success: true, message: 'Password set successfully' })
