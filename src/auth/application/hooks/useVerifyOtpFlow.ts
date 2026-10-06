@@ -3,11 +3,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useAuthNavigation } from '../AuthFlowContext'
 import { createAuthService } from '../services/authService'
+import { storePasswordProof } from '../services/passwordProof'
 import { useAuthConfig } from '../../../components/AuthConfigContext'
 
 export interface UseVerifyOtpFlowOptions {
   email: string
-  purpose: 'login' | 'signup' | 'password-reset'
+  purpose: 'login' | 'signup' | 'password-reset' | 'reauth'
   redirectTo?: string
   context: string
   retryAfter?: number
@@ -41,7 +42,12 @@ export function useVerifyOtpFlow({ email, purpose, context, retryAfter = 0, redi
     setIsLoading(true)
     setError(null)
     try {
-      if (purpose !== 'login') throw new Error('METHOD_DISABLED')
+      if (purpose !== 'login') {
+        const proof = await createAuthService(pluginConfig).verifyOwnership(email, purpose === 'password-reset' ? 'recovery' : purpose, otp, context)
+        storePasswordProof(pluginConfig, { ...proof, purpose: purpose === 'password-reset' ? 'recovery' : purpose })
+        router.push(`${pluginConfig.authBasePath}/set-password`)
+        return
+      }
       const data = await createAuthService(pluginConfig).verifyOtp(email, otp, context)
       if (data.success) {
         await router.complete(redirectTo)
@@ -72,8 +78,8 @@ export function useVerifyOtpFlow({ email, purpose, context, retryAfter = 0, redi
     setIsResending(true)
     setError(null)
     try {
-      if (purpose !== 'login') throw new Error('METHOD_DISABLED')
-      const data = await createAuthService(pluginConfig).sendOtp(email, context)
+      const service = createAuthService(pluginConfig)
+      const data = await (purpose === 'login' ? service.sendOtp(email, context) : service.sendOwnership(email, purpose === 'password-reset' ? 'recovery' : purpose, context))
       if (data.success) {
         setResendCooldown(data.retryAfter ?? 0)
       } else {

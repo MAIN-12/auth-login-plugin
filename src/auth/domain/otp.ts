@@ -9,12 +9,14 @@ export interface OtpStore {
   transaction<T>(keys: string[], work: (state: OtpStateAccess) => Promise<T>): Promise<T>
 }
 export interface OtpDependencies<T> {
+  purpose?: 'login' | 'signup' | 'recovery' | 'reauth'
   secret: string
   collection: string
   store: OtpStore
   now?: () => number
   random?: () => string
   context?: () => string
+  quotaIdentity?: (account: string | number) => string | number
   findAccount: (email: string) => Promise<string | number | null>
   deliver: (mail: { email: string; code: string }) => Promise<void>
   session: (account: string | number, email: string) => Promise<T>
@@ -25,19 +27,20 @@ export interface OtpDependencies<T> {
   accountLimit?: number
   originLimit?: number
 }
-interface Input { email: string; purpose: 'login'; context?: string; otp?: string }
-function parse(input: unknown, verify: boolean): Input {
+interface Input { email: string; purpose: 'login' | 'signup' | 'recovery' | 'reauth'; context?: string; otp?: string }
+function parse(input: unknown, verify: boolean, purpose: string): Input {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new AuthFailure('INVALID_INPUT', 400)
   const data = input as Record<string, unknown>
-  if (Object.keys(data).some(key => !['email', 'purpose', 'context', ...(verify ? ['otp'] : [])].includes(key)) || typeof data.email !== 'string' || data.email.length > 254 || data.purpose !== 'login') throw new AuthFailure('INVALID_INPUT', 400)
+  if (Object.keys(data).some(key => !['email', 'purpose', 'context', ...(verify ? ['otp'] : [])].includes(key)) || typeof data.email !== 'string' || data.email.length > 254 || data.purpose !== purpose) throw new AuthFailure('INVALID_INPUT', 400)
   const email = data.email.trim().toLowerCase()
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || (data.context !== undefined && (typeof data.context !== 'string' || !/^[a-f0-9]{64}$/.test(data.context))) || (verify && (typeof data.otp !== 'string' || !/^\d{6}$/.test(data.otp) || !data.context))) throw new AuthFailure('INVALID_INPUT', 400)
-  return { email, purpose: 'login', context: data.context as string | undefined, otp: data.otp as string | undefined }
+  return { email, purpose: purpose as Input['purpose'], context: data.context as string | undefined, otp: data.otp as string | undefined }
 }
 /** Rules are transport-independent; only durable adapter transactions own concurrency. */
 export function createOtpFlow<T>(dependencies: OtpDependencies<T>) {
   if (!/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(dependencies.collection)) throw new Error('auth-login: invalid OTP collection')
   if (dependencies.secret.length < 32) throw new Error('auth-login: OTP secret must contain at least 32 characters')
+  const purpose = dependencies.purpose ?? 'login'
   const now = dependencies.now ?? Date.now
   const cooldown = dependencies.cooldownSeconds ?? 60
   const ttl = dependencies.ttlSeconds ?? 300
@@ -46,8 +49,8 @@ export function createOtpFlow<T>(dependencies: OtpDependencies<T>) {
   const originLimit = dependencies.originLimit ?? 50
   for (const value of [cooldown, ttl, attempts, accountLimit, originLimit]) if (!Number.isSafeInteger(value) || value < 1) throw new Error('auth-login: invalid OTP limit')
   const keyed = (value: string) => createHmac('sha256', dependencies.secret).update(value).digest('hex')
-  const accountKeyFor = (email: string) => keyed(JSON.stringify(['account', dependencies.collection, 'login', email]))
-  const bindingFor = (key: string, context: string, account: unknown) => JSON.stringify([dependencies.collection, key, context, 'login', account])
+  const accountKeyFor = (email: string) => keyed(JSON.stringify(['account', dependencies.collection, purpose, email]))
+  const bindingFor = (key: string, context: string, account: unknown) => JSON.stringify([dependencies.collection, key, context, purpose, account])
   const cipherKey = Buffer.from(keyed('otp-encryption-v1'), 'hex')
   const seal = (code: string, binding: string) => {
     const iv = randomBytes(12)
@@ -64,7 +67,7 @@ export function createOtpFlow<T>(dependencies: OtpDependencies<T>) {
   }
   const event = (kind: Parameters<OtpDependencies<T>['event']>[0], correlation: string) => { try { dependencies.event(kind, correlation) } catch { /* Logging never overrides authentication policy. */ } }
   async function send(input: unknown, origin: string | null) {
-    const data = parse(input, false)
+    const data = parse(input, false, purpose)
     if (!origin || origin.length > 512) { event('unavailable', accountKeyFor(data.email)); throw new AuthFailure('AUTH_UNAVAILABLE', 503) }
     const context = data.context ?? (dependencies.context?.() ?? randomBytes(32).toString('hex'))
     const accountKey = accountKeyFor(data.email)
@@ -72,7 +75,7 @@ export function createOtpFlow<T>(dependencies: OtpDependencies<T>) {
     let delivery: { email: string; code: string } | undefined
     try {
       const accountID = await dependencies.findAccount(data.email)
-      const quotaKey = keyed(JSON.stringify(['quota', dependencies.collection, accountID === null ? ['email', data.email] : ['id', accountID]]))
+      const quotaKey = keyed(JSON.stringify(['quota', dependencies.collection, accountID === null ? ['email', data.email] : ['id', dependencies.quotaIdentity?.(accountID) ?? accountID]]))
       await dependencies.store.transaction([accountKey, originKey, quotaKey], async state => {
         const timestamp = now()
         const originState = await state.get(originKey) ?? {}
@@ -108,7 +111,7 @@ export function createOtpFlow<T>(dependencies: OtpDependencies<T>) {
     return { success: true as const, code: 'OTP_REQUEST_ACCEPTED' as const, context, retryAfter: cooldown }
   }
   async function verify(input: unknown): Promise<T> {
-    const data = parse(input, true)
+    const data = parse(input, true, purpose)
     const key = accountKeyFor(data.email)
     let granted: string | number | null = null
     try {

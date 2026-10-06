@@ -36,6 +36,7 @@ export interface UiTranslations {
     passwordMismatch: string
     invalidOtp: string
     otpExpired: string
+    proofExpired: string
   }
   signup: {
     title: string
@@ -78,6 +79,11 @@ export interface UiTranslations {
     confirmPasswordLabel: string
     passwordRequirements: string
     setPassword: string
+    reauthenticationIntro: string
+    currentPasswordLabel: string
+    reauthenticate: string
+    verifyByEmail: string
+    backToLogin: string
   }
 }
 
@@ -115,6 +121,7 @@ const en: UiTranslations = {
     passwordMismatch: 'Passwords do not match.',
     invalidOtp: 'Invalid verification code. Please try again.',
     otpExpired: 'Verification code has expired. Please request a new one.',
+    proofExpired: 'This permission is no longer valid. Request a new code or verify your identity again.',
   },
   signup: {
     title: 'Create Account',
@@ -155,8 +162,13 @@ const en: UiTranslations = {
     subtitle: 'Create a secure password for your account',
     newPasswordLabel: 'New Password',
     confirmPasswordLabel: 'Confirm Password',
-    passwordRequirements: 'At least 8 chars with 3 of: uppercase, lowercase, number, special character',
+    passwordRequirements: 'At least 15 characters; use a unique phrase, not a common or compromised password',
     setPassword: 'Set Password',
+    reauthenticationIntro: 'Verify your identity before changing or adding a password.',
+    currentPasswordLabel: 'Current password',
+    reauthenticate: 'Reauthenticate',
+    verifyByEmail: 'Verify by email',
+    backToLogin: 'Back to login',
   },
 }
 
@@ -189,6 +201,7 @@ const es: UiTranslations = {
     passwordMismatch: 'Las contraseñas no coinciden.',
     invalidOtp: 'Código de verificación inválido. Intenta de nuevo.',
     otpExpired: 'El código de verificación ha expirado. Solicita uno nuevo.',
+    proofExpired: 'Este permiso ya no es válido. Solicita un nuevo código o verifica tu identidad otra vez.',
   },
   signup: {
     title: 'Crear Cuenta',
@@ -229,8 +242,13 @@ const es: UiTranslations = {
     subtitle: 'Crea una contraseña segura para tu cuenta',
     newPasswordLabel: 'Nueva Contraseña',
     confirmPasswordLabel: 'Confirmar Contraseña',
-    passwordRequirements: 'Al menos 8 caracteres con 3 de: mayúscula, minúscula, número, carácter especial',
+    passwordRequirements: 'Al menos 15 caracteres; usa una frase única, no una contraseña común o comprometida',
     setPassword: 'Establecer Contraseña',
+    reauthenticationIntro: 'Verifica tu identidad antes de cambiar o añadir una contraseña.',
+    currentPasswordLabel: 'Contraseña actual',
+    reauthenticate: 'Reautenticar',
+    verifyByEmail: 'Verificar por correo',
+    backToLogin: 'Volver a iniciar sesión',
   },
 }
 

@@ -66,7 +66,7 @@ export function FormRenderer({
   const [dynamicSubtitle, setDynamicSubtitle] = useState<string | undefined>(undefined)
 
   const effectiveSlug: AuthFormSlug =
-    (normalizedSlug === 'signup' && !allowSignup) || (normalizedSlug === 'forgot-password' && !pluginConfig.recovery) || ((normalizedSlug === 'verify-otp' || normalizedSlug === 'set-password') && !pluginConfig.otpLogin && !pluginConfig.recovery) ? 'login' :
+    (normalizedSlug === 'signup' && !allowSignup) || (normalizedSlug === 'forgot-password' && !pluginConfig.recovery) || ((normalizedSlug === 'verify-otp' || normalizedSlug === 'set-password') && !pluginConfig.passwordLogin && !pluginConfig.otpLogin && !pluginConfig.recovery && !pluginConfig.allowSignup) ? 'login' :
     (normalizedSlug in AUTH_FORMS ? normalizedSlug : 'login')
 
   const config = FORM_CONFIGS[effectiveSlug]

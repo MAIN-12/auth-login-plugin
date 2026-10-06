@@ -3,8 +3,9 @@
 import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
 
 import React from 'react'
-import { AuthLink, AuthFlowContext, useAuthNavigation } from '../../auth/application/AuthFlowContext'
-import { initiateGoogleLogin } from '../../auth/application/services/authService'
+import { AuthLink, AuthFlowContext, useAuthNavigation, useAuthSearchParams } from '../../auth/application/AuthFlowContext'
+import { useAuthConfig } from '../AuthConfigContext'
+import { createAuthService, initiateGoogleLogin } from '../../auth/application/services/authService'
 import { Button, Input, Divider } from '../ui/index'
 import type { AuthLocalizationProps } from '../auth-presentation/types'
 
@@ -16,20 +17,21 @@ export interface SignupFormProps extends AuthLocalizationProps {
 }
 
 export function SignupForm({
-  onSignup,
+  onSignup: _onSignup,
   showGoogleOAuth = true,
   loginUrl = '/login',
   verifyOtpUrl = '/verify-otp',
   locale,
   messages,
 }: SignupFormProps) {
+  const config = useAuthConfig()
+  const params = useAuthSearchParams()
   const navigation = useAuthNavigation()
   const flow = React.useContext(AuthFlowContext)
   const redirectTo = flow?.searchParams.get('redirect') || '/'
-  const [name, setName] = React.useState('')
   const [email, setEmail] = React.useState('')
   const [isLoading, setIsLoading] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [error, setError] = React.useState<string | null>(() => params.get('reason') === 'proof-expired' ? 'proofExpired' : null)
   const translations = useAuthTranslations(locale, messages)
   const t = translations.signup
   const errors = translations.errors
@@ -46,10 +48,10 @@ export function SignupForm({
     setIsLoading(true)
     setError(null)
     try {
-      await onSignup({ name, email })
-      navigation.push(`${verifyOtpUrl}?email=${encodeURIComponent(email)}&purpose=signup&redirect=${encodeURIComponent(redirectTo)}`)
-    } catch (err: any) {
-      setError(err.message || 'Signup failed')
+      const sent = await createAuthService(config).sendOwnership(email, 'signup')
+      navigation.push(`${verifyOtpUrl}?email=${encodeURIComponent(email)}&purpose=signup&context=${encodeURIComponent(sent.context ?? '')}&retryAfter=${sent.retryAfter ?? 0}&redirect=${encodeURIComponent(redirectTo)}`)
+    } catch {
+      setError('error')
     } finally {
       setIsLoading(false)
     }
@@ -72,7 +74,6 @@ export function SignupForm({
       )}
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && <div className="bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm animate-[fadeIn_0.2s_ease-out]">{getErrorMessage(error)}</div>}
-        <Input label={t.fullNameLabel} value={name} onValueChange={setName} isRequired />
         <Input type="email" label={t.emailLabel} value={email} onValueChange={setEmail} isRequired />
         <p className="text-xs text-gray-600 text-center">
           {t.termsNotice}{' '}

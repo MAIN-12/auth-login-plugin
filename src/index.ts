@@ -33,7 +33,7 @@ export function authLoginPlugin(options: AuthLoginPluginOptions | { enabled: fal
     const policy = createSessionPolicy(publicConfig.collection, tokenExpiration)
     const disabled = (path: string) => ({ path: `/${path}`,  method: 'post' as const, handler: (req: Parameters<typeof authFailureResponse>[1]) => authFailureResponse(new AuthFailure('METHOD_DISABLED', 403), req) })
     return { ...config, routes: { ...config.routes, api: publicConfig.apiPrefix },
-      onInit: async payload => { await config.onInit?.(payload); if (publicConfig.otpLogin) installNativeSessionCoordination(payload, publicConfig.collection); policy.installStrategy(payload) },
+      onInit: async payload => { await config.onInit?.(payload); installNativeSessionCoordination(payload, publicConfig.collection); policy.installStrategy(payload) },
       endpoints: [...createAuthEndpoints(publicConfig, otpOptions), ...(config.endpoints ?? [])],
       collections: config.collections?.map(collection => collection !== target ? collection : {
         ...target, auth: { ...target.auth as object, tokenExpiration },

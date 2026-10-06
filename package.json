@@ -48,7 +48,10 @@
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
     "test:consumer": "node scripts/test-consumer.mjs",
-    "test:otp:acceptance": "AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_BUNDLER=webpack node scripts/test-consumer.mjs"
+    "test:otp:acceptance": "AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_BUNDLER=webpack node scripts/test-consumer.mjs",
+    "test:password:acceptance": "pnpm test:password:sqlite && pnpm test:password:postgres",
+    "test:password:sqlite": "AUTH_CONSUMER_PASSWORD=1 AUTH_CONSUMER_DB=sqlite AUTH_CONSUMER_BUNDLER=webpack node scripts/test-consumer.mjs",
+    "test:password:postgres": "AUTH_CONSUMER_PASSWORD=1 AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_BUNDLER=webpack node scripts/test-consumer.mjs"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -141,6 +144,7 @@
     "@iconify/react": "6.0.2",
     "@libsql/client": "0.14.0",
     "drizzle-orm": "0.45.2",
-    "jose": "^6.2.12"
+    "jose": "^6.2.12",
+    "zod": "4.6.5"
   }
 }

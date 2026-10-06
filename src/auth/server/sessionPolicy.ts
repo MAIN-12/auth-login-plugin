@@ -1,3 +1,4 @@
+import { isCredentialRequest, isReauthenticationRequest } from './credentialRequest'
 import { isOtpSessionRequest } from './otpSession'
 import { APIError, type CollectionAfterOperationHook as AfterOperationHook, type CollectionBeforeOperationHook as BeforeOperationHook, type Payload, type PayloadRequest } from 'payload'
 import { decodeJwt, decodeProtectedHeader, jwtVerify, SignJWT } from 'jose'
@@ -16,9 +17,9 @@ export function createSessionPolicy(collection: string, lifetime: number) {
       // Server-only credential provisioning is deliberately explicit. A REST/GraphQL
       // request remains untrusted even when a host forwards it to privileged Local API.
       const privilegedProvisioning = req.payloadAPI === 'local' && writeArgs.overrideAccess === true && req.context.authLoginCredentialProvisioning === true
-      if (mutatesCredentials && !privilegedProvisioning) throw new APIError('METHOD_DISABLED', 403)
+      if (mutatesCredentials && !privilegedProvisioning && !isCredentialRequest(req)) throw new APIError('METHOD_DISABLED', 403)
       const mutatesSessionAuthority = data !== null && typeof data === 'object' && ['sessions', '_sid', '_strategy', 'authLoginMethod'].some(key => Object.prototype.hasOwnProperty.call(data, key))
-      if (mutatesSessionAuthority && !privilegedProvisioning) throw new APIError('METHOD_DISABLED', 403)
+      if (mutatesSessionAuthority && !privilegedProvisioning && !isCredentialRequest(req)) throw new APIError('METHOD_DISABLED', 403)
     }
     if (operation === 'forgotPassword' || operation === 'resetPassword') throw new APIError('METHOD_DISABLED', 403)
     if (operation === 'login' && !isOtpSessionRequest(req)) {
@@ -41,6 +42,7 @@ export function createSessionPolicy(collection: string, lifetime: number) {
   }
   const afterOperation: AfterOperationHook = async ({ operation, result, req }) => {
     if (operation !== 'login' && operation !== 'refresh') return result
+    if (operation === 'login' && isReauthenticationRequest(req)) return result
     const authResult = result as { user?: Record<string, unknown>; exp?: number; token?: string; refreshedToken?: string }
     const token = operation === 'login' ? authResult.token : authResult.refreshedToken
     if (!token) throw new APIError('AUTH_FAILED', 401)

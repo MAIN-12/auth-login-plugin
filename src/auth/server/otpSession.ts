@@ -2,13 +2,14 @@ import { randomUUID } from 'node:crypto'
 import { createClient, type Config as SQLiteConfig } from '@libsql/client'
 import { drizzle } from 'drizzle-orm/libsql'
 import { APIError, checkLoginPermission, getFieldsToSign, jwtSign, type Payload, type PayloadRequest } from 'payload'
+import { credentialVersion, isCredentialRequest, isReauthenticationRequest } from './credentialRequest'
 import { applyUserReadAccess } from 'payload/internal'
 
 const otpRequests = new WeakSet<PayloadRequest>()
 /** This proof is unforgeable by HTTP bodies or caller-controlled request context. */
 export const isOtpSessionRequest = (req: PayloadRequest): boolean => otpRequests.has(req)
 type NativeUser = NonNullable<PayloadRequest['user']>
-interface DrizzleDatabase {
+export interface DrizzleDatabase {
   name: string
   tableNameMap: Map<string, string>
   schemaName?: string
@@ -22,7 +23,7 @@ interface DrizzleDatabase {
 /** OTP consumption commits before this adapter runs: failures burn proof rather than replay it.
  * Native user/session storage, hooks, read access and native signing remain authoritative.
  */
-export async function createOtpSession(req: PayloadRequest, userID: string | number, collection: string, expectedEmail: string) {
+export async function createOtpSession(req: PayloadRequest, userID: string | number, collection: string, expectedEmail: string, expectedVersion?: string) {
   const payload = req.payload
   const nativeCollection = payload.collections[collection]
   if (!nativeCollection || !nativeCollection.config.auth || !nativeCollection.config.auth.useSessions) throw new APIError('AUTH_FAILED', 401)
@@ -49,6 +50,7 @@ export async function createOtpSession(req: PayloadRequest, userID: string | num
         // Hooks cannot redirect the proven identity, collection, request or transaction.
         if (args.req !== req || args.collection !== nativeCollection || args.overrideAccess) throw new APIError('AUTH_FAILED', 401)
         const record = await payload.db.findOne({ collection, req, where: { id: { equals: userID } } }) as NativeUser | null
+        if (expectedVersion !== undefined && credentialVersion(req.payload.secret, record) !== expectedVersion) throw new APIError('AUTH_FAILED', 401)
         if (!record || record.email !== expectedEmail || record.deletedAt || record._verified !== true) throw new APIError('AUTH_FAILED', 401)
         let user: NativeUser = record
         checkLoginPermission({ req, user })
@@ -94,7 +96,7 @@ export async function createOtpSession(req: PayloadRequest, userID: string | num
 }
 
 /** Resolve the native adapter table and lock the durable user before every session read/write. */
-async function lockUserRow(db: DrizzleDatabase, tx: unknown, collection: string, userID: string | number): Promise<void> {
+export async function lockUserRow(db: DrizzleDatabase, tx: unknown, collection: string, userID: string | number): Promise<void> {
   const normalized = collection.replace(/([a-z0-9])([A-Z])/g, '$1_$2').replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()
   const tableName = db.tableNameMap.get(collection) ?? db.tableNameMap.get(normalized)
   if (!tableName) throw new APIError('AUTH_FAILED', 401)
@@ -105,7 +107,7 @@ async function lockUserRow(db: DrizzleDatabase, tx: unknown, collection: string,
 }
 
 /** Fresh SQLite connections isolate BUSY failures; never rerun authentication hooks. */
-async function nativeTransaction<T>(db: DrizzleDatabase, work: (tx: unknown) => Promise<T>): Promise<T> {
+export async function nativeTransaction<T>(db: DrizzleDatabase, work: (tx: unknown) => Promise<T>): Promise<T> {
   if (db.name !== 'sqlite') return db.drizzle.transaction(work)
   if (!db.clientConfig || !db.schema) throw new APIError('AUTH_FAILED', 401)
   for (let attempt = 0; ; attempt++) {
@@ -149,7 +151,7 @@ export function installNativeSessionCoordination(payload: Payload, collection: s
   }
   payload.db.findOne = coordinateFind as typeof payload.db.findOne
   const coordinateUpdate: typeof payload.db.updateOne = async args => {
-    if (args.collection !== collection || !Array.isArray(args.data.sessions)) return updateOne(args)
+    if (args.collection !== collection || !Array.isArray(args.data.sessions) || (args.req && isCredentialRequest(args.req as PayloadRequest))) return updateOne(args)
     const req = (args.req ?? { payload }) as PayloadRequest
     // Payload's auth operations use null updatedAt + returning:false. Ordinary
     // collection writes forcibly timestamp their cloned DB input; JSON fields
@@ -178,7 +180,7 @@ export function installNativeSessionCoordination(payload: Payload, collection: s
         const previous = old.get(session.id)
         const existing = merged.find(candidate => candidate.id === session.id)
         if (!previous) {
-          if (!existing) merged.push({ ...session })
+          if (!existing && !isReauthenticationRequest(req)) merged.push({ ...session })
         } else if (existing && new Date(previous.expiresAt).getTime() !== new Date(session.expiresAt).getTime()) {
           existing.expiresAt = session.expiresAt
         }
@@ -190,10 +192,8 @@ export function installNativeSessionCoordination(payload: Payload, collection: s
         session.expiresAt = new Date(expiry)
         return Number.isFinite(expiry) && expiry > Date.now()
       })
-      if (merged.some(session => !old.has(session.id))) {
-        checkLoginPermission({ req, user: current })
-        if (nativeAuthSnapshot && args.data.hash !== undefined && (args.data.hash !== current.hash || args.data.salt !== current.salt)) throw new APIError('AUTH_FAILED', 401)
-      }
+      if (nativeAuthSnapshot && args.data.hash !== undefined && (args.data.hash !== current.hash || args.data.salt !== current.salt)) throw new APIError('AUTH_FAILED', 401)
+      if (merged.some(session => !old.has(session.id)) || isReauthenticationRequest(req)) checkLoginPermission({ req, user: current })
       const { hash: _hash, salt: _salt, password: _password, ...fresh } = current
       // Native auth writes carry a full user snapshot; keep fresh non-session data.
       // Explicit application updates retain their supplied data and access semantics.
@@ -221,7 +221,7 @@ export function installNativeSessionCoordination(payload: Payload, collection: s
     })
   }
   payload.db.updateOne = async args => {
-    if (args.collection !== collection || !Array.isArray(args.data.sessions)) return updateOne(args)
+    if (args.collection !== collection || !Array.isArray(args.data.sessions) || (args.req && isCredentialRequest(args.req as PayloadRequest))) return updateOne(args)
     try { return await coordinateUpdate(args) } catch { throw new APIError('AUTH_UNAVAILABLE', 503) }
   }
 }

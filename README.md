@@ -1,11 +1,11 @@
-# @main12/auth-login — hardened password/OTP-login candidate
+# @main12/auth-login — hardened password/OTP/ownership candidate
 
-This working branch contains **tickets 01–02**, a breaking base-auth/configuration change. It is not a claim that the complete hardening spec or the remaining tickets are finished, and is not ready for publication until the PR gates pass.
+This working branch contains **tickets 01–03**, a breaking base-auth/configuration change. It is not a claim that the complete hardening spec or the remaining tickets are finished, and is not ready for publication until the PR gates pass.
 
 ## Supported flow and explicit limits
 
 - Password login delegates to Payload's real local login operation: existing passwords, hooks, verification, lockouts and field-read filtering remain authoritative. Native `collection.access.read` controls `/me`/CRUD, not whether valid credentials can log in; use rejecting login hooks for host login policy.
-- **Google, signup, recovery and password changes are temporarily unavailable.** Enabling one fails at startup; legacy endpoints and native forgot/reset/first-register routes deny access. Public account discovery is removed.
+- Google remains unavailable; enabling it fails at startup. Signup is closed by default in the explicit configuration. Signup, recovery and managed password changes are available only through the ownership-proof flows below; legacy native forgot/reset/first-register and raw credential CRUD still deny access. Public account discovery stays removed.
 - The target collection requires explicit `auth.useSessions: true`, `auth.verify: true`, email local strategy, and no API keys/custom authentication strategies. A verified account must have trustworthy `_verified: true` evidence. Do not mark legacy accounts verified by default.
 - Initial JWT lifetime is `min(auth.tokenExpiration, session.maxAge)`. `maxAge` defaults to 7200 **seconds**. Refresh cannot exceed `session.createdAt + lifetime`; it cannot lengthen a smaller host token lifetime. Logout revokes the native server session.
 - Host CORS, CSRF and cookie settings remain effective. `removeTokenFromResponses` is honored by login/refresh. The proxy only canonicalizes paths; a cookie is never proof of authentication.
@@ -34,7 +34,7 @@ export const authPlugin = authLoginPlugin({
 })
 ```
 
-Add `authPlugin` to `buildConfig({ plugins: [authPlugin], routes: { api: '/backend' }, ... })`. Configure `customers` with `auth: { useSessions: true, verify: true, removeTokenFromResponses: true, ... }`. Preserve collection access/hooks. Privileged account provisioning remains the consumer's responsibility; anonymous CRUD creation is denied by the plugin. Until ticket03 implements recent reauthentication, password/confirmPassword/hash/salt writes through native REST/GraphQL create/update are also disabled, even with a current cookie. Public writes to native session-authority fields (`sessions`, `_sid`, `_strategy`, `authLoginMethod`) are also denied to prevent session resurrection. Ordinary authorized profile updates such as email retain native behavior. Server maintenance must use an explicit Local API call, not an HTTP request forwarded with access overrides:
+Add `authPlugin` to `buildConfig({ plugins: [authPlugin], routes: { api: '/backend' }, ... })`. Configure `customers` with `auth: { useSessions: true, verify: true, removeTokenFromResponses: true, ... }`. Preserve collection access/hooks. Privileged account provisioning remains the consumer's responsibility; anonymous CRUD creation is denied by the plugin. Raw password/confirmPassword/hash/salt writes through native REST/GraphQL create/update are also disabled, even with a current cookie. Public writes to native session-authority fields (`sessions`, `_sid`, `_strategy`, `authLoginMethod`) are also denied to prevent session resurrection. Ordinary authorized profile updates such as email retain native behavior. Server maintenance must use an explicit Local API call, not an HTTP request forwarded with access overrides:
 
 ```ts
 await payload.create({
@@ -96,6 +96,32 @@ The adapter creates a private SQL table `auth_login_otp_security` lazily. Its re
 
 Resend reuses the original code, context, expiry and remaining attempts. Another browser cannot replace a live challenge; it must retain its initial context or wait until expiry. Native session writes apply snapshot additions/deletions under fresh locks, never a naive union. Logout-all revokes every observed preexisting session; an overlapping newly authorized login can legally linearize after logout and survive. Mail reservations commit before delivery: a crash or SMTP failure can lose a send, but cannot reset budgets. Automatic mail retry is deliberately disabled; one resend is allowed after cooldown. Verification consumes proof before native session creation: a denying hook/session failure burns the proof, so request a new challenge after cooldown instead of replaying it. This is at-most-once authorization, not exactly-once delivery.
 
+## Signup, recovery and password management
+
+Enable `allowSignup: true` and/or `recovery: true` with `passwordLogin: true` and the same explicit `otp` server options above. Recovery works with `otpLogin: false`; enabling recovery never enables OTP application login. Google remains disabled. Public registration needs a frontend-only `access.admin: () => false` policy: creation rolls back if host defaults/hooks make the new account admin eligible. Native account creation is still denied anonymously, and arbitrary fields/roles are rejected by the managed signup contract. Consumer hooks can intentionally deny provisioning; unknown required consumer fields must be provisioned by an authorized host flow instead of accepting arbitrary public input.
+
+No user, name, password or session is reserved during signup. Only a short-lived, purpose/browser-bound email challenge is stored. Another browser cannot replace a live challenge; its bounded TTL prevents an indefinite reservation. Verification issues an **opaque, AEAD-encrypted completion permit valid for ten minutes**, not an application token or cookie. Only then does the owner choose a password. Duplicate signup requests have the same accepted issuance contract; an existing account is never overwritten. Completing signup requires a fresh login.
+
+Recovery issues the same limited ten-minute permit, bound to the original account, email, credential version and purpose. It only replaces an existing native hash/salt: passwordless/unknown credentials are not inferred from public fields and do not gain a password through recovery. Requesting or verifying recovery does not revoke sessions. Confirming a valid password changes the native credential, establishes email verification from that ownership proof, revokes **all** sessions and invalidates all outstanding credential-version-bound permits/OTP proofs in one native transaction. No automatic login occurs. Existing unknown-verification password accounts can use this explicit ownership reset; other unknown-verification accounts require an authorized verification process. Lost legacy passwords are not reconstructible.
+
+Voluntary change or explicit password addition requires an authenticated current session and a five-minute reauthentication permit bound to that SID/account. Password reauthentication runs native Payload permission, password, lockout and login hooks. An unforgeable request-local capability suppresses the new native SID, so even a token observed by login hooks cannot authenticate; no new session/token/cookie is returned. An OTP-enabled account can instead prove email ownership with purpose `reauth`, including a passwordless account adding its first password while password login is enabled. The proof never enables a disabled method. Confirmation revokes all other sessions and replaces the current SID, preserving its original `createdAt` and absolute cap; refresh cannot turn the rotation into an unlimited extension. Hook errors roll back credential/session/permit consumption together; the owner can retry the unconsumed, still-current permit.
+
+| Managed HTTP surface | Bounded JSON / result |
+|---|---|
+| `POST /backend/access/otp/send` | `{ email, purpose: 'signup' \| 'recovery' \| 'reauth', context? }`; generic accepted issuance contract |
+| `POST /backend/access/otp/verify` | `{ email, purpose, context, otp }`; `{ success: true, permit, expiresAt }`, never a login cookie/token |
+| `POST /backend/access/forgot-password` | `{ email, context? }`; convenience alias for recovery issuance |
+| `POST /backend/access/signup` | `{ permit, password }`; commit the verified owner's account, no session |
+| `POST /backend/access/reset-password` | `{ permit, password }`; atomic credential/reset/revoke-all, then fresh login |
+| `POST /backend/access/reauthenticate` | `{ password }` plus authenticated native cookie; five-minute limited permit |
+| `POST /backend/access/set-password` | `{ permit, password }` plus the exact authenticated SID; capped rotated cookie/token honoring `removeTokenFromResponses` |
+
+Every permit is one use via a durable nonce-consumption record committed with the credential, so deleting an account cannot make signup permits reusable. Extra account/email/role fields cannot retarget a permit. The public UI completes signup/recovery through email → verify → set password → login. The existing `set-password` form offers password or enabled-email reauthentication for voluntary change/addition. Its per-tab `sessionStorage` continuation is scoped by API/endpoint/collection, cleared on success/expiry, and never put in a URL; it is not session authority or protection against XSS. Closing the tab/restarting the flow is safe. A mounted permit expires back to its purpose-specific signup/recovery start or reauthentication screen; authoritative `AUTH_FAILED` clears the invalid continuation. Transient `AUTH_UNAVAILABLE` and correctable `INVALID_INPUT` keep the still-valid proof for retry. Legacy `onSignup` callbacks are retained as deprecated prop types but no longer create accounts: the managed form uses the configured ownership API directly.
+
+New passwords require **15 Unicode characters**, allow phrases/Unicode/paste without composition rules, and use the same client/server rule. Legacy password login is not revalidated against this new rule. A versioned, exact-match local SecLists common/compromised-derived 100,000-password corpus is included with its MIT notice; this is not exhaustive breach screening. Provenance, hashes, limitations and deterministic update/rollback checks live in `tests/evidence/issue03-blocklist.md`. Updating it changes new-password policy only, never invalidates stored legacy credentials.
+
+Private tables `auth_login_credential_locks` and `auth_login_password_permits` have no Payload CRUD surface. All instances must share the supported native SQLite/PostgreSQL database and secrets. Preserve these and `auth_login_otp_security` through schema push/migrations: Payload does not manage their schema and may propose deleting them. Do not accept that deletion. Consumption records can be deleted only after their `expires_at` millisecond deadline; live records must survive rollback/restore or permits could replay. Email lock rows are keyed, not email plaintext, and currently have no automatic cleanup: quiesce all instances before maintenance. OTP/security state retention and table growth remain consumer operator responsibilities. Security-key rotation invalidates old proofs; restoring an old key/state snapshot must not revive revoked credentials/sessions/permits.
+
 ## HTTP contract
 
 With the example prefixes:
@@ -123,7 +149,7 @@ The credential adapter reads native hash/salt only within protected server stora
 
 1. Back up accounts, native sessions and OTP storage before deployment. Preserve hashes/salts and account identifiers.
 2. Apply the explicit options and RSC/client/proxy props above. Remove `pluginConfig`, `initClientConfig`, `AUTH_LOGIN_*` and implicit Google environment detection. API/base paths must be configured explicitly across boundaries.
-3. Establish trustworthy email-verification evidence through your existing authorized process; unknown/unverified accounts remain denied. This ticket does not implement signup verification or repair passwords destroyed by legacy OTP.
+3. Establish trustworthy email-verification evidence through your existing authorized process; unknown/unverified accounts remain denied. The ownership-proof signup/reset flows below establish verification only after email control is proved; legacy unknown accounts are not marked verified automatically. Passwords destroyed by legacy OTP cannot be reconstructed.
 4. During the announced security cutover, revoke all legacy native sessions and delete legacy OTP challenges through an authorized maintenance process. Do not delete accounts or change passwords. The complete migration/rollback rehearsal belongs to ticket 06; this ticket provides the session/auth base only.
 5. A rollback must retain the revocations and disabled unsafe flows. Do **not** restore revoked sessions/codes or silently redeploy legacy OTP password substitution. Restore availability through the last security-equivalent artifact or keep access disabled; restoring a database backup must not restore security artifacts as valid.
 
@@ -133,7 +159,9 @@ The package version is intentionally not a release promise on this branch. Publi
 
 - `src/config.ts`: pure instance/public contract, no React/Next/Payload imports.
 - `src/auth/domain/login.ts`: input/method policy and login use case with explicit authentication dependency, no transport/framework imports.
-- `src/endpoints/authEndpoints.ts`: HTTP validation, translation and Payload-bound adapter composition.
+- `src/endpoints/authEndpoints.ts` and `passwordEndpoints.ts`: HTTP translation and Payload-bound adapter composition; `authSchemas.ts` declares strict Zod interfaces without duplicating authorization policy.
+- `src/auth/application/ownershipVerification.ts`: purpose-specific account eligibility with explicit native account/evidence/principal/grant dependencies; no transport or Payload imports.
+- `src/auth/domain/proofBinding.ts`: shared named proof-reference codec; quotas preserve durable account identity rather than positional serialization.
 - `src/auth/server/sessionPolicy.ts` and `credentialEvidence.ts`: declared Payload-specific native storage/session seams; not a general portable authentication framework.
 - `src/components/AuthConfigContext.tsx`: isolated per-tree client settings. Client entrypoint must not import the server session/credential adapters.
 - `src/exports/client.ts`, `rsc.ts`, `src/proxy.ts`: consumer surfaces; do not infer settings from another bundle's globals.

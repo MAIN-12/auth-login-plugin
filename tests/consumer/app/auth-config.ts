@@ -5,23 +5,24 @@ import { postgresAdapter } from '@payloadcms/db-postgres'
 import type { SendEmailOptions } from 'payload'
 
 // Next entry chunks can evaluate this module separately; the disposable process owns one fixture.
-const fixtureGlobal = globalThis as typeof globalThis & { __otpAcceptance?: { now: number; failMail: boolean; inbox: SendEmailOptions[]; logs: string[] } }
-export const fixture = fixtureGlobal.__otpAcceptance ??= { now: Date.now(), failMail: false, inbox: [], logs: [] }
+const fixtureGlobal = globalThis as typeof globalThis & { __otpAcceptance?: { now: number; failMail: boolean; failCredentialWrite: boolean; loginBarrier?: { email: string; entered: boolean; released: boolean }; inbox: SendEmailOptions[]; logs: string[] } }
+export const fixture = fixtureGlobal.__otpAcceptance ??= { now: Date.now(), failMail: false, failCredentialWrite: false, inbox: [], logs: [] }
 export const inbox = fixture.inbox
 export const capturedLogs = fixture.logs
-const otpEnabled = process.env.AUTH_CONSUMER_OTP === '1'
+const lifecycle = process.env.AUTH_CONSUMER_PASSWORD === '1'
+const otpEnabled = process.env.AUTH_CONSUMER_OTP === '1' || lifecycle
 
 const port = Number(process.env.AUTH_CONSUMER_PORT)
 export const plugin = authLoginPlugin({
   collection: 'customers', apiPrefix: '/backend', authEndpointPrefix: '/access',
-  passwordLogin: true, otpLogin: otpEnabled,
+  passwordLogin: true, otpLogin: process.env.AUTH_CONSUMER_OTP === '1',
   ...(otpEnabled ? { otp: {
     secret: 'consumer-only-otp-secret-not-production',
     origin: () => 'trusted-loopback-fixture', now: () => fixture.now,
     cooldownSeconds: 1, accountLimit: 5, originLimit: 50,
     email: { from: 'auth@example.test', locale: 'en' as const },
   } } : {}),
-  providers: { google: false }, allowSignup: false, recovery: false,
+  providers: { google: false }, allowSignup: lifecycle, recovery: lifecycle,
   modalLogin: true, logo: '/brand.svg', session: { maxAge: otpEnabled ? 600 : 60 },
 })
 export const config = buildConfig({
@@ -29,15 +30,24 @@ export const config = buildConfig({
   serverURL: `http://127.0.0.1:${port}`, routes: { api: '/backend' },
   csrf: [`http://127.0.0.1:${port}`], cors: [`http://127.0.0.1:${port}`],
   ...(otpEnabled ? { logger: { options: { level: 'info' }, destination: { write: (chunk: string) => { capturedLogs.push(chunk) } } } } : {}),
-  telemetry: false, db: process.env.AUTH_CONSUMER_DATABASE_URL ? postgresAdapter({ pool: { connectionString: process.env.AUTH_CONSUMER_DATABASE_URL }, push: process.env.AUTH_CONSUMER_SECONDARY !== '1' }) : sqliteAdapter({ client: { url: `file:${process.cwd()}/consumer.db` }, push: true }),
+  telemetry: false, db: process.env.AUTH_CONSUMER_DATABASE_URL ? postgresAdapter({ pool: { connectionString: process.env.AUTH_CONSUMER_DATABASE_URL }, push: process.env.AUTH_CONSUMER_SECONDARY !== '1' }) : sqliteAdapter({ client: { url: `file:${process.cwd()}/consumer.db` }, push: process.env.AUTH_CONSUMER_SECONDARY !== '1' }),
   email: () => ({ name: 'server-only-test-inbox', defaultFromAddress: 'auth@example.test', defaultFromName: 'Acceptance', sendEmail: async message => { if (fixture.failMail) throw new Error('fixture mail failure'); inbox.push({ ...message, date: new Date(fixture.now) }) } }),
-  collections: [{ slug: 'customers', auth: { verify: true, useSessions: true, tokenExpiration: 7200, removeTokenFromResponses: true, cookies: { sameSite: 'Lax' } }, access: { admin: () => false, read: ({ req }) => Boolean(req.user), create: () => false }, fields: [] }],
+  collections: [{ slug: 'customers', auth: { verify: true, useSessions: true, tokenExpiration: 7200, removeTokenFromResponses: true, cookies: { sameSite: 'Lax' } }, access: { admin: () => false, read: ({ req }) => Boolean(req.user), create: () => false }, fields: [{ name: 'role', type: 'text', defaultValue: 'customer' }], hooks: { beforeChange: [({ data }) => { if (fixture.failCredentialWrite && data.password) throw new Error('fixture credential write failure'); return data }] } }],
   plugins: [plugin],
   onInit: async payload => {
     if (process.env.AUTH_CONSUMER_SECONDARY === '1') return
-    for (const email of otpEnabled ? ['browser@example.com', 'race@example.com', 'attempts@example.com', 'ttl@example.com', 'mail@example.com', 'limit@example.com', 'password-race@example.com', 'logout-race@example.com', 'refresh-race@example.com', 'replacement@example.com'] : ['browser@example.com']) {
+    for (const email of otpEnabled ? ['browser@example.com', 'race@example.com', 'attempts@example.com', 'ttl@example.com', 'mail@example.com', 'limit@example.com', 'password-race@example.com', 'logout-race@example.com', 'refresh-race@example.com', 'replacement@example.com', 'pending-password@example.com'] : ['browser@example.com']) {
       const users = await payload.find({ collection: 'customers', where: { email: { equals: email } }, overrideAccess: true })
       if (!users.docs.length) await payload.create({ collection: 'customers', data: { email, password: 'actual-browser-test-password', _verified: true }, disableVerificationEmail: true, overrideAccess: true, context: { authLoginCredentialProvisioning: true } })
+    }
+    if (lifecycle) {
+      for (const [email, password] of [['legacy@example.com', 'short'], ['passwordless@example.com', undefined]] as const) {
+        const users = await payload.find({ collection: 'customers', where: { email: { equals: email } }, overrideAccess: true })
+        if (!users.docs.length) {
+          const user = await payload.create({ collection: 'customers', data: { email, password: password ?? 'discarded provisioning credential', _verified: true }, disableVerificationEmail: true, overrideAccess: true, context: { authLoginCredentialProvisioning: true } })
+          if (!password) await payload.db.updateOne({ collection: 'customers', id: user.id, data: { ...user, hash: null, salt: null }, returning: false })
+        }
+      }
     }
   },
 })

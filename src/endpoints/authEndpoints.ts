@@ -4,13 +4,17 @@ import { AuthFailure, createPasswordLogin } from '../auth/domain/login'
 import { readCredentialCapabilities } from '../auth/server/credentialEvidence'
 import { credentialCapabilities } from '../auth/domain/credentials'
 
+import { decodeProofBinding, encodeProofBinding, proofQuotaIdentity } from '../auth/domain/proofBinding'
+import { otpSendSchema, otpVerifySchema, parseAuthInterface } from './authSchemas'
 import { createOtpFlow } from '../auth/domain/otp'
 import { createPayloadOtpStore } from '../auth/server/otpStore'
+import { credentialVersion } from '../auth/server/credentialRequest'
 import { createOtpSession } from '../auth/server/otpSession'
+import { createPasswordEndpoints, createOwnershipOtpEndpoint } from './passwordEndpoints'
 import { otpEmail } from '../auth/server/otpEmail'
 
 const MAX_BODY_BYTES = 4096
-async function readJSON(req: PayloadRequest): Promise<unknown> {
+export async function readJSON(req: PayloadRequest): Promise<unknown> {
   if (!req.headers.get('content-type')?.split(';')[0].trim().toLowerCase().endsWith('/json')) throw new AuthFailure('INVALID_INPUT', 400)
   const length = req.headers.get('content-length')
   if (length && Number(length) > MAX_BODY_BYTES) throw new AuthFailure('INVALID_INPUT', 400)
@@ -64,14 +68,14 @@ export function createPasswordLoginEndpoint(settings: PublicAuthConfig, path = `
 }
 export function createAuthEndpoints(settings: PublicAuthConfig, otpOptions?: OtpOptions): Endpoint[] {
   const disabled: Endpoint['handler'] = req => authFailureResponse(new AuthFailure('METHOD_DISABLED', 403), req)
-  return [createPasswordLoginEndpoint(settings), ...createOtpEndpoints(settings, otpOptions),
+  return [createPasswordLoginEndpoint(settings), ...createOtpEndpoints(settings, otpOptions), ...createPasswordEndpoints(settings, otpOptions),
     { path: `${settings.authEndpointPrefix}/check-email`, method: 'post', handler: disabled },
     { path: `${settings.authEndpointPrefix}/credentials`, method: 'get', handler: async req => {
       if (!req.user || req.user.collection !== settings.collection) return authFailureResponse(new AuthFailure('UNAUTHENTICATED', 401), req)
       try { return Response.json({ capabilities: await readCredentialCapabilities(req, settings.collection) }) }
       catch { return authFailureResponse(new AuthFailure('AUTH_UNAVAILABLE', 503), req) }
     } },
-    ...['signup', 'set-password', 'forgot-password', 'reset-password', 'oauth/google', 'oauth/google/callback'].map(path => ({ path: `${settings.authEndpointPrefix}/${path}`, method: 'post' as const, handler: disabled })),
+    ...['oauth/google', 'oauth/google/callback'].map(path => ({ path: `${settings.authEndpointPrefix}/${path}`, method: 'post' as const, handler: disabled })),
   ]
 }
 
@@ -95,16 +99,21 @@ export function createRefreshEndpoint(settings: PublicAuthConfig): Endpoint {
 
 function createOtpEndpoints(settings: PublicAuthConfig, options?: OtpOptions): Endpoint[] {
   return ['send', 'verify'].map(action => ({ path: `${settings.authEndpointPrefix}/otp/${action}`, method: 'post', handler: async req => {
+    if (!settings.otpLogin && !settings.allowSignup && !settings.recovery) return authFailureResponse(new AuthFailure('METHOD_DISABLED', 403), req)
+    let purpose: { input: unknown; purpose: unknown }
+    try { const input = parseAuthInterface(action === 'send' ? otpSendSchema : otpVerifySchema, await readJSON(req)); purpose = { input, purpose: input.purpose } } catch (error) { return authFailureResponse(error, req) }
+    if (purpose.input && purpose.purpose !== 'login') return createOwnershipOtpEndpoint(settings, options, action, purpose.input).handler(req)
     if (!settings.otpLogin || !options) return authFailureResponse(new AuthFailure('METHOD_DISABLED', 403), req)
     try {
       assertAllowedOrigin(req)
-      const input = await readJSON(req)
+      const input = purpose.input
       const flow = createOtpFlow({ ...options, collection: settings.collection, store: createPayloadOtpStore(req),
         findAccount: async email => {
           const account = await req.payload.db.findOne({ collection: settings.collection, req, where: { email: { equals: email } } })
-          return account?.id ?? null
+          return account ? encodeProofBinding({ accountID: account.id, version: credentialVersion(req.payload.secret, account) }) : null
         },
-        session: (account, email) => createOtpSession(req, account, settings.collection, email),
+        quotaIdentity: proofQuotaIdentity,
+        session: (account, email) => { const binding = decodeProofBinding(account); if (binding.accountID === null) throw new AuthFailure('AUTH_FAILED', 401); return createOtpSession(req, binding.accountID, settings.collection, email, binding.version) },
         deliver: async ({ email, code }) => {
           const mail = otpEmail(code, options.email)
           await req.payload.sendEmail({ to: email, ...(options.email ? { from: options.email.from } : {}), ...mail })
