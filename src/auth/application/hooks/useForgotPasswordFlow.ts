@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useAuthNavigation } from '../AuthFlowContext'
-import { sendOtp, checkEmail } from '../services/authService'
+import { sendOtp } from '../services/authService'
 
 /**
  * Forgot password flow: enter email → check exists → send OTP → redirect to verify-otp.
@@ -22,12 +22,6 @@ export function useForgotPasswordFlow() {
       setError(null)
 
       try {
-        const check = await checkEmail(email)
-        if (!check.exists) {
-          setError('noAccountFound')
-          return
-        }
-
         const data = await sendOtp(email, 'password-reset')
         if (data.success) {
           router.push(

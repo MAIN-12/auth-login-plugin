@@ -1,80 +1,77 @@
-import type React from 'react'
-
-/**
- * Shared plugin configuration — set by the plugin factory at init time,
- * read by all client components at render time.
- */
 export type AuthStyle = 'tailwind' | 'hero-ui'
 
-/** Serializable auth config that can be written to/read from file */
-export interface SerializableAuthConfig {
-  googleOAuthEnabled: boolean
-  style: AuthStyle
-  allowSignup: boolean
-  passwordLogin: boolean
-  otpLogin: boolean
+/** Only this explicit, immutable value crosses server/client boundaries. */
+export interface PublicAuthConfig {
+  readonly collection: string
+  readonly apiPrefix: string
+  readonly authEndpointPrefix: string
+  readonly authBasePath: string
+  readonly style: AuthStyle
+  readonly logoUrl?: string
+  readonly projectName?: string
+  readonly passwordLogin: boolean
+  readonly otpLogin: boolean
+  readonly googleOAuthEnabled: boolean
+  readonly allowSignup: boolean
+  readonly recovery: boolean
+  readonly modalLogin: boolean
+  readonly routeRedirects: boolean
 }
+export type SerializableAuthConfig = PublicAuthConfig
 
-export const pluginConfig: {
-  _initialized: boolean
-  style: AuthStyle
-  logoUrl?: string
-  Logo?: React.ComponentType
-  googleOAuthEnabled: boolean
-  modalLogin: boolean
-  routeRedirects: boolean
-  authBasePath: string
-  passwordLogin: boolean
-  otpLogin: boolean
-  allowSignup: boolean
-} = {
-  _initialized: false,
-  style: 'tailwind',
-  googleOAuthEnabled: false,
-  modalLogin: false,
-  routeRedirects: false,
-  authBasePath: '/auth',
-  passwordLogin: true,
-  otpLogin: true,
-  allowSignup: true,
-}
-
-/** Resolve config across Payload and Next server module boundaries. */
-export function getServerAllowSignup(): boolean {
-  if (process.env.AUTH_LOGIN_ALLOW_SIGNUP === 'false') return false
-  if (process.env.AUTH_LOGIN_ALLOW_SIGNUP === 'true') return true
-  return pluginConfig.allowSignup
-}
-
-export function getServerGoogleOAuthEnabled(): boolean {
-  if (process.env.AUTH_LOGIN_GOOGLE_OAUTH === 'false') return false
-  if (process.env.AUTH_LOGIN_GOOGLE_OAUTH === 'true') return true
-  return pluginConfig.googleOAuthEnabled || Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET)
-}
-
-/** Call this client-side to mirror the server plugin config. */
-export function initClientConfig(opts: {
+export interface AuthLoginPluginOptions {
+  enabled?: boolean
+  collection?: string
+  apiPrefix?: string
+  authEndpointPrefix?: string
+  basePath?: string
   style?: AuthStyle
-  googleOAuthEnabled?: boolean
-  passwordLogin?: boolean
-  otpLogin?: boolean
-}) {
-  if (opts.style) pluginConfig.style = opts.style
-  if (opts.googleOAuthEnabled !== undefined) pluginConfig.googleOAuthEnabled = opts.googleOAuthEnabled
-  if (opts.passwordLogin !== undefined) pluginConfig.passwordLogin = opts.passwordLogin
-  if (opts.otpLogin !== undefined) pluginConfig.otpLogin = opts.otpLogin
-}
-/** Server/proxy config may be bundled separately from the plugin factory. */
-export function getServerModalLogin(): boolean {
-  return process.env.AUTH_LOGIN_MODAL_LOGIN === 'true' || pluginConfig.modalLogin
+  logo?: string
+  projectName?: string
+  passwordLogin: boolean
+  otpLogin: boolean
+  providers: { google: false | { enabled: boolean; clientId?: string; clientSecret?: string } }
+  allowSignup: boolean
+  recovery: boolean
+  /** Seconds; absolute lifetime measured from Payload session.createdAt. Default 7200. */
+  session?: { maxAge?: number }
+  modalLogin?: boolean
+  routeRedirects?: boolean | { basePath?: string }
 }
 
-/** Serializable settings bridge for separately bundled React server components. */
-export function getServerProviderConfig() {
-  const serialized = process.env.AUTH_LOGIN_PROVIDER_CONFIG
-  const settings = serialized ? JSON.parse(serialized) as {
-    style: AuthStyle; modalLogin: boolean; routeRedirects: boolean; authBasePath: string; passwordLogin: boolean;
-    otpLogin: boolean; allowSignup: boolean; googleOAuthEnabled: boolean; logoUrl?: string
-  } : pluginConfig
-  return settings
+export function resolveAuthConfig(options: AuthLoginPluginOptions): PublicAuthConfig {
+  if (!options || typeof options !== 'object' || Array.isArray(options)) throw new Error('auth-login: options must be an object')
+  for (const key of ['enabled', 'modalLogin'] as const) {
+    if (options[key] !== undefined && typeof options[key] !== 'boolean') throw new Error(`auth-login: invalid ${key}`)
+  }
+  if (options.routeRedirects !== undefined && typeof options.routeRedirects !== 'boolean' && (typeof options.routeRedirects !== 'object' || options.routeRedirects === null || Array.isArray(options.routeRedirects))) throw new Error('auth-login: invalid routeRedirects')
+  if (options.projectName !== undefined && typeof options.projectName !== 'string') throw new Error('auth-login: invalid projectName')
+  if (options.session !== undefined && (typeof options.session !== 'object' || options.session === null || Array.isArray(options.session))) throw new Error('auth-login: invalid session')
+  const google = options.providers?.google
+  for (const key of ['passwordLogin', 'otpLogin', 'allowSignup', 'recovery'] as const) {
+    if (typeof options[key] !== 'boolean') throw new Error(`auth-login: ${key} must be explicit`)
+  }
+  if (google !== false && (typeof google !== 'object' || typeof google.enabled !== 'boolean')) throw new Error('auth-login: providers.google must be explicit')
+  const googleEnabled = google !== false && google.enabled
+  if (options.otpLogin || googleEnabled || options.allowSignup || options.recovery) throw new Error('auth-login: OTP, Google, signup and recovery are unavailable until their hardened implementations ship')
+  if (!options.passwordLogin) throw new Error('auth-login: no usable login method')
+  const maxAge = options.session?.maxAge ?? 7200
+  if (!Number.isSafeInteger(maxAge) || maxAge < 1) throw new Error('auth-login: session.maxAge must be a positive integer in seconds')
+  const path = (value: string, label: string) => {
+    if (typeof value !== 'string' || !/^\/[a-zA-Z0-9/_-]+$/.test(value) || value.includes('//') || value.endsWith('/')) throw new Error(`auth-login: invalid ${label}`)
+    return value
+  }
+  const collection = options.collection ?? 'users'
+  if (typeof collection !== 'string' || !/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(collection)) throw new Error('auth-login: invalid collection')
+  if (options.style !== undefined && options.style !== 'tailwind' && options.style !== 'hero-ui') throw new Error('auth-login: invalid style')
+  if (options.logo !== undefined && typeof options.logo !== 'string') throw new Error('auth-login: logo must be a serializable URL; pass React branding directly to UI')
+  return Object.freeze({
+    collection, apiPrefix: path(options.apiPrefix ?? '/api', 'apiPrefix'),
+    authEndpointPrefix: path(options.authEndpointPrefix ?? '/auth', 'authEndpointPrefix'),
+    authBasePath: path(options.basePath ?? (typeof options.routeRedirects === 'object' ? options.routeRedirects.basePath : undefined) ?? '/auth', 'basePath'),
+    style: options.style ?? 'tailwind', logoUrl: options.logo, projectName: options.projectName,
+    passwordLogin: options.passwordLogin, otpLogin: false, googleOAuthEnabled: false,
+    allowSignup: false, recovery: false, modalLogin: options.modalLogin === true,
+    routeRedirects: Boolean(options.routeRedirects) && !options.modalLogin,
+  })
 }

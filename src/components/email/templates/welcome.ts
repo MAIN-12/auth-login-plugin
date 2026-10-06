@@ -17,7 +17,7 @@ export interface WelcomeEmailResult {
 }
 
 export function generateWelcomeEmail(params: WelcomeEmailParams): WelcomeEmailResult {
-  const { userName, userEmail, loginUrl = `${getBaseUrl()}/login`, language = 'en', socialLinks, baseOptions } = params
+  const { userEmail, loginUrl = `${getBaseUrl()}/login`, language = 'en', socialLinks, baseOptions } = params
   const t = getEmailTranslations(language)
 
   const content = `

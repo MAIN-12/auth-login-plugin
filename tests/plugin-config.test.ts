@@ -1,50 +1,57 @@
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
-import type { Config } from 'payload'
+import { expect, it, vi } from 'vitest'
 import { authLoginPlugin } from '../src/index'
-import { getServerProviderConfig, pluginConfig } from '../src/config'
-import { AuthProvider } from '../src/components/AuthProviderServer'
+vi.mock('payload-oauth2', () => ({ OAuth2Plugin: () => (config: unknown) => config }))
 
-const oauth = vi.hoisted(() => ({ options: null as any }))
-vi.mock('payload-oauth2', () => ({ OAuth2Plugin: (options: any) => { oauth.options = options; return (config: Config) => config } }))
-vi.mock('../src/endpoints/authEndpoints', () => ({ authEndpoints: [] }))
-vi.mock('next/headers', () => ({ headers: async () => new Headers({ 'accept-language': 'es' }) }))
 
-beforeEach(() => {
-  for (const key of ['AUTH_LOGIN_MODAL_LOGIN', 'AUTH_LOGIN_PROVIDER_CONFIG', 'AUTH_LOGIN_ALLOW_SIGNUP', 'AUTH_LOGIN_GOOGLE_OAUTH', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET']) vi.stubEnv(key, '')
+it('captures explicit public settings per instance without touching process environment', async () => {
+  const env = { ...process.env }
+  const first = authLoginPlugin({ collection: 'customers', passwordLogin: true, otpLogin: false, providers: { google: false }, allowSignup: false, recovery: false, logo: '/first.svg' })
+  const second = authLoginPlugin({ collection: 'members', passwordLogin: true, otpLogin: false, providers: { google: false }, allowSignup: false, recovery: false, logo: '/second.svg' })
+  expect(first.publicConfig.collection).toBe('customers')
+  expect(second.publicConfig.logoUrl).toBe('/second.svg')
+  expect(first.publicConfig.logoUrl).toBe('/first.svg')
+  expect(Object.isFrozen(first.publicConfig)).toBe(true)
+  expect(process.env).toEqual(env)
 })
-afterEach(() => vi.unstubAllEnvs())
-
-it('passes plugin settings and locale through the server provider without credentials', async () => {
-  await authLoginPlugin({ modalLogin: true, style: 'hero-ui', allowSignup: false, passwordLogin: false, otpLogin: true, logo: '/brand.svg', routeRedirects: { basePath: '/account' } })({} as Config)
-  const provider = await AuthProvider({ children: 'page' })
-  expect(provider.props.value).toMatchObject({ style: 'hero-ui', locale: 'es' })
-  expect(provider.props.children.props.children.props).toMatchObject({ modalLogin: true, basePath: '/account', authCardProps: { passwordLogin: false, otpLogin: true, showGoogleOAuth: false } })
-  expect(provider.props.children.props.enabled).toBe(false)
-  expect(pluginConfig.routeRedirects).toBe(false)
-  expect(getServerProviderConfig()).not.toHaveProperty('providers')
+it('rejects auth collections without email verification evidence enforcement', async () => {
+  const plugin = authLoginPlugin({ passwordLogin: true, otpLogin: false, providers: { google: false }, allowSignup: false, recovery: false })
+  await expect(plugin({ collections: [{ slug: 'users', auth: { useSessions: true }, fields: [] }] })).rejects.toThrow('verify')
 })
-
-it('allows explicit provider overrides and restores page mode on reconfiguration', async () => {
-  await authLoginPlugin({ modalLogin: true, style: 'hero-ui' })({} as Config)
-  const provider = await AuthProvider({ children: 'page', modalLogin: false, style: 'tailwind', authCardProps: { locale: 'en' } })
-  expect(provider.props.children.props.children.props).toMatchObject({ modalLogin: false, style: 'tailwind', authCardProps: { locale: 'en' } })
-  await authLoginPlugin({ routeRedirects: true })({} as Config)
-  expect(pluginConfig.modalLogin).toBe(false)
-  expect(pluginConfig.routeRedirects).toBe(true)
+it('has a completely inert disabled factory without requiring enabled-flow options', async () => {
+  const config = { collections: [] }
+  const env = { ...process.env }
+  const disabled = authLoginPlugin({ enabled: false })
+  expect(await disabled(config)).toBe(config)
+  expect(disabled.publicConfig).toBeNull()
+  expect(process.env).toEqual(env)
 })
-
-it('returns OAuth to local modal destinations and keeps a usable failure page', async () => {
-  await authLoginPlugin({ modalLogin: true, providers: { google: { clientId: 'test-id', clientSecret: 'test-secret' } } })({} as Config)
-  expect(oauth.options.successRedirect({ searchParams: new URLSearchParams({ state: '/products?q=books#details' }) })).toBe('/products?q=books#details')
-  expect(oauth.options.successRedirect({ searchParams: new URLSearchParams({ state: '//evil.test' }) })).toBe('/')
-  expect(oauth.options.failureRedirect()).toBe('/auth/login?error=Google%20login%20failed')
-  expect(JSON.stringify(getServerProviderConfig())).not.toContain('test-secret')
+const enabledOptions = { passwordLogin: true, otpLogin: false, providers: { google: false as const }, allowSignup: false, recovery: false }
+it.each([
+  { passwordLogin: undefined }, { passwordLogin: false }, { otpLogin: 'false' }, { modalLogin: 'true' }, { enabled: 'false' },
+  { style: 'unknown' }, { logo: () => null }, { projectName: {} }, { apiPrefix: '/api/' }, { collection: 'bad/name' },
+  { providers: { google: true } }, { session: null }, { session: { maxAge: 0 } }, { session: { maxAge: 1.5 } },
+])('rejects incompatible runtime options without touching environment: %j', invalid => {
+  const environment = { ...process.env }
+  expect(() => authLoginPlugin({ ...enabledOptions, ...invalid } as never)).toThrow('auth-login:')
+  expect(process.env).toEqual(environment)
 })
-
-it('keeps OTP records inaccessible through public collection APIs', async () => {
-  const config = await authLoginPlugin({ providers: { google: false } })({} as Config)
-  const collection = config.collections?.find(({ slug }) => slug === 'auth-otps')
-  for (const operation of ['create', 'read', 'update', 'delete'] as const) {
-    expect(await collection?.access?.[operation]?.({} as any)).toBe(false)
-  }
+it.each([
+  false, { useSessions: false, verify: true }, { useSessions: true, verify: true, disableLocalStrategy: true },
+  { useSessions: true, verify: true, useAPIKey: true }, { useSessions: true, verify: true, tokenExpiration: 0 },
+  { useSessions: true, verify: true, tokenExpiration: '7200' },
+])('rejects unsupported native collection authentication: %j', auth => {
+  const plugin = authLoginPlugin(enabledOptions)
+  return expect(plugin({ collections: [{ slug: 'users', auth, fields: [] }] } as never)).rejects.toThrow('auth-login:')
+})
+it('does not mutate collection settings or observe caller mutations after constructing a factory', async () => {
+  const options = { ...enabledOptions, session: { maxAge: 60 } }
+  const plugin = authLoginPlugin(options)
+  options.passwordLogin = false
+  options.session.maxAge = 3600
+  const input = { collections: [{ slug: 'users', auth: { useSessions: true, verify: true, tokenExpiration: 30 }, fields: [] }] }
+  const original = structuredClone(input)
+  const output = await plugin(input)
+  expect(input).toEqual(original)
+  expect(output.collections?.[0].auth).toMatchObject({ tokenExpiration: 30 })
+  expect(plugin.publicConfig.passwordLogin).toBe(true)
 })

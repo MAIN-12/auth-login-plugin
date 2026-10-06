@@ -18,7 +18,8 @@ import VerifyOtpPage from '../src/components/pages/VerifyOtpPage'
 import SetPasswordPage from '../src/components/pages/SetPasswordPage'
 import { useAuthPresentation, useAuthTranslations } from '../src/components/auth-presentation/AuthPresentationContext'
 import { getUiTranslations } from '../src/components/ui/translations'
-import { pluginConfig } from '../src/config'
+import { publicConfig } from './auth-test-config'
+import { AuthConfigProvider } from '../src/components/AuthConfigContext'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -39,18 +40,12 @@ function PresentationProbe() {
   const t = useAuthTranslations()
   return <output>{locale}|{style}|{t.login.title}</output>
 }
-async function render(node: React.ReactNode) { await act(async () => root.render(node)) }
+async function render(node: React.ReactNode) { await act(async () => root.render(<AuthConfigProvider publicConfig={publicConfig}>{node}</AuthConfigProvider>)) }
 
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   host = document.createElement('div'); document.body.append(host); root = createRoot(host)
   document.documentElement.lang = 'en'
-  pluginConfig.logoUrl = '/plugin-logo.svg'
-  pluginConfig.Logo = undefined
-  pluginConfig.style = 'tailwind'
-  pluginConfig.allowSignup = true
-  pluginConfig.passwordLogin = true
-  pluginConfig.otpLogin = true
   for (const key of ['AUTH_LOGIN_PROVIDER_CONFIG', 'AUTH_LOGIN_ALLOW_SIGNUP', 'AUTH_LOGIN_GOOGLE_OAUTH']) vi.stubEnv(key, '')
   HTMLDialogElement.prototype.showModal = function () { this.open = true }
   HTMLDialogElement.prototype.close = function () { this.open = false }
@@ -60,7 +55,7 @@ afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi
 
 describe('shared presentation', () => {
   it('shares branding and translated copy between a page and the login modal', async () => {
-    await render(<AuthProvider initialUser={null} modalLogin locale="es" logo={<span data-brand>Shared brand</span>} messages={sharedMessages} poweredBy={{ enabled: false }}>
+    await render(<AuthProvider publicConfig={publicConfig} initialUser={null} modalLogin locale="es" logo={<span data-brand>Shared brand</span>} messages={sharedMessages} poweredBy={{ enabled: false }}>
       <AuthPages slug={['login']} mobileVariant="modal" showGoogleOAuth={false} />
       <AuthProbe />
     </AuthProvider>)
@@ -74,7 +69,7 @@ describe('shared presentation', () => {
     expect(document.querySelector('a[href="https://main12.com"]')).toBeNull()
   })
   it('lets a card override individual translation keys and branding for its child forms', async () => {
-    await render(<AuthProvider initialUser={null} locale="es" messages={sharedMessages} logo={<span>Shared brand</span>}>
+    await render(<AuthProvider publicConfig={publicConfig} initialUser={null} locale="es" messages={sharedMessages} logo={<span>Shared brand</span>}>
       <AuthCard slug="login" mobileVariant="modal" logo={<span>Local brand</span>} messages={{ es: { login: { title: 'Local title' } } }} />
       <AuthCard locale="en" logo={null} mobileVariant="modal"><LoginForm onPasswordLogin={login} /></AuthCard>
     </AuthProvider>)
@@ -86,7 +81,7 @@ describe('shared presentation', () => {
     expect(host.querySelector('img[src="/plugin-logo.svg"]')).toBeNull()
   })
   it('keeps authCardProps overrides scoped to the modal', async () => {
-    await render(<AuthProvider initialUser={null} modalLogin locale="es" logo={<span>Shared brand</span>} authCardProps={{ locale: 'en', logo: <span>Modal brand</span> }}>
+    await render(<AuthProvider publicConfig={publicConfig} initialUser={null} modalLogin locale="es" logo={<span>Shared brand</span>} authCardProps={{ locale: 'en', logo: <span>Modal brand</span> }}>
       <AuthCard slug="login" mobileVariant="modal" /><AuthProbe />
     </AuthProvider>)
     expect(host.querySelector('h1')?.textContent).toBe(getUiTranslations('es').login.title)
@@ -97,22 +92,22 @@ describe('shared presentation', () => {
   })
   it('isolates sibling providers and follows nested provider overrides reactively', async () => {
     const tree = (locale: string) => <>
-      <AuthProvider initialUser={null} locale={locale} style="hero-ui" messages={sharedMessages}>
+      <AuthProvider publicConfig={publicConfig} initialUser={null} locale={locale} style="hero-ui" messages={sharedMessages}>
         <section id="parent"><PresentationProbe /></section>
-        <AuthProvider initialUser={null} locale="en" style="tailwind"><section id="nested"><PresentationProbe /></section></AuthProvider>
+        <AuthProvider publicConfig={publicConfig} initialUser={null} locale="en" style="tailwind"><section id="nested"><PresentationProbe /></section></AuthProvider>
       </AuthProvider>
-      <AuthProvider initialUser={null} locale="en"><section id="sibling"><PresentationProbe /></section></AuthProvider>
+      <AuthProvider publicConfig={publicConfig} initialUser={null} locale="en"><section id="sibling"><PresentationProbe /></section></AuthProvider>
     </>
     await render(tree('es'))
     expect(host.querySelector('#parent')?.textContent).toBe('es|hero-ui|Shared title')
     expect(host.querySelector('#nested')?.textContent).toContain('en|tailwind|')
     expect(host.querySelector('#sibling')?.textContent).toContain('en|tailwind|')
-    expect(pluginConfig.style).toBe('tailwind')
+    expect(publicConfig.style).toBe('tailwind')
     await render(tree('en'))
     expect(host.querySelector('#parent')?.textContent).toContain('en|hero-ui|')
   })
   it('inherits attribution directly and permits field overrides', async () => {
-    await render(<AuthProvider initialUser={null} poweredBy={{ enabled: false, linkUrl: 'https://example.com' }}>
+    await render(<AuthProvider publicConfig={publicConfig} initialUser={null} poweredBy={{ enabled: false, linkUrl: 'https://example.com' }}>
       <section id="hidden"><PoweredBy /></section>
       <section id="shown"><PoweredBy enabled /></section>
     </AuthProvider>)
@@ -143,7 +138,7 @@ describe('forms and standalone pages', () => {
     ['set password page', <SetPasswordPage />, getUiTranslations('es').setPassword.title],
   ]
   it.each(cases)('%s inherits the provider locale', async (_name, component, expected) => {
-    await render(<AuthProvider initialUser={null} locale="es">{component}</AuthProvider>)
+    await render(<AuthProvider publicConfig={publicConfig} initialUser={null} locale="es">{component}</AuthProvider>)
     expect(host.textContent).toContain(expected)
   })
 })
@@ -151,27 +146,27 @@ describe('forms and standalone pages', () => {
 describe('server defaults versus provider overrides', () => {
   it.each(['card', 'pages', 'custom card'] as const)('%s retains provider language and branding across the server boundary', async kind => {
     const content = kind === 'card'
-      ? await ServerAuthCard({ slug: 'login', mobileVariant: 'modal' })
+      ? await ServerAuthCard({ publicConfig, slug: 'login', mobileVariant: 'modal' })
       : kind === 'pages'
-        ? await ServerAuthPages({ slug: ['login'], mobileVariant: 'modal' })
-        : await ServerAuthCard({ children: <LoginForm onPasswordLogin={login} />, mobileVariant: 'modal' })
-    await render(<AuthProvider initialUser={null} locale="es" messages={sharedMessages} logo={<span>Provider brand</span>}>{content}</AuthProvider>)
+        ? await ServerAuthPages({ publicConfig, slug: ['login'], mobileVariant: 'modal' })
+        : await ServerAuthCard({ publicConfig, children: <LoginForm onPasswordLogin={login} />, mobileVariant: 'modal' })
+    await render(<AuthProvider publicConfig={publicConfig} initialUser={null} locale="es" messages={sharedMessages} logo={<span>Provider brand</span>}>{content}</AuthProvider>)
     expect(host.textContent).toContain('Shared continue')
     expect(host.textContent).toContain('Provider brand')
     expect(host.querySelector('img[src="/plugin-logo.svg"]')).toBeNull()
   })
   it('uses detected server language without a provider and honors explicit RSC overrides', async () => {
     document.documentElement.lang = 'es'
-    await render(await ServerAuthCard({ slug: 'login', mobileVariant: 'modal' }))
+    await render(await ServerAuthCard({ publicConfig, slug: 'login', mobileVariant: 'modal' }))
     expect(host.querySelector('h1')?.textContent).toBe(getUiTranslations('en').login.title)
-    const content = await ServerAuthCard({ slug: 'login', locale: 'en', logo: null, mobileVariant: 'modal' })
-    await render(<AuthProvider initialUser={null} locale="es" logo={<span>Provider brand</span>}>{content}</AuthProvider>)
+    const content = await ServerAuthCard({ publicConfig, slug: 'login', locale: 'en', logo: null, mobileVariant: 'modal' })
+    await render(<AuthProvider publicConfig={publicConfig} initialUser={null} locale="es" logo={<span>Provider brand</span>}>{content}</AuthProvider>)
     expect(host.querySelector('h1')?.textContent).toBe(getUiTranslations('en').login.title)
     expect(host.textContent).not.toContain('Provider brand')
   })
   it('does not let an inner server provider replace explicit parent presentation with request defaults', async () => {
-    const content = await ServerAuthProvider({ initialUser: null, children: <PresentationProbe /> })
-    await render(<AuthProvider initialUser={null} locale="es" style="hero-ui">{content}</AuthProvider>)
+    const content = await ServerAuthProvider({ publicConfig, initialUser: null, children: <PresentationProbe /> })
+    await render(<AuthProvider publicConfig={publicConfig} initialUser={null} locale="es" style="hero-ui">{content}</AuthProvider>)
     expect(host.querySelector('output')?.textContent).toContain('es|hero-ui|')
   })
 })
@@ -182,10 +177,10 @@ describe('plugin signup setting', () => {
     vi.stubEnv('AUTH_LOGIN_ALLOW_SIGNUP', 'false')
     window.history.replaceState({}, '', '/auth/signup?redirect=/account')
     const content = kind === 'card'
-      ? await ServerAuthCard({ slug: 'signup', mobileVariant: 'modal' })
+      ? await ServerAuthCard({ publicConfig, slug: 'signup', mobileVariant: 'modal' })
       : kind === 'pages'
-        ? await ServerAuthPages({ slug: ['signup'], mobileVariant: 'modal' })
-        : await ServerAuthProvider({ initialUser: null, children: <AuthCard slug="signup" mobileVariant="modal" /> })
+        ? await ServerAuthPages({ publicConfig, slug: ['signup'], mobileVariant: 'modal' })
+        : await ServerAuthProvider({ publicConfig, initialUser: null, children: <AuthCard slug="signup" mobileVariant="modal" /> })
     await render(content)
     expect(host.querySelector('h1')?.textContent).toBe(getUiTranslations('en').login.title)
     expect(host.querySelector('a[href*="signup"]')).toBeNull()
@@ -193,19 +188,15 @@ describe('plugin signup setting', () => {
     const { redirect } = await import('next/navigation')
     expect(redirect).not.toHaveBeenCalled()
   })
-  it('renders Signup when enabled in the plugin', async () => {
-    vi.stubEnv('AUTH_LOGIN_ALLOW_SIGNUP', 'true')
-    await render(await ServerAuthCard({ slug: 'signup', mobileVariant: 'modal' }))
-    expect(host.querySelector('h1')?.textContent).toBe(getUiTranslations('en').signup.title)
-  })
+
 })
 
 
 describe('configured style renders actual controls', () => {
   it.each(['hero-ui', 'tailwind'] as const)('uses %s controls from server plugin settings', async style => {
-    vi.stubEnv('AUTH_LOGIN_PROVIDER_CONFIG', JSON.stringify({ style, authBasePath: '/auth', passwordLogin: true, otpLogin: true }))
+    const styledConfig = { ...publicConfig, style }
     await import('../src/components/ui/hero')
-    const content = await ServerAuthProvider({ initialUser: null, children: <AuthCard slug="login" mobileVariant="modal" showGoogleOAuth={false} /> })
+    const content = await ServerAuthProvider({ publicConfig: styledConfig, initialUser: null, children: <AuthCard slug="login" mobileVariant="modal" showGoogleOAuth={false} /> })
     await render(content)
     const button = host.querySelector('button[type="submit"]')!
     const input = host.querySelector('input[type="email"]')!

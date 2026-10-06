@@ -1,46 +1,28 @@
-// @ts-check
+import reactHooks from 'eslint-plugin-react-hooks'
+import tseslint from 'typescript-eslint'
 
-import payloadEsLintConfig from '@payloadcms/eslint-config'
-
-export const defaultESLintIgnores = [
-  '**/.temp',
-  '**/.*', // ignore all dotfiles
-  '**/.git',
-  '**/.hg',
-  '**/.pnp.*',
-  '**/.svn',
-  '**/playwright.config.ts',
-  '**/vitest.config.js',
-  '**/tsconfig.tsbuildinfo',
-  '**/README.md',
-  '**/eslint.config.js',
-  '**/payload-types.ts',
-  '**/dist/',
-  '**/.yarn/',
-  '**/build/',
-  '**/node_modules/',
-  '**/temp/',
-]
-
+// The vendor config had undocumented repository-wide formatting requirements,
+// a missing dependency, and a parser that does not support this repo's TS6.
+// Keep executable correctness lint at the actual plugin/test boundary.
 export default [
-  ...payloadEsLintConfig,
+  { ignores: ['dist/**', 'node_modules/**', 'dev/**', '.scratch/**', 'docs/**', 'reports/**'] },
+  ...tseslint.configs.recommended,
   {
+    files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}'],
+    plugins: { 'react-hooks': reactHooks },
     rules: {
-      'no-restricted-exports': 'off',
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' }],
     },
   },
   {
-    languageOptions: {
-      parserOptions: {
-        sourceType: 'module',
-        ecmaVersion: 'latest',
-        projectService: {
-          maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 40,
-          allowDefaultProject: ['scripts/*.ts', '*.js', '*.mjs', '*.spec.ts', '*.d.ts'],
-        },
-        // projectService: true,
-        tsconfigRootDir: import.meta.dirname,
-      },
-    },
+    files: ['src/auth/domain/**/*.{ts,tsx}', 'src/config.ts'],
+    rules: { 'no-restricted-imports': ['error', { patterns: ['react', 'react/*', 'next', 'next/*', 'payload', 'payload/*', '**/components/**', '**/auth/server/**', '**/application/**'] }] },
+  },
+  {
+    files: ['src/exports/client.ts', 'src/auth/application/**/*.{ts,tsx}', 'src/components/**/*.{ts,tsx}'],
+    rules: { 'no-restricted-imports': ['error', { patterns: ['payload', 'payload/*', '**/auth/server/**', '**/endpoints/**'] }] },
   },
 ]

@@ -1,5 +1,6 @@
 'use client'
 
+import { useAuthConfig } from '../AuthConfigContext'
 import { useAllowSignup } from '../AuthSignupConfig'
 
 import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
@@ -26,6 +27,7 @@ function LoginHeroContent({
   onPasswordLogin, redirectTo = '/', showGoogleOAuth = true, signupUrl = '/signup',
   logo, poweredBy, cardClassName, removeBorder, removeShadow, mobileVariant, backgroundClass, texture, locale, messages,
 }: LoginPageHeroProps) {
+  const config = useAuthConfig()
   const allowSignup = useAllowSignup()
   const searchParams = useSearchParams()
   const resolvedRedirect = searchParams.get('redirect') || redirectTo
@@ -54,7 +56,7 @@ function LoginHeroContent({
       <AnimatePresence mode="wait">
         {step === 'email' && (
           <motion.div key="email" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.3 }}>
-            {showGoogleOAuth && (
+            {showGoogleOAuth && config.googleOAuthEnabled && (
               <>
                 <Button fullWidth variant="secondary" onPress={handleGoogleLogin} className="[--button-fg:var(--foreground)]">
                   <Icon icon="flat-color-icons:google" width={20} />
@@ -92,7 +94,7 @@ function LoginHeroContent({
                   </button>
                 </div>
               </TextField>
-              <div className="text-left"><a href="/forgot-password" className="text-sm text-gray-700 hover:underline">{t.forgotPassword}</a></div>
+              {config.recovery && <div className="text-left"><a href="/forgot-password" className="text-sm text-gray-700 hover:underline">{t.forgotPassword}</a></div>}
               <Button type="submit" fullWidth size="lg" isPending={isLoading} className="h-12 font-semibold">
                 {({ isPending }) => (<>{isPending && <Spinner color="current" size="sm" />}{t.continue}</>)}
               </Button>

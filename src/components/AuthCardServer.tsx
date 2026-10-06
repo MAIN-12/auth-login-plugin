@@ -1,29 +1,32 @@
 import { AuthCard as AuthCardClient, type AuthCardWithSlugProps, type AuthCardWithChildrenProps } from './AuthCard'
-import { getServerAllowSignup, getServerGoogleOAuthEnabled, pluginConfig } from '../config'
+import type { PublicAuthConfig } from '../config'
+import { AuthConfigProvider } from './AuthConfigContext'
 import { AuthSignupConfig } from './AuthSignupConfig'
 import { AuthPresentationDefaults } from './auth-presentation/AuthPresentationContext'
 import { getServerPresentationDefaults } from './auth-presentation/serverDefaults'
 
 export type { AuthCardWithSlugProps, AuthCardWithChildrenProps }
-export type AuthCardProps = AuthCardWithSlugProps | AuthCardWithChildrenProps
+export type AuthCardProps = (AuthCardWithSlugProps | AuthCardWithChildrenProps) & { publicConfig: PublicAuthConfig }
 
 /** Resolve plugin settings internally. A disabled signup slug renders Login without redirecting. */
-export async function AuthCard(props: AuthCardProps) {
-  const presentation = await getServerPresentationDefaults()
+export async function AuthCard({ publicConfig, ...props }: AuthCardProps) {
+  const presentation = await getServerPresentationDefaults(publicConfig)
   const card = 'slug' in props && props.slug !== undefined
     ? <AuthCardClient
         {...props}
-        showGoogleOAuth={props.showGoogleOAuth ?? getServerGoogleOAuthEnabled()}
-        passwordLogin={props.passwordLogin ?? pluginConfig.passwordLogin}
-        otpLogin={props.otpLogin ?? pluginConfig.otpLogin}
+        showGoogleOAuth={props.showGoogleOAuth ?? publicConfig.googleOAuthEnabled}
+        passwordLogin={props.passwordLogin ?? publicConfig.passwordLogin}
+        otpLogin={props.otpLogin ?? publicConfig.otpLogin}
       />
     : <AuthCardClient {...props} />
 
   return (
+    <AuthConfigProvider publicConfig={publicConfig}>
     <AuthPresentationDefaults value={presentation}>
-      <AuthSignupConfig enabled={getServerAllowSignup()}>
+      <AuthSignupConfig enabled={publicConfig.allowSignup}>
         {card}
       </AuthSignupConfig>
     </AuthPresentationDefaults>
+    </AuthConfigProvider>
   )
 }

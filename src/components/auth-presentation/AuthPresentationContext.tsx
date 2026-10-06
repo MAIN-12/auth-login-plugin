@@ -1,5 +1,7 @@
 'use client'
 
+import { AuthConfigContext } from '../AuthConfigContext'
+import type { PublicAuthConfig } from '../../config'
 import React, { createContext, useContext, useMemo } from 'react'
 import { getUiTranslations } from '../ui/translations'
 import { getClientPresentationDefaults } from './clientDefaults'
@@ -9,9 +11,10 @@ import type { AuthLocalizationProps, AuthPresentationProps, ResolvedAuthPresenta
 export const AuthPresentationContext = createContext<AuthPresentationProps | undefined>(undefined)
 
 /** UI adapter; safe to use without a session provider, including custom forms. */
-export function useAuthPresentation(overrides?: AuthPresentationProps): ResolvedAuthPresentation {
+export function useAuthPresentation(overrides?: AuthPresentationProps, defaults?: PublicAuthConfig): ResolvedAuthPresentation {
   const inherited = useContext(AuthPresentationContext)
-  return mergeAuthPresentation(getClientPresentationDefaults(), inherited, overrides) as ResolvedAuthPresentation
+  const config = useContext(AuthConfigContext)
+  return mergeAuthPresentation(getClientPresentationDefaults(defaults ?? config), inherited, overrides) as ResolvedAuthPresentation
 }
 
 /** Server defaults must never masquerade as explicit component overrides. */

@@ -65,10 +65,13 @@ export const Input: React.FC<InputProps> = ({
   type = 'text', label, value, onChange, onValueChange,
   isRequired, isDisabled, autoFocus, autoComplete, placeholder, className = '', name,
   variant = 'default',
-}) => (
+}) => {
+  const inputId = React.useId()
+  return (
   <div className="w-full">
-    {label && <label className="block text-sm font-medium text-gray-600 mb-1">{label}{isRequired ? ' *' : ''}</label>}
+    {label && <label htmlFor={inputId} className="block text-sm font-medium text-gray-600 mb-1">{label}{isRequired ? ' *' : ''}</label>}
     <input
+      id={inputId}
       type={type}
       value={value}
       onChange={onChange || (onValueChange ? e => onValueChange(e.target.value) : undefined)}
@@ -81,7 +84,8 @@ export const Input: React.FC<InputProps> = ({
       className={`w-full h-12 px-4 ${variant === 'secondary' ? 'bg-gray-100' : 'bg-white'} border border-gray-300 hover:border-gray-400 rounded-xl text-gray-900 text-base transition-colors outline-none focus:border-[#D5E855] focus:ring-2 focus:ring-[#D5E855]/30 ${className}`}
     />
   </div>
-)
+  )
+}
 
 export interface CardProps {
   children: React.ReactNode

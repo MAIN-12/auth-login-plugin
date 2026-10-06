@@ -5,9 +5,9 @@
 // ============================================================
 
 // Plugin client config initializer
-export { initClientConfig } from '../config'
+export { AuthConfigProvider, useAuthConfig } from '../components/AuthConfigContext'
+export type { PublicAuthConfig } from '../config'
 export { AuthClientInit } from '../components/AuthClientInit'
-export type { AuthClientInitProps } from '../components/AuthClientInit'
 
 // Auth hooks
 export { useLoginFlow } from '../auth/application/hooks/useLoginFlow'
@@ -17,6 +17,7 @@ export { useSetPasswordFlow } from '../auth/application/hooks/useSetPasswordFlow
 
 // Auth service functions (client-side fetch wrappers)
 export {
+  createAuthService,
   checkEmail,
   sendOtp,
   verifyOtp,
@@ -86,3 +87,7 @@ export type { AuthProviderProps, AuthContextValue, AuthUser, AuthStatus, OpenLog
 
 export type { AuthPresentationProps, AuthLocalizationProps, ResolvedAuthPresentation, PoweredByConfig } from '../components/auth-presentation/types'
 export { useAuthPresentation, useAuthTranslations } from '../components/auth-presentation/AuthPresentationContext'
+
+export type { CredentialCapabilities } from '../auth/domain/credentials'
+
+export type { AuthErrorCode, AuthErrorResponse } from '../auth/domain/login'

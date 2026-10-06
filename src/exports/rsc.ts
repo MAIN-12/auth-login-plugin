@@ -2,11 +2,11 @@
 // RSC (React Server Components) exports for @main12/auth-login/rsc
 // ============================================================
 
-// Server component auth pages (reads plugin config automatically)
+// Server component auth pages (requires explicit publicConfig)
 export { default as AuthPages } from '../components/AuthPagesServer'
 export type { AuthPagesProps } from '../components/AuthPagesServer'
 
-// Server component auth card (reads plugin config automatically)
+// Server component auth card (requires explicit publicConfig)
 export { AuthCard } from '../components/AuthCardServer'
 export type { AuthCardProps, AuthCardWithSlugProps, AuthCardWithChildrenProps } from '../components/AuthCardServer'
 

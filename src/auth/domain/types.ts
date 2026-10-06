@@ -3,11 +3,8 @@
 export type LoginStep = 'email' | 'password' | 'otp-prompt'
 export type OTPPurpose = 'login' | 'signup' | 'password-reset'
 
-export interface CheckEmailResponse {
-  exists: boolean
-  hasPassword: boolean
-  authProvider: string | null
-}
+/** @deprecated Public account discovery has no successful response. */
+export type CheckEmailResponse = never
 
 export interface SendOtpResponse {
   success: boolean

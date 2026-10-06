@@ -2,6 +2,9 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import type { PublicAuthConfig } from '../config'
+import { AuthConfigProvider } from './AuthConfigContext'
+import { AuthSignupConfig } from './AuthSignupConfig'
 import type { AuthPresentationProps } from './auth-presentation/types'
 import { AuthPresentationContext, useAuthPresentation } from './auth-presentation/AuthPresentationContext'
 import { mergeAuthPresentation } from './auth-presentation/resolvePresentation'
@@ -37,6 +40,7 @@ export interface AuthContextValue<TUser extends AuthUser = AuthUser> {
 }
 export interface AuthProviderProps extends AuthPresentationProps {
   children: React.ReactNode
+  publicConfig: PublicAuthConfig
   modalLogin?: boolean
   /** Pass null for a known anonymous session, or omit to load /api/users/me. */
   initialUser?: AuthUser | null
@@ -57,10 +61,10 @@ export function useAuth<TUser extends AuthUser = AuthUser>(): AuthContextValue<T
 const formSlugs = new Set(['login', 'signup', 'forgot-password', 'verify-otp', 'set-password'])
 
 export function AuthProvider({
-  children, modalLogin = false, style, locale, messages, logo, poweredBy, initialUser, authCardProps = {},
-  basePath = '/auth', modalLabel, closeLabel,
+  children, publicConfig, modalLogin = publicConfig.modalLogin, style, locale, messages, logo, poweredBy, initialUser, authCardProps = {},
+  basePath = publicConfig.authBasePath, modalLabel, closeLabel,
 }: AuthProviderProps) {
-  const presentation = useAuthPresentation({ style, locale, messages, logo, poweredBy })
+  const presentation = useAuthPresentation({ style, locale, messages, logo, poweredBy }, publicConfig)
   const router = useRouter()
   const [user, setUser] = useState<AuthUser | null>(initialUser ?? null)
   const [status, setStatus] = useState<AuthStatus>(initialUser === undefined ? 'loading' : initialUser ? 'authenticated' : 'unauthenticated')
@@ -73,7 +77,7 @@ export function AuthProvider({
   const refreshSession = useCallback(async () => {
     const request = ++sessionRequest.current
     try {
-      const response = await fetch('/api/users/me', { credentials: 'include', cache: 'no-store' })
+      const response = await fetch(`${publicConfig.apiPrefix}/${publicConfig.collection}/me`, { credentials: 'include', cache: 'no-store' })
       if (!response.ok && response.status !== 401) throw new Error('Unable to load the current session')
       const data = response.status === 401 ? { user: null } : await response.json()
       const nextUser = data.user ?? null
@@ -87,11 +91,12 @@ export function AuthProvider({
       if (request === sessionRequest.current) { setError(failure); setStatus('error') }
       throw failure
     }
-  }, [])
+  }, [publicConfig.apiPrefix, publicConfig.collection])
 
   useEffect(() => {
     if (initialUser === undefined) void refreshSession().catch(() => {})
-    return () => { sessionRequest.current++ }
+    const requestCounter = sessionRequest
+    return () => { requestCounter.current++ }
   }, [initialUser, refreshSession])
 
   const closeLogin = useCallback(() => {
@@ -119,7 +124,7 @@ export function AuthProvider({
 
   const logout = useCallback(async () => {
     ++sessionRequest.current
-    const response = await fetch('/api/users/logout', { method: 'POST', credentials: 'include' })
+    const response = await fetch(`${publicConfig.apiPrefix}/${publicConfig.collection}/logout`, { method: 'POST', credentials: 'include' })
     if (!response.ok) throw new Error('Logout failed')
     ++sessionRequest.current
     ++flowId.current
@@ -128,7 +133,7 @@ export function AuthProvider({
     setStatus('unauthenticated')
     setError(null)
     router.refresh()
-  }, [router])
+  }, [router, publicConfig.apiPrefix, publicConfig.collection])
 
   const navigation = useMemo(() => {
     if (!flow) return null
@@ -162,6 +167,8 @@ export function AuthProvider({
   const t = getUiTranslations(modalLocale, modalPresentation.messages)
 
   return (
+    <AuthConfigProvider publicConfig={publicConfig}>
+    <AuthSignupConfig enabled={publicConfig.allowSignup}>
     <AuthPresentationContext.Provider value={presentation}>
       <AuthContext.Provider value={value}>
         {children}
@@ -176,5 +183,7 @@ export function AuthProvider({
         )}
       </AuthContext.Provider>
     </AuthPresentationContext.Provider>
+    </AuthSignupConfig>
+    </AuthConfigProvider>
   )
 }

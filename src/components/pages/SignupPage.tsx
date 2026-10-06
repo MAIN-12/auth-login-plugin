@@ -2,7 +2,7 @@
 
 import { useAuthPresentation } from '../auth-presentation/AuthPresentationContext'
 
-import { pluginConfig } from '../../config'
+import { useAuthConfig } from '../AuthConfigContext'
 import SignupPageTailwind from './SignupPageTailwind'
 import SignupPageHero from './SignupPageHero'
 import type { AuthLayoutConfig } from '../AuthLayout'
@@ -15,6 +15,7 @@ export interface SignupPageProps extends AuthLayoutConfig, AuthCardConfig {
 }
 
 export default function SignupPage(props: SignupPageProps) {
+  const pluginConfig = useAuthConfig()
   const resolved = { showGoogleOAuth: pluginConfig.googleOAuthEnabled, ...props }
   const { style } = useAuthPresentation(props)
   return style === 'hero-ui' ? <SignupPageHero {...resolved} /> : <SignupPageTailwind {...resolved} />

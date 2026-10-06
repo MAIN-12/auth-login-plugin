@@ -2,6 +2,8 @@
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
+import { publicConfig } from './auth-test-config'
+import { AuthConfigProvider } from '../src/components/AuthConfigContext'
 import { AuthCard } from '../src/components/AuthCard'
 
 const loading = vi.hoisted(() => {
@@ -27,7 +29,7 @@ afterEach(async () => {
 it('shows one loader until the complete HeroUI login card is ready', async () => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   host = document.createElement('div'); document.body.append(host); root = createRoot(host)
-  await act(async () => root!.render(<AuthCard slug="login" style="hero-ui" locale="en" mobileVariant="modal" showGoogleOAuth />))
+  await act(async () => root!.render(<AuthConfigProvider publicConfig={publicConfig}><AuthCard slug="login" style="hero-ui" locale="en" mobileVariant="modal" showGoogleOAuth /></AuthConfigProvider>))
   expect(host.querySelectorAll('[role="status"]')).toHaveLength(1)
   expect(host.querySelector('h1')).toBeNull()
   expect(host.querySelector('form')).toBeNull()
@@ -39,5 +41,5 @@ it('shows one loader until the complete HeroUI login card is ready', async () =>
   expect(host.querySelector('h1')).toBeTruthy()
   expect(host.querySelector('input[type="email"]')).toBeTruthy()
   expect(host.querySelector('button[type="submit"]')).toBeTruthy()
-  expect(host.textContent).toContain('Continue with Google')
+  expect(host.textContent).not.toContain('Continue with Google')
 })

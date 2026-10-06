@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useAuthNavigation } from '../AuthFlowContext'
 import { verifyOtp, sendOtp } from '../services/authService'
-import { pluginConfig } from '../../../config'
+import { useAuthConfig } from '../../../components/AuthConfigContext'
 
 export interface UseVerifyOtpFlowOptions {
   email: string
@@ -15,6 +15,7 @@ export interface UseVerifyOtpFlowOptions {
  * State machine for OTP verification: input → verify → redirect | resend.
  */
 export function useVerifyOtpFlow({ email, purpose, redirectTo = '/' }: UseVerifyOtpFlowOptions) {
+  const pluginConfig = useAuthConfig()
   const router = useAuthNavigation()
 
   const [otp, setOtp] = useState('')
@@ -60,7 +61,7 @@ export function useVerifyOtpFlow({ email, purpose, redirectTo = '/' }: UseVerify
     } finally {
       setIsLoading(false)
     }
-  }, [otp, email, purpose, redirectTo, router])
+  }, [otp, email, purpose, redirectTo, router, pluginConfig])
 
   // Auto-verify when all 6 digits are entered
   useEffect(() => {

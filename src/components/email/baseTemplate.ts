@@ -70,10 +70,9 @@ function getEmailFooter(
 
 export function wrapInBaseTemplate(content: string, options: BaseTemplateOptions = {}): string {
   const {
-    logoUrl, projectName = '', domain = '', preheader,
+    logoUrl, projectName = '', preheader,
     language = 'en', socialLinks, userEmail,
   } = options
-  const contactEmail = options.colors ? undefined : undefined // will use env
 
   const preheaderHtml = preheader
     ? `<span style="display:none;font-size:1px;color:#fff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${preheader}</span>`

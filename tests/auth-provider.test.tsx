@@ -1,8 +1,7 @@
 // @vitest-environment happy-dom
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { pluginConfig } from '../src/config'
-import { getUiTranslations } from '../src/components/ui/translations'
+import { publicConfig } from './auth-test-config'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider, useAuth, type AuthContextValue, type AuthProviderProps } from '../src/components/AuthProvider'
 
@@ -17,7 +16,7 @@ let fetchMock: ReturnType<typeof vi.fn>
 const user = { id: 42, email: 'member@example.com' }
 function Probe() { auth = useAuth(); return <p>Current page content</p> }
 async function mount(props: Partial<AuthProviderProps> = {}) {
-  await act(async () => root.render(<AuthProvider modalLogin initialUser={null} authCardProps={{ showGoogleOAuth: false, locale: 'en' }} {...props}><Probe /></AuthProvider>))
+  await act(async () => root.render(<AuthProvider publicConfig={publicConfig} modalLogin initialUser={null} authCardProps={{ showGoogleOAuth: false, locale: 'en' }} {...props}><Probe /></AuthProvider>))
 }
 async function open() { await act(async () => auth.openLogin()) }
 async function fill(selector: string, value: string) {
@@ -32,13 +31,12 @@ async function fill(selector: string, value: string) {
 async function submit() { await act(async () => { document.querySelector('dialog form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })) }) }
 async function click(selector: string) { await act(async () => { document.querySelector<HTMLElement>(selector)!.click() }) }
 async function enterEmail() { await fill('dialog input[type=email]', user.email); await submit() }
-async function enterOtp() { for (let i = 0; i < 6; i++) await fill('dialog input[inputmode=numeric]:nth-child(' + (i + 1) + ')', String(i + 1)) }
+
 
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   vi.clearAllMocks()
   authenticated = false
-  pluginConfig.allowSignup = true
   window.history.replaceState({}, '', '/products?category=books#details')
   host = document.createElement('div')
   document.body.append(host)
@@ -48,7 +46,7 @@ beforeEach(() => {
   HTMLDialogElement.prototype.close = function () { this.open = false }
   fetchMock = vi.fn(async (url: string) => {
     if (url === '/api/users/me') return Response.json({ user: authenticated ? user : null })
-    if (url === '/api/users/login' || url === '/api/auth/otp/verify') authenticated = true
+    if (url === '/api/auth/login' || url === '/api/auth/otp/verify') authenticated = true
     if (url === '/api/users/logout') authenticated = false
     if (url === '/api/auth/check-email') return Response.json({ exists: true, hasPassword: true })
     return Response.json({ success: true, isNewUser: false })
@@ -146,35 +144,13 @@ describe('modal authentication flow', () => {
     await fill('dialog input[type=password]', 'Correct-password-123!'); await submit()
     expect(router.push).toHaveBeenCalledWith('/checkout?step=2')
   })
-  it('keeps signup and OTP verification inside the modal', async () => {
-    await mount(); await open(); await click('dialog a[href="/auth/signup"]')
-    await fill('dialog input[type=text]', 'Test Member')
-    await fill('dialog input[type=email]', user.email); await submit()
-    expect(document.querySelectorAll('dialog input[inputmode=numeric]').length).toBe(6)
-    await enterOtp()
-    expect(auth.status).toBe('authenticated')
-    expect(document.querySelector('dialog')).toBeNull()
-    expect(router.push).not.toHaveBeenCalled()
-  })
-  it('keeps password recovery, OTP, and setting a password inside the modal', async () => {
-    await mount(); await open(); await enterEmail(); await click('dialog a[href="/forgot-password"]')
-    await enterEmail(); await enterOtp()
-    expect(document.querySelectorAll('dialog input[type=password]').length).toBe(2)
-    await fill('dialog input[type=password]', 'New-password-123!')
-    const inputs = document.querySelectorAll('dialog input[type=password]')
-    inputs[1].setAttribute('data-confirm', 'true')
-    await fill('dialog input[data-confirm]', 'New-password-123!'); await submit()
-    expect(auth.status).toBe('authenticated')
-    expect(document.querySelector('dialog')).toBeNull()
-    expect(router.push).not.toHaveBeenCalled()
-  })
-  it('supports OTP-only login and hides disabled signup', async () => {
-    pluginConfig.allowSignup = false
-    await mount({ authCardProps: { passwordLogin: false, otpLogin: true, showGoogleOAuth: false } })
-    await open()
-    expect(document.querySelector('dialog a[href="/auth/signup"]')).toBeNull()
-    await enterEmail(); await enterOtp()
-    expect(auth.status).toBe('authenticated')
+  it('does not offer the disabled signup, recovery, Google or OTP paths', async () => {
+    await mount(); await open(); await enterEmail()
+    expect(document.querySelector('dialog a[href*="signup"]')).toBeNull()
+    expect(document.querySelector('dialog a[href*="forgot-password"]')).toBeNull()
+    expect(document.querySelector('dialog input[type=password]')).toBeTruthy()
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/auth/check-email', expect.anything())
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/auth/otp/send', expect.anything())
   })
   it('resets form state after dismissal and restores scroll', async () => {
     await mount(); await open(); await enterEmail()
@@ -197,24 +173,30 @@ describe('modal authentication flow', () => {
 })
 
 
-describe('email lookup failures', () => {
-  it.each([
-    ['server failure', 500, { error: 'Failed to check email' }],
-    ['invalid success response', 200, { error: 'Unexpected response' }],
-  ])('does not report a missing account on %s', async (_name, status, body) => {
-    await mount(); await open()
-    fetchMock.mockResolvedValueOnce(Response.json(body, { status: status as number }))
-    await enterEmail()
-    const text = document.querySelector('dialog')!.textContent
-    expect(text).toContain(getUiTranslations('en').errors.genericError)
-    expect(text).not.toContain(getUiTranslations('en').errors.noAccountFound)
-    expect(document.querySelector('dialog input[type=email]')).toBeTruthy()
-    expect(fetchMock).not.toHaveBeenCalledWith('/api/auth/otp/send', expect.anything())
+describe('public method selection', () => {
+  it('advances unknown and existing email identities identically without a public lookup', async () => {
+    await mount(); await open(); await fill('dialog input[type=email]', 'unknown@example.com'); await submit()
+    expect(document.querySelector('dialog input[type=password]')).toBeTruthy()
+    expect(fetchMock.mock.calls.map(call => call[0])).not.toContain('/api/auth/check-email')
   })
-  it('reports a missing account only after a successful negative lookup', async () => {
-    await mount(); await open()
-    fetchMock.mockResolvedValueOnce(Response.json({ exists: false, hasPassword: false, authProvider: null }))
-    await enterEmail()
-    expect(document.querySelector('dialog')!.textContent).toContain(getUiTranslations('en').errors.noAccountFound)
+})
+describe('server and UI instance isolation', () => {
+  it('keeps collection paths and branding separate across sibling tree render order', async () => {
+    const contexts: Record<string, AuthContextValue> = {}
+    function InstanceProbe({ id }: { id: string }) { contexts[id] = useAuth(); return <span>{id}</span> }
+    const first = { ...publicConfig, collection: 'customers', apiPrefix: '/backend', logoUrl: '/first.svg' }
+    const second = { ...publicConfig, collection: 'members', apiPrefix: '/other', logoUrl: '/second.svg' }
+    const tree = (reverse: boolean) => (reverse ? ['second', 'first'] : ['first', 'second']).map(id => <AuthProvider key={id} publicConfig={id === 'first' ? first : second} initialUser={null} modalLogin><InstanceProbe id={id} /></AuthProvider>)
+    await act(async () => root.render(tree(false)))
+    await act(async () => contexts.first.openLogin())
+    expect(document.querySelector('dialog img')?.getAttribute('src')).toBe('/first.svg')
+    await act(async () => contexts.first.closeLogin())
+    await act(async () => contexts.second.openLogin())
+    expect(document.querySelector('dialog img')?.getAttribute('src')).toBe('/second.svg')
+    await act(async () => contexts.second.closeLogin())
+    fetchMock.mockClear()
+    await act(async () => root.render(tree(true)))
+    await act(async () => { await contexts.first.refreshSession(); await contexts.second.refreshSession() })
+    expect(fetchMock.mock.calls.map(call => call[0])).toEqual(['/backend/customers/me', '/other/members/me'])
   })
 })

@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react'
 import { useAllowSignup } from '../AuthSignupConfig'
-import { pluginConfig, initClientConfig } from '../../config'
+import { createAuthService } from '../../auth/application/services/authService'
+import { useAuthConfig } from '../AuthConfigContext'
 import { useAuthPresentation } from '../auth-presentation/AuthPresentationContext'
 import { getUiTranslations, type DeepPartial, type UiTranslations } from '../ui/translations'
 import { AUTH_FORMS, type AuthFormSlug } from '../forms/index'
@@ -31,39 +32,13 @@ export interface FormRendererProps {
   mobileVariant?: 'plain' | 'card' | 'modal'
 }
 
-const defaultPasswordLogin = async ({ email, password }: { email: string; password: string }) => {
-  const res = await fetch('/api/users/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.errors?.[0]?.message || 'Login failed')
-  }
-}
-
-const defaultSignup = async ({ name, email }: { name: string; email: string }) => {
-  const res = await fetch('/api/auth/signup', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email }),
-  })
-  if (!res.ok) {
-    const err = await res.json()
-    throw new Error(err.message || 'Signup failed')
-  }
-}
-
 export function FormRenderer({
   slug,
   redirectTo = '/admin',
-  onPasswordLogin = defaultPasswordLogin,
-  onSignup = defaultSignup,
+  onPasswordLogin,
+  onSignup,
   basePath = '/auth',
   showGoogleOAuth,
-  passwordLogin = true,
-  otpLogin = true,
   locale,
   messages,
   logo,
@@ -77,12 +52,9 @@ export function FormRenderer({
   mobileVariant,
 }: FormRendererProps) {
   const allowSignup = useAllowSignup()
-  initClientConfig({
-    style: pluginConfig.style,
-    googleOAuthEnabled: showGoogleOAuth ?? pluginConfig.googleOAuthEnabled,
-    passwordLogin,
-    otpLogin,
-  })
+  const pluginConfig = useAuthConfig()
+  const passwordHandler = onPasswordLogin ?? createAuthService(pluginConfig).login
+  const signupHandler = onSignup ?? (async () => { throw new Error('Signup unavailable') })
 
   const presentation = useAuthPresentation({ locale, messages })
   const resolvedLocale = presentation.locale
@@ -93,8 +65,8 @@ export function FormRenderer({
   const [dynamicTitle, setDynamicTitle] = useState<string | undefined>(undefined)
   const [dynamicSubtitle, setDynamicSubtitle] = useState<string | undefined>(undefined)
 
-  const effectiveSlug: AuthFormSlug = 
-    (!allowSignup && normalizedSlug === 'signup') ? 'login' : 
+  const effectiveSlug: AuthFormSlug =
+    (normalizedSlug === 'signup' && !allowSignup) || (normalizedSlug === 'forgot-password' && !pluginConfig.recovery) || ((normalizedSlug === 'verify-otp' || normalizedSlug === 'set-password') && !pluginConfig.otpLogin && !pluginConfig.recovery) ? 'login' :
     (normalizedSlug in AUTH_FORMS ? normalizedSlug : 'login')
 
   const config = FORM_CONFIGS[effectiveSlug]
@@ -102,10 +74,10 @@ export function FormRenderer({
 
   const propsContext: FormPropsContext = {
     redirectTo,
-    onPasswordLogin,
-    onSignup,
+    onPasswordLogin: passwordHandler,
+    onSignup: signupHandler,
     basePath: base,
-    showGoogleOAuth: showGoogleOAuth ?? pluginConfig.googleOAuthEnabled,
+    showGoogleOAuth: pluginConfig.googleOAuthEnabled && (showGoogleOAuth ?? true),
     allowSignup,
     locale: resolvedLocale,
     messages: presentation.messages,
