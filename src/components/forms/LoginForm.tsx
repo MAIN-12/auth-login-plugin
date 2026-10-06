@@ -107,6 +107,7 @@ function LoginFormContent({
             </div>}
             <Button type="submit" variant="primary" isLoading={isLoading}>{t.continue}</Button>
           </form>
+          {config.otpLogin && <Button variant="secondary" isLoading={isSendingOtp} onPress={handleSendOtp}>{t.sendCode}</Button>}
         </div>
       )}
 

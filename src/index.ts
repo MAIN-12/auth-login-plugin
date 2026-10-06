@@ -1,10 +1,11 @@
 import type { Config } from 'payload'
 import { resolveAuthConfig, type AuthLoginPluginOptions, type PublicAuthConfig } from './config'
 import { createAuthEndpoints, createPasswordLoginEndpoint, createRefreshEndpoint, authFailureResponse } from './endpoints/authEndpoints'
+import { installNativeSessionCoordination } from './auth/server/otpSession'
 import { createSessionPolicy } from './auth/server/sessionPolicy'
 import { AuthFailure } from './auth/domain/login'
 
-export type { AuthLoginPluginOptions, PublicAuthConfig, SerializableAuthConfig, AuthStyle } from './config'
+export type { AuthLoginPluginOptions, PublicAuthConfig, SerializableAuthConfig, AuthStyle, OtpOptions } from './config'
 export type { AuthErrorCode, AuthErrorResponse } from './auth/domain/login'
 export type { CredentialCapabilities } from './auth/domain/credentials'
 
@@ -17,6 +18,7 @@ export function authLoginPlugin(options: AuthLoginPluginOptions | { enabled: fal
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw new Error('auth-login: options must be an object')
   if (options.enabled === false) return Object.freeze(Object.assign(async (config: Config) => config, { publicConfig: null }))
   const publicConfig = resolveAuthConfig(options)
+  const otpOptions = options.otp ? Object.freeze({ ...options.otp, email: options.otp.email ? Object.freeze({ ...options.otp.email }) : undefined }) : undefined
   const maxAge = options.session?.maxAge ?? 7200
   const plugin = async (config: Config): Promise<Config> => {
     if (config.routes?.api && config.routes.api !== publicConfig.apiPrefix) throw new Error('auth-login: apiPrefix conflicts with Payload routes.api')
@@ -31,8 +33,8 @@ export function authLoginPlugin(options: AuthLoginPluginOptions | { enabled: fal
     const policy = createSessionPolicy(publicConfig.collection, tokenExpiration)
     const disabled = (path: string) => ({ path: `/${path}`,  method: 'post' as const, handler: (req: Parameters<typeof authFailureResponse>[1]) => authFailureResponse(new AuthFailure('METHOD_DISABLED', 403), req) })
     return { ...config, routes: { ...config.routes, api: publicConfig.apiPrefix },
-      onInit: async payload => { await config.onInit?.(payload); policy.installStrategy(payload) },
-      endpoints: [...createAuthEndpoints(publicConfig), ...(config.endpoints ?? [])],
+      onInit: async payload => { await config.onInit?.(payload); if (publicConfig.otpLogin) installNativeSessionCoordination(payload, publicConfig.collection); policy.installStrategy(payload) },
+      endpoints: [...createAuthEndpoints(publicConfig, otpOptions), ...(config.endpoints ?? [])],
       collections: config.collections?.map(collection => collection !== target ? collection : {
         ...target, auth: { ...target.auth as object, tokenExpiration },
         access: { ...target.access, create: args => args.req.user ? (target.access?.create?.(args) ?? true) : false },
@@ -43,3 +45,6 @@ export function authLoginPlugin(options: AuthLoginPluginOptions | { enabled: fal
   }
   return Object.freeze(Object.assign(plugin, { publicConfig }))
 }
+
+/** Unforgeable request-local method evidence for consumer server hooks, never a client capability. */
+export { isOtpSessionRequest } from './auth/server/otpSession'

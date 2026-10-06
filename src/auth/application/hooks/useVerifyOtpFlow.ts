@@ -1,29 +1,32 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useAuthNavigation } from '../AuthFlowContext'
-import { verifyOtp, sendOtp } from '../services/authService'
+import { createAuthService } from '../services/authService'
 import { useAuthConfig } from '../../../components/AuthConfigContext'
 
 export interface UseVerifyOtpFlowOptions {
   email: string
   purpose: 'login' | 'signup' | 'password-reset'
   redirectTo?: string
+  context: string
+  retryAfter?: number
 }
 
 /**
  * State machine for OTP verification: input → verify → redirect | resend.
  */
-export function useVerifyOtpFlow({ email, purpose, redirectTo = '/' }: UseVerifyOtpFlowOptions) {
+export function useVerifyOtpFlow({ email, purpose, context, retryAfter = 0, redirectTo = '/' }: UseVerifyOtpFlowOptions) {
   const pluginConfig = useAuthConfig()
   const router = useAuthNavigation()
 
+  const submitting = useRef(false)
   const [otp, setOtp] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [isResending, setIsResending] = useState(false)
-  // Start with 30s cooldown since a code was just sent before arriving here
-  const [resendCooldown, setResendCooldown] = useState(30)
+  // Cooldown comes from the server contract, never grants permission locally.
+  const [resendCooldown, setResendCooldown] = useState(Math.max(0, retryAfter))
 
   useEffect(() => {
     if (resendCooldown > 0) {
@@ -33,24 +36,16 @@ export function useVerifyOtpFlow({ email, purpose, redirectTo = '/' }: UseVerify
   }, [resendCooldown])
 
   const handleSubmit = useCallback(async () => {
-    if (otp.length !== 6) return
+    if (otp.length !== 6 || submitting.current) return
+    submitting.current = true
     setIsLoading(true)
     setError(null)
     try {
-      const data = await verifyOtp(email, otp)
+      if (purpose !== 'login') throw new Error('METHOD_DISABLED')
+      const data = await createAuthService(pluginConfig).verifyOtp(email, otp, context)
       if (data.success) {
-        const { passwordLogin: passwordLoginEnabled, otpLogin: otpLoginEnabled } = pluginConfig
+        await router.complete(redirectTo)
 
-        if (purpose === 'password-reset') {
-          // Always allow setting password from explicit password-reset flow
-          router.push(`/set-password?redirect=${encodeURIComponent(redirectTo)}`)
-        } else if (!otpLoginEnabled && passwordLoginEnabled && data.isNewUser) {
-          // Only prompt for password if OTP login is disabled and password login is enabled
-          router.push(`/set-password?redirect=${encodeURIComponent(redirectTo)}`)
-        } else {
-          // OTP login is enabled — go straight to the app
-          await router.complete(redirectTo)
-        }
       } else {
         setError(data.error || 'error')
         setOtp('')
@@ -59,9 +54,10 @@ export function useVerifyOtpFlow({ email, purpose, redirectTo = '/' }: UseVerify
       setError('error')
       setOtp('')
     } finally {
+      submitting.current = false
       setIsLoading(false)
     }
-  }, [otp, email, purpose, redirectTo, router, pluginConfig])
+  }, [otp, email, purpose, redirectTo, router, pluginConfig, context])
 
   // Auto-verify when all 6 digits are entered
   useEffect(() => {
@@ -76,9 +72,10 @@ export function useVerifyOtpFlow({ email, purpose, redirectTo = '/' }: UseVerify
     setIsResending(true)
     setError(null)
     try {
-      const data = await sendOtp(email, purpose)
+      if (purpose !== 'login') throw new Error('METHOD_DISABLED')
+      const data = await createAuthService(pluginConfig).sendOtp(email, context)
       if (data.success) {
-        setResendCooldown(60)
+        setResendCooldown(data.retryAfter ?? 0)
       } else {
         setError(data.message || 'resendError')
       }
@@ -87,7 +84,7 @@ export function useVerifyOtpFlow({ email, purpose, redirectTo = '/' }: UseVerify
     } finally {
       setIsResending(false)
     }
-  }, [email, purpose, resendCooldown])
+  }, [email, purpose, resendCooldown, pluginConfig, context])
 
   return {
     otp,

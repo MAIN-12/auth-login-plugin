@@ -20,7 +20,7 @@ function VerifyOtpHeroContent({ loginUrl = '/login', logo, poweredBy, cardClassN
   const email = searchParams.get('email') || ''
   const purpose = (searchParams.get('purpose') || 'login') as 'login' | 'signup' | 'password-reset'
   const redirectTo = searchParams.get('redirect') || '/'
-  const { otp, error, isLoading, isResending, resendCooldown, setOtp, handleSubmit, handleResendCode } = useVerifyOtpFlow({ email, purpose, redirectTo })
+  const { otp, error, isLoading, isResending, resendCooldown, setOtp, handleSubmit, handleResendCode } = useVerifyOtpFlow({ email, purpose, redirectTo, context: searchParams.get('context') ?? '', retryAfter: Number(searchParams.get('retryAfter') ?? 0) })
   const t = useAuthTranslations(locale, messages).verifyOtp
   if (!email) return null
 

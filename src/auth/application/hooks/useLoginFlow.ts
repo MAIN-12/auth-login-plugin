@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useAuthNavigation } from '../AuthFlowContext'
 import type { LoginStep } from '../../domain/types'
-import { sendOtp, initiateGoogleLogin } from '../services/authService'
+import { createAuthService, initiateGoogleLogin } from '../services/authService'
 import { useAuthConfig } from '../../../components/AuthConfigContext'
 
 export interface UseLoginFlowOptions {
@@ -37,8 +37,7 @@ export function useLoginFlow({ redirectTo, onPasswordLogin }: UseLoginFlowOption
 
       try {
         // Public UI chooses an enabled method, never queries account capabilities.
-        if (!config.passwordLogin) throw new Error('Login method unavailable')
-        setStep('password')
+        setStep(config.passwordLogin ? 'password' : 'otp-prompt')
       } catch {
         setError('genericError')
       } finally {
@@ -69,10 +68,10 @@ export function useLoginFlow({ redirectTo, onPasswordLogin }: UseLoginFlowOption
     setIsSendingOtp(true)
     setError(null)
     try {
-      const data = await sendOtp(email, 'login')
+      const data = await createAuthService(config).sendOtp(email)
       if (data.success) {
         const redirectParam = redirectTo !== '/' ? `&redirect=${encodeURIComponent(redirectTo)}` : ''
-        router.push(`/verify-otp?email=${encodeURIComponent(email.trim())}${redirectParam}`)
+        router.push(`/verify-otp?email=${encodeURIComponent(email.trim())}&context=${encodeURIComponent(data.context ?? '')}&retryAfter=${data.retryAfter ?? 0}${redirectParam}`)
       } else {
         setError(data.message || 'otpSendFailed')
       }
@@ -81,7 +80,7 @@ export function useLoginFlow({ redirectTo, onPasswordLogin }: UseLoginFlowOption
     } finally {
       setIsSendingOtp(false)
     }
-  }, [email, redirectTo, router])
+  }, [email, redirectTo, router, config])
 
   const handleEditEmail = useCallback(() => {
     setStep('email')

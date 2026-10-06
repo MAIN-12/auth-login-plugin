@@ -1,8 +1,13 @@
 import { generatePayloadCookie, headersWithCors, loginOperation, refreshOperation, type Endpoint, type PayloadRequest } from 'payload'
-import type { PublicAuthConfig } from '../config'
+import type { PublicAuthConfig, OtpOptions } from '../config'
 import { AuthFailure, createPasswordLogin } from '../auth/domain/login'
 import { readCredentialCapabilities } from '../auth/server/credentialEvidence'
 import { credentialCapabilities } from '../auth/domain/credentials'
+
+import { createOtpFlow } from '../auth/domain/otp'
+import { createPayloadOtpStore } from '../auth/server/otpStore'
+import { createOtpSession } from '../auth/server/otpSession'
+import { otpEmail } from '../auth/server/otpEmail'
 
 const MAX_BODY_BYTES = 4096
 async function readJSON(req: PayloadRequest): Promise<unknown> {
@@ -57,16 +62,16 @@ export function createPasswordLoginEndpoint(settings: PublicAuthConfig, path = `
     } catch (error) { return authFailureResponse(error, req) }
   } }
 }
-export function createAuthEndpoints(settings: PublicAuthConfig): Endpoint[] {
+export function createAuthEndpoints(settings: PublicAuthConfig, otpOptions?: OtpOptions): Endpoint[] {
   const disabled: Endpoint['handler'] = req => authFailureResponse(new AuthFailure('METHOD_DISABLED', 403), req)
-  return [createPasswordLoginEndpoint(settings),
+  return [createPasswordLoginEndpoint(settings), ...createOtpEndpoints(settings, otpOptions),
     { path: `${settings.authEndpointPrefix}/check-email`, method: 'post', handler: disabled },
     { path: `${settings.authEndpointPrefix}/credentials`, method: 'get', handler: async req => {
       if (!req.user || req.user.collection !== settings.collection) return authFailureResponse(new AuthFailure('UNAUTHENTICATED', 401), req)
       try { return Response.json({ capabilities: await readCredentialCapabilities(req, settings.collection) }) }
       catch { return authFailureResponse(new AuthFailure('AUTH_UNAVAILABLE', 503), req) }
     } },
-    ...['otp/send', 'otp/verify', 'signup', 'set-password', 'forgot-password', 'reset-password', 'oauth/google', 'oauth/google/callback'].map(path => ({ path: `${settings.authEndpointPrefix}/${path}`, method: 'post' as const, handler: disabled })),
+    ...['signup', 'set-password', 'forgot-password', 'reset-password', 'oauth/google', 'oauth/google/callback'].map(path => ({ path: `${settings.authEndpointPrefix}/${path}`, method: 'post' as const, handler: disabled })),
   ]
 }
 
@@ -86,4 +91,35 @@ export function createRefreshEndpoint(settings: PublicAuthConfig): Endpoint {
       }, { headers: headersWithCors({ headers, req }) })
     } catch (error) { return authFailureResponse(error, req) }
   } }
+}
+
+function createOtpEndpoints(settings: PublicAuthConfig, options?: OtpOptions): Endpoint[] {
+  return ['send', 'verify'].map(action => ({ path: `${settings.authEndpointPrefix}/otp/${action}`, method: 'post', handler: async req => {
+    if (!settings.otpLogin || !options) return authFailureResponse(new AuthFailure('METHOD_DISABLED', 403), req)
+    try {
+      assertAllowedOrigin(req)
+      const input = await readJSON(req)
+      const flow = createOtpFlow({ ...options, collection: settings.collection, store: createPayloadOtpStore(req),
+        findAccount: async email => {
+          const account = await req.payload.db.findOne({ collection: settings.collection, req, where: { email: { equals: email } } })
+          return account?.id ?? null
+        },
+        session: (account, email) => createOtpSession(req, account, settings.collection, email),
+        deliver: async ({ email, code }) => {
+          const mail = otpEmail(code, options.email)
+          await req.payload.sendEmail({ to: email, ...(options.email ? { from: options.email.from } : {}), ...mail })
+        },
+        event: (event, correlation) => req.payload.logger.info({ event: `auth.otp.${event}`, correlation }),
+      })
+      if (action === 'send') {
+        let origin: string | null
+        try { origin = await options.origin(req) } catch { origin = null }
+        return Response.json(await flow.send(input, origin), { headers: headersWithCors({ headers: new Headers(), req }) })
+      }
+      const result = await flow.verify(input)
+      const collection = req.payload.collections[settings.collection]
+      const cookie = generatePayloadCookie({ collectionAuthConfig: { ...collection.config.auth, tokenExpiration: Math.max(1, result.exp - Math.floor(Date.now() / 1000)) }, cookiePrefix: req.payload.config.cookiePrefix, token: result.token })
+      return Response.json({ success: true, user: result.user, exp: result.exp, ...(!collection.config.auth.removeTokenFromResponses ? { token: result.token } : {}) }, { headers: headersWithCors({ headers: new Headers({ 'Set-Cookie': cookie }), req }) })
+    } catch (error) { return authFailureResponse(error, req) }
+  } }))
 }

@@ -47,13 +47,15 @@
     "test": "vitest",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
-    "test:consumer": "node scripts/test-consumer.mjs"
+    "test:consumer": "node scripts/test-consumer.mjs",
+    "test:otp:acceptance": "AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_BUNDLER=webpack node scripts/test-consumer.mjs"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
     "@heroui/react": "^3.2.2",
     "@heroui/styles": "^3.2.2",
     "@main12/auth-login": "link:.",
+    "@payloadcms/db-postgres": "3.90.2",
     "@payloadcms/db-sqlite": "3.90.2",
     "@payloadcms/next": "3.90.2",
     "@payloadcms/richtext-lexical": "3.90.2",
@@ -137,6 +139,8 @@
   "registry": "https://registry.npmjs.org/",
   "dependencies": {
     "@iconify/react": "6.0.2",
+    "@libsql/client": "0.14.0",
+    "drizzle-orm": "0.45.2",
     "jose": "^6.2.12"
   }
 }

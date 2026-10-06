@@ -1,5 +1,7 @@
+import { isOtpSessionRequest } from './otpSession'
 import { APIError, type CollectionAfterOperationHook as AfterOperationHook, type CollectionBeforeOperationHook as BeforeOperationHook, type Payload, type PayloadRequest } from 'payload'
-import { decodeJwt, decodeProtectedHeader, SignJWT } from 'jose'
+import { decodeJwt, decodeProtectedHeader, jwtVerify, SignJWT } from 'jose'
+import { parseCookies } from 'payload/shared'
 import { parsePasswordCredentials } from '../domain/login'
 
 interface Session { id: string; createdAt: string | Date; expiresAt: string | Date }
@@ -15,9 +17,11 @@ export function createSessionPolicy(collection: string, lifetime: number) {
       // request remains untrusted even when a host forwards it to privileged Local API.
       const privilegedProvisioning = req.payloadAPI === 'local' && writeArgs.overrideAccess === true && req.context.authLoginCredentialProvisioning === true
       if (mutatesCredentials && !privilegedProvisioning) throw new APIError('METHOD_DISABLED', 403)
+      const mutatesSessionAuthority = data !== null && typeof data === 'object' && ['sessions', '_sid', '_strategy', 'authLoginMethod'].some(key => Object.prototype.hasOwnProperty.call(data, key))
+      if (mutatesSessionAuthority && !privilegedProvisioning) throw new APIError('METHOD_DISABLED', 403)
     }
     if (operation === 'forgotPassword' || operation === 'resetPassword') throw new APIError('METHOD_DISABLED', 403)
-    if (operation === 'login') {
+    if (operation === 'login' && !isOtpSessionRequest(req)) {
       // Guard Local API/GraphQL as well as custom HTTP. Hooks cannot manufacture another method.
       const loginArgs = args as Parameters<typeof import('payload').loginOperation>[0]
       loginArgs.data = parsePasswordCredentials(loginArgs.data)
@@ -49,7 +53,7 @@ export function createSessionPolicy(collection: string, lifetime: number) {
     if (!Number.isFinite(cap) || cap <= Math.floor(Date.now() / 1000) || !session) throw new APIError('AUTH_FAILED', 401)
     const expiration = Math.min(typeof claims.exp === 'number' ? claims.exp : cap, cap)
     const { iat: _iat, exp: _exp, ...fieldsToSign } = claims
-    const signedToken = await new SignJWT({ ...fieldsToSign, iat: Math.floor(Date.now() / 1000), exp: expiration }).setProtectedHeader({ ...decodeProtectedHeader(token), alg: 'HS256' }).sign(new TextEncoder().encode(req.payload.secret))
+    const signedToken = await new SignJWT({ ...fieldsToSign, ...(req.user?.authLoginMethod === 'otp' ? { authLoginMethod: 'otp' } : {}), iat: Math.floor(Date.now() / 1000), exp: expiration }).setProtectedHeader({ ...decodeProtectedHeader(token), alg: 'HS256' }).sign(new TextEncoder().encode(req.payload.secret))
     if (new Date(session.expiresAt).getTime() > expiration * 1000) {
       session.expiresAt = new Date(expiration * 1000)
       // Native sessions may contain other valid sessions; preserve them.
@@ -70,9 +74,39 @@ export function createSessionPolicy(collection: string, lifetime: number) {
         const session = sessions?.find(session => session.id === user._sid)
         const cap = session ? Math.floor(new Date(session.createdAt).getTime() / 1000) + lifetime : NaN
         if (!session || !Number.isFinite(cap) || cap <= Math.floor(Date.now() / 1000) || !Number.isFinite(new Date(session.expiresAt).getTime()) || new Date(session.expiresAt).getTime() <= Date.now()) return { ...result, user: null }
+        // Follow native JWT precedence/CSRF, then verify the exact session identity again.
+        // Never trust method values from a database field, HTTP body or request context.
+        try {
+          const token = nativeToken(args.headers, payload)
+          if (!token) return { ...result, user: null }
+          const { payload: claims } = await jwtVerify(token, new TextEncoder().encode(payload.secret))
+          if (claims.id !== user.id || claims.collection !== collection || claims.sid !== user._sid) return { ...result, user: null }
+          user.authLoginMethod = claims.authLoginMethod === 'otp' ? 'otp' : 'password'
+          if (user.authLoginMethod === 'otp') {
+            if (!args.req || await payload.collections[collection].config.access.admin?.({ req: { ...args.req, user } as PayloadRequest }) !== false) return { ...result, user: null }
+          }
+        } catch { return { ...result, user: null } }
         return result
       },
     }))
   }
   return { beforeOperation, afterOperation, installStrategy }
+}
+
+/** Pinned Payload3.90 native extraction semantics, using the public cookie parser. */
+function nativeToken(headers: Headers, payload: Payload): string | null {
+  const authorization = headers.get('Authorization')
+  for (const method of payload.config.auth.jwtOrder) {
+    if (method === 'Bearer' && authorization?.startsWith('Bearer ')) return authorization.slice(7)
+    if (method === 'JWT' && authorization?.startsWith('JWT ')) return authorization.slice(4)
+    if (method === 'cookie') {
+      const token = parseCookies(headers).get(`${payload.config.cookiePrefix}-token`)
+      if (!token) continue
+      const origin = headers.get('Origin')
+      const site = headers.get('Sec-Fetch-Site')
+      const allowed = origin ? !payload.config.csrf.length || payload.config.csrf.includes(origin) : !payload.config.csrf.length || ['same-origin', 'same-site', 'none'].includes(site ?? '')
+      if (allowed) return token
+    }
+  }
+  return null
 }

@@ -5,6 +5,14 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import assert from 'node:assert/strict'
 import { chromium } from '@playwright/test'
+import { temporaryPostgres, freePort } from './otp-postgres.mjs'
+import { verifyOtpAcceptance } from '../tests/otp-browser.mjs'
+const otp = process.env.AUTH_CONSUMER_OTP === '1'
+let postgres
+let secondary
+let diagnosticPage
+const browserEvidence = []
+const bundlerArgs = process.env.AUTH_CONSUMER_BUNDLER === 'webpack' ? ['--webpack'] : []
 
 const root = resolve(import.meta.dirname, '..')
 const temp = await mkdtemp(join(tmpdir(), 'auth-ticket01-consumer-'))
@@ -14,6 +22,7 @@ let server
 let browser
 let logs = ''
 try {
+  if (otp) postgres = await temporaryPostgres()
   await mkdir(join(root, 'dist'), { recursive: true })
   await writeFile(join(root, 'dist', '__stale-consumer-test.js'), 'obsolete')
   execFileSync('pnpm', ['build'], { cwd: root, stdio: 'inherit' })
@@ -30,17 +39,38 @@ try {
   const port = probe.address().port
   await new Promise(resolve => probe.close(resolve))
   const origin = `http://127.0.0.1:${port}`
-  server = spawn('pnpm', ['exec', 'next', 'dev', '--hostname', '127.0.0.1', '--port', String(port)], { cwd: app, env: { ...process.env, AUTH_CONSUMER_PORT: String(port), NEXT_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
+  server = spawn('pnpm', ['exec', 'next', 'dev', ...bundlerArgs, '--hostname', '127.0.0.1', '--port', String(port)], { cwd: app, env: { ...process.env, AUTH_CONSUMER_PORT: String(port), ...(postgres ? { AUTH_CONSUMER_DATABASE_URL: postgres.url } : {}), NEXT_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
   server.stdout.on('data', data => { logs += String(data) })
   server.stderr.on('data', data => { logs += String(data) })
   for (let attempt = 0; attempt < 120; attempt++) {
-    try { if ((await fetch(origin)).ok) break } catch {}
+    try { const ready = await fetch(origin, { signal: AbortSignal.timeout(30000) }); if (ready.ok) break; if (ready.status === 500) throw new Error(`Consumer startup returned 500: ${await ready.text()}`) } catch (error) { if (String(error).includes('startup returned')) throw error }
     if (server.exitCode !== null || attempt === 119) throw new Error(`Consumer failed to start:\n${logs}`)
     await new Promise(resolve => setTimeout(resolve, 500))
   }
+  if (otp) {
+    const port2 = await freePort()
+    secondary = spawn('pnpm', ['exec', 'next', 'dev', ...bundlerArgs, '--hostname', '127.0.0.1', '--port', String(port2)], { cwd: app, env: { ...process.env, AUTH_CONSUMER_OTP: '1', AUTH_CONSUMER_SECONDARY: '1', AUTH_CONSUMER_DATABASE_URL: postgres.url, AUTH_CONSUMER_PORT: String(port2), NEXT_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
+    secondary.stdout.on('data', data => { logs += String(data) })
+    secondary.stderr.on('data', data => { logs += String(data) })
+    const origin2 = `http://127.0.0.1:${port2}`
+    for (let attempt = 0; attempt < 120; attempt++) {
+      try { const ready = await fetch(origin2, { signal: AbortSignal.timeout(30000) }); if (ready.ok) break; if (ready.status === 500) throw new Error(`Secondary startup returned 500: ${await ready.text()}`) } catch (error) { if (String(error).includes('startup returned')) throw error }
+      if (secondary.exitCode !== null || attempt === 119) throw new Error(`Secondary failed to start:\n${logs}`)
+      await new Promise(resolve => setTimeout(resolve, 500))
+    }
+    browser = await chromium.launch({ headless: true })
+    await verifyOtpAcceptance({ browser, origin, origin2, postgresVersion: postgres.version, outage: postgres.outage })
+    execFileSync('pnpm', ['exec', 'tsc', '--noEmit'], { cwd: app, stdio: 'inherit' })
+    console.log('OTP consumer declarations GREEN')
+    process.exitCode = 0
+  } else {
   browser = await chromium.launch({ headless: true })
   const context = await browser.newContext()
   const page = await context.newPage()
+  diagnosticPage = page
+  page.on('response', response => browserEvidence.push({ url: response.url(), status: response.status() }))
+  page.on('console', message => browserEvidence.push({ console: message.type(), text: message.text() }))
+  page.on('pageerror', error => browserEvidence.push({ pageerror: error.message }))
   const requests = []
   page.on('request', request => requests.push(request.url()))
   await page.goto(origin)
@@ -52,9 +82,13 @@ try {
   await page.getByRole('button', { name: 'Continue', exact: true }).click()
   const response = await loginResponse
   assert.equal(response.status(), 200)
-  const result = await response.json()
-  assert.equal(result.user.email, 'browser@example.com')
-  assert.equal('token' in result, false)
+  // Preserve the original Turbopack browser contract. Webpack diagnosis must reach UI evidence
+  // even when its unexpected document navigation discards Chromium's network response body.
+  if (!bundlerArgs.length) {
+    const result = await response.json()
+    assert.equal(result.user.email, 'browser@example.com')
+    assert.equal('token' in result, false)
+  }
   await page.getByTestId('email').filter({ hasText: 'browser@example.com' }).waitFor()
   assert.equal(await page.locator('dialog').count(), 0)
   const cookie = (await context.cookies()).find(cookie => cookie.name === 'consumer-token')
@@ -78,11 +112,26 @@ try {
   assert.ok(!html.includes('consumer-only-private-secret-not-production'))
   execFileSync('pnpm', ['exec', 'tsc', '--noEmit'], { cwd: app, stdio: 'inherit' })
   console.log(JSON.stringify({ passed: true, package: manifest.dependencies['@main12/auth-login'].split('/').pop(), node: process.version, payload: manifest.dependencies.payload, next: manifest.dependencies.next, react: manifest.dependencies.react, database: 'SQLite real', browser: 'Chromium', verified: ['packaged plugin/client/RSC/proxy imports', 'real password login', 'effective cookie prefix/HttpOnly/SameSite/expiry', 'no public account lookup', 'removeTokenFromResponses', 'server logout and replay rejection', 'consumer declarations', 'no private secret in client script chunks', 'stale dist excluded by clean build'] }, null, 2))
+  }
 } catch (error) {
+  if (diagnosticPage && !diagnosticPage.isClosed()) {
+    await diagnosticPage.screenshot({ path: `/tmp/auth-password-${bundlerArgs.length ? 'webpack' : 'turbopack'}-red.png` }).catch(() => {})
+    await writeFile(`/tmp/auth-password-${bundlerArgs.length ? 'webpack' : 'turbopack'}-red.html`, await diagnosticPage.content().catch(() => 'unavailable'))
+    await writeFile(`/tmp/auth-password-${bundlerArgs.length ? 'webpack' : 'turbopack'}-network.json`, JSON.stringify(browserEvidence, null, 2))
+  }
   console.error(logs)
   throw error
 } finally {
   await browser?.close()
-  if (server?.pid) { try { process.kill(-server.pid, 'SIGTERM') } catch {} }
-  await rm(temp, { recursive: true, force: true })
+  for (const child of [server, secondary]) {
+    if (!child?.pid) continue
+    try { process.kill(-child.pid, 'SIGTERM') } catch {}
+    for (let attempt = 0; attempt < 30; attempt++) {
+      try { process.kill(-child.pid, 0) } catch { break }
+      await new Promise(resolve => setTimeout(resolve, 100))
+      if (attempt === 29) { try { process.kill(-child.pid, 'SIGKILL') } catch {} }
+    }
+  }
+  await postgres?.close()
+  await rm(temp, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 })
 }

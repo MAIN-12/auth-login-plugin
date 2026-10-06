@@ -4,7 +4,16 @@ import type { SendOtpResponse, VerifyOtpResponse, SetPasswordResponse, SignupRes
 
 /** Explicit per-tree HTTP adapter; no module-global options or account discovery. */
 export function createAuthService(config: PublicAuthConfig) {
+  const otpRequest = async (action: string, body: unknown) => {
+    if (!config.otpLogin) throw new Error('METHOD_DISABLED')
+    const response = await fetch(`${config.apiPrefix}${config.authEndpointPrefix}/otp/${action}`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    const data = await response.json()
+    if (!response.ok) throw new Error(data.code ?? 'AUTH_FAILED')
+    return data
+  }
   return {
+    sendOtp: (email: string, context?: string): Promise<SendOtpResponse> => otpRequest('send', { email, purpose: 'login', ...(context ? { context } : {}) }),
+    verifyOtp: (email: string, otp: string, context: string): Promise<VerifyOtpResponse> => otpRequest('verify', { email, otp, context, purpose: 'login' }),
     async login(credentials: { email: string; password: string }): Promise<void> {
       const response = await fetch(`${config.apiPrefix}${config.authEndpointPrefix}/login`, { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(credentials) })
       if (!response.ok) throw new Error('Login failed')

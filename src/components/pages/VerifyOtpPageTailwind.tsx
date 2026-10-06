@@ -25,7 +25,7 @@ function VerifyOtpContent({
   const redirectTo = searchParams.get('redirect') || '/'
 
   const { otp, error, isLoading, isResending, resendCooldown, setOtp, handleSubmit, handleResendCode } =
-    useVerifyOtpFlow({ email, purpose, redirectTo })
+    useVerifyOtpFlow({ email, purpose, redirectTo, context: searchParams.get('context') ?? '', retryAfter: Number(searchParams.get('retryAfter') ?? 0) })
   const t = useAuthTranslations(locale, messages).verifyOtp
 
   if (!email) return null

@@ -7,6 +7,9 @@ export type OTPPurpose = 'login' | 'signup' | 'password-reset'
 export type CheckEmailResponse = never
 
 export interface SendOtpResponse {
+  context?: string
+  retryAfter?: number
+  code?: string
   success: boolean
   message?: string
 }
