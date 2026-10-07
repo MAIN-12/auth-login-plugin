@@ -6,7 +6,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string[
   const { slug } = await params
 
   // if (slug?.[0] === 'login' || !slug?.length) return <SplitLoginDemo />
-  // if (slug?.[0] === 'login' || !slug?.length) return <TextureBackgroundLoginDemo />
+  if (slug?.[0] === 'login' || !slug?.length) return <TextureBackgroundLoginDemo />
 
   // Default: full-page AuthPages for other routes.
   // Disabled signup renders Login in the same card without changing the URL.

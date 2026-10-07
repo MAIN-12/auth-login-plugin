@@ -93,7 +93,9 @@ export function Input({
 }
 
 export const Card = ({ children, className = '' }: CardProps) => (
-  <HeroCard className={`w-full ${className}`}>{children}</HeroCard>
+  <HeroCard className={`w-full ${className}`} style={{ maxWidth: '400px' }}>
+    {children}
+  </HeroCard>
 )
 export const CardHeader = (props: CardProps) => <HeroCard.Header {...props} />
 export const CardContent = (props: CardProps) => <HeroCard.Content {...props} />
