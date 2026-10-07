@@ -1,0 +1,21 @@
+# Dependencies, builds and caches
+node_modules/
+dist/
+**/.next/
+coverage/
+*.tsbuildinfo
+
+# Generated Payload files
+**/payload-types.ts
+**/importMap.js
+
+# Lockfiles and captured acceptance evidence are tool-owned
+pnpm-lock.yaml
+tests/evidence/
+reports/
+
+# Temporary work and copied architecture references
+.scratch/
+docs/architecture/
+docs/CONTEXT.md
+docs/README.md

@@ -21,9 +21,13 @@ const modal = import('./Modal');
 `,
     )
     const run = () =>
-      execFileSync(process.execPath, [path.resolve('scripts/fix-esm-imports.mjs')], {
-        cwd: fixture,
-      })
+      execFileSync(
+        process.execPath,
+        ['--import', import.meta.resolve('tsx'), path.resolve('scripts/fix-esm-imports.ts')],
+        {
+          cwd: fixture,
+        },
+      )
     run()
     const output = await readFile(file, 'utf8')
     expect(output).toContain("from './AuthPageTexture.module.css'")

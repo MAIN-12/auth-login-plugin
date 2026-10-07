@@ -3,7 +3,7 @@ import path from 'node:path'
 
 const DIST_DIR = path.resolve(process.cwd(), 'dist')
 
-async function walk(dir) {
+async function walk(dir: string): Promise<string[]> {
   const entries = await readdir(dir)
   const files = await Promise.all(
     entries.map(async (entry) => {
@@ -16,31 +16,41 @@ async function walk(dir) {
   return files.flat()
 }
 
-function rewriteRelativeSpecifier(specifier) {
+function rewriteRelativeSpecifier(specifier: string): string {
   if (!specifier.startsWith('./') && !specifier.startsWith('../')) return specifier
-  if (specifier.endsWith('.js') || specifier.endsWith('.mjs') || specifier.endsWith('.cjs')) return specifier
+  if (specifier.endsWith('.js') || specifier.endsWith('.mjs') || specifier.endsWith('.cjs'))
+    return specifier
   // Stylesheets are emitted as assets, not JavaScript modules.
   if (/\.(?:json|css|scss|sass|less)(?:[?#].*)?$/.test(specifier)) return specifier
   return `${specifier}.js`
 }
 
-function patchContent(content) {
+function patchContent(content: string): string {
   let updated = content
 
   // import ... from '...'
-  updated = updated.replace(/(from\s+['"])([^'"]+)(['"])/g, (_m, p1, spec, p3) => {
-    return `${p1}${rewriteRelativeSpecifier(spec)}${p3}`
-  })
+  updated = updated.replace(
+    /(from\s+['"])([^'"]+)(['"])/g,
+    (_m: string, p1: string, spec: string, p3: string) => {
+      return `${p1}${rewriteRelativeSpecifier(spec)}${p3}`
+    },
+  )
 
   // export ... from '...'
-  updated = updated.replace(/(export\s+[^\n]*?from\s+['"])([^'"]+)(['"])/g, (_m, p1, spec, p3) => {
-    return `${p1}${rewriteRelativeSpecifier(spec)}${p3}`
-  })
+  updated = updated.replace(
+    /(export\s+[^\n]*?from\s+['"])([^'"]+)(['"])/g,
+    (_m: string, p1: string, spec: string, p3: string) => {
+      return `${p1}${rewriteRelativeSpecifier(spec)}${p3}`
+    },
+  )
 
   // import('...')
-  updated = updated.replace(/(import\(\s*['"])([^'"]+)(['"]\s*\))/g, (_m, p1, spec, p3) => {
-    return `${p1}${rewriteRelativeSpecifier(spec)}${p3}`
-  })
+  updated = updated.replace(
+    /(import\(\s*['"])([^'"]+)(['"]\s*\))/g,
+    (_m: string, p1: string, spec: string, p3: string) => {
+      return `${p1}${rewriteRelativeSpecifier(spec)}${p3}`
+    },
+  )
 
   return updated
 }

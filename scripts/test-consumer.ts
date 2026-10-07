@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { execFileSync, spawn } from 'node:child_process'
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
 import {
   cp,
   mkdtemp,
@@ -11,30 +11,30 @@ import {
   access,
   symlink,
 } from 'node:fs/promises'
-import { createServer } from 'node:net'
+import { createServer, type AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import assert from 'node:assert/strict'
-import { chromium } from '@playwright/test'
-import { temporaryPostgres, freePort } from './otp-postgres.mjs'
+import { chromium, type Browser, type Page } from '@playwright/test'
+import { temporaryPostgres, freePort } from './otp-postgres.ts'
 import { verifyPasswordAcceptance } from '../tests/password-browser.mjs'
 import { verifyOtpAcceptance } from '../tests/otp-browser.mjs'
 import { verifyIntegrationAcceptance } from '../tests/integration-browser.mjs'
 import { verifyOauthAcceptance } from '../tests/oauth-browser.mjs'
 import { createClient } from '@libsql/client'
 import { verifyMigrationAcceptance } from '../tests/migration-browser.mjs'
-import { controlledOidcProvider } from './oauth-provider.mjs'
+import { controlledOidcProvider } from './oauth-provider.ts'
 const migration = process.env.AUTH_CONSUMER_ISSUE06 === '1'
 const integration = process.env.AUTH_CONSUMER_ISSUE05 === '1'
 const password = process.env.AUTH_CONSUMER_PASSWORD === '1'
 const otp = process.env.AUTH_CONSUMER_OTP === '1'
 const oauth = process.env.AUTH_CONSUMER_OAUTH === '1'
 const shared = otp || password || oauth || integration || migration
-let provider
-let postgres
-let secondary
-let diagnosticPage
-const browserEvidence = []
+let provider: Awaited<ReturnType<typeof controlledOidcProvider>> | undefined
+let postgres: Awaited<ReturnType<typeof temporaryPostgres>> | undefined
+let secondary: ChildProcess | undefined
+let diagnosticPage: Page | undefined
+const browserEvidence: Record<string, string | number>[] = []
 const bundlerArgs = process.env.AUTH_CONSUMER_BUNDLER === 'webpack' ? ['--webpack'] : []
 
 const root = resolve(import.meta.dirname, '..')
@@ -43,19 +43,19 @@ const packageDir = join(temp, 'package')
 const app = join(temp, 'app')
 const secondaryApp = join(temp, 'app-secondary')
 const sqliteURL = `file:${join(app, 'consumer.db')}`
-let server
-let browser
+let server: ChildProcess | undefined
+let browser: Browser | undefined
 let logs = ''
-let acceptanceResult
-let sqliteConfiguration
+let acceptanceResult: Record<string, unknown> | undefined
+let sqliteConfiguration: unknown
 async function digestHarness() {
   const hash = createHash('sha256')
   for (const file of [
     'package.json',
     'pnpm-lock.yaml',
-    'scripts/test-consumer.mjs',
-    'scripts/otp-postgres.mjs',
-    'scripts/oauth-provider.mjs',
+    'scripts/test-consumer.ts',
+    'scripts/otp-postgres.ts',
+    'scripts/oauth-provider.ts',
     'tests/migration-browser.mjs',
     'tests/integration-browser.mjs',
     'tests/otp-browser.mjs',
@@ -65,9 +65,9 @@ async function digestHarness() {
     hash.update(file).update(await readFile(join(root, file)))
   return hash.digest('hex')
 }
-async function digestDirectory(directory) {
+async function digestDirectory(directory: string) {
   const hash = createHash('sha256')
-  async function visit(path, relative = '') {
+  async function visit(path: string, relative = '') {
     for (const entry of (await readdir(path, { withFileTypes: true })).sort((a, b) =>
       a.name.localeCompare(b.name),
     )) {
@@ -89,10 +89,9 @@ try {
   execFileSync('pnpm', ['build'], { cwd: root, stdio: 'inherit' })
   await assert.rejects(access(join(root, 'dist', '__stale-consumer-test.js')))
   execFileSync('pnpm', ['pack', '--pack-destination', packageDir], { cwd: root, stdio: 'inherit' })
-  const tarball = join(
-    packageDir,
-    (await readdir(packageDir)).find((file) => file.endsWith('.tgz')),
-  )
+  const tarballName = (await readdir(packageDir)).find((file) => file.endsWith('.tgz'))
+  assert.ok(tarballName, 'pnpm pack must produce a tarball')
+  const tarball = join(packageDir, tarballName)
   const packedEntries = execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' }).split('\n')
   assert.ok(
     !packedEntries.some(
@@ -114,7 +113,9 @@ try {
   const packedManifest = JSON.parse(
     execFileSync('tar', ['-xOf', tarball, 'package/package.json'], { encoding: 'utf8' }),
   )
-  for (const [subpath, contract] of Object.entries(packedManifest.exports)) {
+  for (const [subpath, contract] of Object.entries(
+    packedManifest.exports as Record<string, Record<string, string>>,
+  )) {
     for (const condition of ['import', 'types'])
       assert.ok(
         packedEntries.includes(`package/${contract[condition].replace(/^\.\//, '')}`),
@@ -170,9 +171,11 @@ try {
     await symlink(join(app, 'node_modules'), join(secondaryApp, 'node_modules'), 'dir')
   }
   const probe = createServer()
-  await new Promise((resolve) => probe.listen(0, '127.0.0.1', resolve))
-  const port = probe.address().port
-  await new Promise((resolve) => probe.close(resolve))
+  await new Promise<void>((resolve) => probe.listen(0, '127.0.0.1', resolve))
+  const port = (probe.address() as AddressInfo).port
+  await new Promise<void>((resolve, reject) =>
+    probe.close((error) => (error ? reject(error) : resolve())),
+  )
   const origin = `http://127.0.0.1:${port}`
   server = spawn(
     'pnpm',
@@ -191,10 +194,10 @@ try {
       detached: true,
     },
   )
-  server.stdout.on('data', (data) => {
+  server.stdout!.on('data', (data) => {
     logs += String(data)
   })
-  server.stderr.on('data', (data) => {
+  server.stderr!.on('data', (data) => {
     logs += String(data)
   })
   for (let attempt = 0; attempt < 120; attempt++) {
@@ -244,10 +247,10 @@ try {
         detached: true,
       },
     )
-    secondary.stdout.on('data', (data) => {
+    secondary.stdout!.on('data', (data) => {
       logs += String(data)
     })
-    secondary.stderr.on('data', (data) => {
+    secondary.stderr!.on('data', (data) => {
       logs += String(data)
     })
     const origin2 = `http://127.0.0.1:${port2}`
@@ -272,7 +275,7 @@ try {
       )
     browser = await chromium.launch({ headless: true })
     if (migration) {
-      const stop = async (child) => {
+      const stop = async (child: ChildProcess | undefined) => {
         if (!child?.pid) return
         try {
           process.kill(-child.pid, 'SIGTERM')
@@ -290,7 +293,7 @@ try {
       const databaseFile = join(app, 'consumer.db')
       const backup = join(temp, postgres ? 'backup.sql' : 'backup.db')
       const pgBin = process.env.AUTH_TEST_POSTGRES_BIN ?? '/opt/homebrew/opt/postgresql@17/bin'
-      const start = async (base, second) => {
+      const start = async (base: string, second: boolean) => {
         const child = spawn(
           'pnpm',
           [
@@ -340,7 +343,7 @@ try {
         }
         throw new Error(`Restart timed out: ${logs}`)
       }
-      const maintenance = async (phase) => {
+      const maintenance = async (phase: 'cutoff' | 'restore') => {
         await stop(server)
         await stop(secondary)
         if (phase === 'cutoff') {
@@ -406,7 +409,7 @@ try {
         maintenance,
         provider,
         database: postgres?.version ?? 'SQLite real',
-        onPage: (page) => {
+        onPage: (page: Page) => {
           diagnosticPage = page
         },
       })
@@ -432,7 +435,7 @@ try {
         origin2,
         provider,
         database: postgres?.version ?? 'SQLite real',
-        onPage: (page) => {
+        onPage: (page: Page) => {
           diagnosticPage = page
         },
       })
@@ -442,7 +445,7 @@ try {
         origin,
         origin2,
         database: postgres?.version ?? 'SQLite real',
-        onPage: (page) => {
+        onPage: (page: Page) => {
           diagnosticPage = page
           page.on('response', (response) =>
             browserEvidence.push({ url: response.url(), status: response.status() }),
@@ -452,13 +455,14 @@ try {
       })
     else
       acceptanceResult = await verifyOtpAcceptance({
+        postgresVersion: postgres?.version,
         browser,
         origin,
         origin2,
         database: postgres?.version ?? 'SQLite real',
         outage:
           postgres?.outage ??
-          (async (work) => {
+          (async <T>(work: () => Promise<T>): Promise<T> => {
             const client = createClient({ url: `file:${join(app, 'consumer.db')}` })
             const transaction = await client.transaction('write')
             try {
@@ -485,7 +489,7 @@ try {
       provider,
       diagnostic,
       database: postgres?.version ?? 'SQLite real',
-      onPage: (page) => {
+      onPage: (page: Page) => {
         diagnosticPage = page
       },
     })
@@ -564,7 +568,7 @@ try {
       browserEvidence.push({ console: message.type(), text: message.text() }),
     )
     page.on('pageerror', (error) => browserEvidence.push({ pageerror: error.message }))
-    const requests = []
+    const requests: string[] = []
     page.on('request', (request) => requests.push(request.url()))
     await page.goto(origin)
     await page.getByRole('button', { name: 'Open login' }).click()
@@ -588,13 +592,17 @@ try {
     assert.equal(cookie.sameSite, 'Lax')
     assert.ok(!requests.some((url) => url.includes('check-email') || url.includes('otp/')))
     const oldCookie = cookie.value
-    const jwtExp = JSON.parse(Buffer.from(oldCookie.split('.')[1], 'base64url')).exp
+    const jwtExp = JSON.parse(
+      Buffer.from(oldCookie.split('.')[1], 'base64url').toString('utf8'),
+    ).exp
     const responseHeaders = await response.allHeaders()
     const responseCookie = responseHeaders['set-cookie'] ?? ''
     const responseToken = responseCookie.match(/(?:^|\n)consumer-token=([^;]+)/)?.[1]
     assert.ok(responseToken, 'successful password response must set the native session cookie')
     assert.ok(cookie.value === responseToken, 'stored cookie must match login response')
-    const responseExp = JSON.parse(Buffer.from(responseToken.split('.')[1], 'base64url')).exp
+    const responseExp = JSON.parse(
+      Buffer.from(responseToken.split('.')[1], 'base64url').toString('utf8'),
+    ).exp
     assert.equal(jwtExp, responseExp)
     const wireExpires = Date.parse(responseCookie.match(/Expires=([^;]+)/i)?.[1] ?? '') / 1000
     const responseDate = Date.parse(responseHeaders.date ?? '') / 1000
@@ -618,7 +626,7 @@ try {
     assert.equal(refresh.status, 401)
     for (const source of await page
       .locator('script[src]')
-      .evaluateAll((nodes) => nodes.map((node) => node.src))) {
+      .evaluateAll((nodes) => nodes.map((node) => (node as HTMLScriptElement).src))) {
       const javascript = await (await fetch(source)).text()
       assert.ok(!javascript.includes('consumer-only-private-secret-not-production'))
     }
