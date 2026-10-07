@@ -18,7 +18,7 @@ export function Input({ label, value, onChange, onValueChange, className, varian
   </TextField>
 }
 
-export const Card = ({ children, className = '' }: CardProps) => <HeroCard className={`w-full ${className}`}>{children}</HeroCard>
+export const Card = ({ children, className = '' }: CardProps) => <HeroCard className={`w-full ${className}`} style={{ maxWidth: '400px' }}>{children}</HeroCard>
 export const CardHeader = (props: CardProps) => <HeroCard.Header {...props} />
 export const CardContent = (props: CardProps) => <HeroCard.Content {...props} />
 export const CardFooter = (props: CardProps) => <HeroCard.Footer {...props} />

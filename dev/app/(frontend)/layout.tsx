@@ -2,6 +2,7 @@ import './globals.css'
 import config from '@payload-config'
 import { AuthProvider } from '@main12/auth-login/rsc'
 import Logo from '../../components/Logo'
+import DemoNavigation from '../../components/DemoNavigation'
 
 export default async function FrontendLayout({ children }: { children: React.ReactNode }) {
   await config
@@ -22,6 +23,7 @@ export default async function FrontendLayout({ children }: { children: React.Rea
             },
           }}
         >
+          <DemoNavigation />
           {children}
         </AuthProvider>
       </body>

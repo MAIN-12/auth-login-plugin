@@ -49,11 +49,11 @@ export function AuthCardShell({
   ].filter(Boolean).join(' ')
 
   const cardBody = (
-    <div className="w-full max-w-md mx-auto light" data-theme="light" style={{ maxWidth: '448px', colorScheme: 'light' }}>
-      <Card className={`${cardBorderShadowClass} ${cardClassName}`.trim()}>
+    <div className="w-full max-w-[400px] mx-auto light" data-theme="light" style={{ maxWidth: '400px', colorScheme: 'light' }}>
+      <Card className={`md:p-0 ${cardBorderShadowClass} ${cardClassName}`.trim()}>
         {header}
-        <CardContent>{children}</CardContent>
-        {footer && <CardFooter>{footer}</CardFooter>}
+        <CardContent className="md:px-8 md:pb-8">{children}</CardContent>
+        {footer && <CardFooter className="md:px-8 md:pb-8">{footer}</CardFooter>}
       </Card>
       <PoweredBy {...presentation.poweredBy} />
     </div>
@@ -67,7 +67,7 @@ export function AuthCardShell({
 
   return (
     <>
-      <div className="md:hidden flex flex-col w-full max-w-md mx-auto light [color-scheme:light] px-4 py-8" data-theme="light" style={{ maxWidth: '448px', colorScheme: 'light' }}>
+      <div className="md:hidden flex flex-col w-full max-w-[400px] mx-auto light [color-scheme:light] px-4 py-8" data-theme="light" style={{ maxWidth: '400px', colorScheme: 'light' }}>
         {header}
         <div className="px-8 pb-6">{children}</div>
         {footer && <div className="px-8 pb-8 flex justify-center">{footer}</div>}
