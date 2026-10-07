@@ -83,3 +83,9 @@ Human screen-reader announcements/order, real mobile-device assessment, full man
 ## Rollback and delivery
 
 Retain a security-equivalent build and the collection cutover semantics; never revert to password-mutating OTP/account discovery or serve a restored authorization database before a fresh cutover. Reverting presentation or package compatibility must not restore old session/proof authority. This work is committed only after local checks, full runtime matrix and independent review; no push, PR creation or publication is authorized here. Existing untracked audit/spec/foreign-reference files remain outside this work unit. The user-approved size exception permits this single local issue06 work unit (forecast1,400–2,400 authored changed lines); actual authored additions/deletions total1,386, plus594 lockfile lines and3,230 generated JSON lines counted separately. `gentle-ai review mode status` reports enabled, decided by default, unchanged: local inspection and acceptance evidence are not fabricated merge/release authorization.
+
+## Task closure
+
+At the user's explicit request to complete the task, the local issue06 ticket is reconciled to `completed` against implementation commit `444ecf94e7cbe4fc97d9310b87c60ad78a8a527e`: nine fully evidenced criteria are checked. The two compound CI/human-UX criteria remain unchecked, with their passed automatic scope and outstanding remote CI/screen-reader/device/full manual validation stated separately. This closes the local implementation task, not a PR-readiness, push, release, deployment or certification gate.
+
+The ticket `.scratch/auth-hardening/issues/06-migracion-validacion-pr.md` is intentionally local/untracked and is not added to Git. This tracked evidence paragraph is a documentation-only closure follow-up: the original implementation and 197-test/22-run evidence are unchanged; no runtime suite was rerun or relabeled for this bookkeeping update.
