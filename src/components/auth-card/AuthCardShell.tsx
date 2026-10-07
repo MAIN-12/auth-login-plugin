@@ -58,11 +58,7 @@ export function AuthCardShell({
     .join(' ')
 
   const cardBody = (
-    <div
-      className="w-full max-w-[400px] mx-auto light"
-      data-theme="light"
-      style={{ maxWidth: '400px', colorScheme: 'light' }}
-    >
+    <div className="w-full max-w-[400px] mx-auto" style={{ maxWidth: '400px' }}>
       <Card className={`md:p-0 ${cardBorderShadowClass} ${cardClassName}`.trim()}>
         {header}
         <CardContent className="md:px-8 md:pb-8">{children}</CardContent>
@@ -78,19 +74,6 @@ export function AuthCardShell({
     return <div className="px-4 py-8 md:py-12">{cardBody}</div>
   }
 
-  return (
-    <>
-      <div
-        className="md:hidden flex flex-col w-full max-w-[400px] mx-auto light [color-scheme:light] px-4 py-8"
-        data-theme="light"
-        style={{ maxWidth: '400px', colorScheme: 'light' }}
-      >
-        {header}
-        <div className="px-8 pb-6">{children}</div>
-        {footer && <div className="px-8 pb-8 flex justify-center">{footer}</div>}
-        <PoweredBy {...presentation.poweredBy} />
-      </div>
-      <div className="hidden md:flex justify-center px-4 py-12 w-full">{cardBody}</div>
-    </>
-  )
+  // One live form tree: CSS changes presentation, never duplicate workflow instances.
+  return <div className="w-full px-4 py-8 md:py-12">{cardBody}</div>
 }
