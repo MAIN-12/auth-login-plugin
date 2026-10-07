@@ -11,17 +11,23 @@ This is the local normative integration guide for `@main12/auth-login`. The appr
 
 ## Concrete configuration
 
-| Concern | Real interface and responsibility |
-| --- | --- |
-| Collection | `collection: 'customers'`; native Payload email-auth fields remain native. Username-only is excluded. |
-| Routes | `apiPrefix: '/backend'`, `authEndpointPrefix: '/access'`, `basePath: '/members'`; API prefix must match Payload. Component basePath overrides scope all workflow navigation. Proxy is optional, never a session validator. |
-| Profile/permissions | No fixed `name/role` requirement or hypothetical field port. Consumer fields/hooks and `admin.authorize({ req, evidence })` express actual permissions. Public provisioning never accepts elevated roles. |
-| Locale | Plugin `locale: 'es'|'en'`, otherwise OTP email locale, otherwise `en`. Provider/card/form explicit locale takes precedence. Supported request locale is sent via `Accept-Language`; other values use configured email fallback. Custom UI dictionary locales fall back to EN for email. |
-| Presentation | Tailwind/HeroUI adapt the same forms, positional OTP and HTTP contracts; card/page/modal change composition, not authentication policy. |
-| Branding | `projectName` and HTTPS `logo` are public serializable branding. Relative local UI logos remain supported. Server `otp.email` can override projectName/logoUrl and configure domain/contactUrl/contactEmail/colors. HTTPS URLs reject credentials; supported colors are six-digit hex. All server email strings are escaped. |
-| Secrets | OTP key, Google credentials, clock/origin callbacks and email sender configuration never enter publicConfig. Private option snapshots include nested colors. |
+| Concern             | Real interface and responsibility                                                                                                                                                                                                                                                                                            |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Collection          | `collection: 'customers'`; native Payload email-auth fields remain native. Username-only is excluded.                                                                                                                                                                                                                        |
+| Routes              | `apiPrefix: '/backend'`, `authEndpointPrefix: '/access'`, `basePath: '/members'`; API prefix must match Payload. Component basePath overrides scope all workflow navigation. Proxy is optional, never a session validator.                                                                                                   |
+| Profile/permissions | No fixed `name/role` requirement or hypothetical field port. Consumer fields/hooks and `admin.authorize({ req, evidence })` express actual permissions. Public provisioning never accepts elevated roles.                                                                                                                    |
+| Locale              | Plugin `locale: 'es'                                                                                                                                                                                                                                                                                                         | 'en'`, otherwise OTP email locale, otherwise `en`. Provider/card/form explicit locale takes precedence. Supported request locale is sent via `Accept-Language`; other values use configured email fallback. Custom UI dictionary locales fall back to EN for email. |
+| Presentation        | Tailwind/HeroUI adapt the same forms, positional OTP and HTTP contracts; card/page/modal change composition, not authentication policy.                                                                                                                                                                                      |
+| Branding            | `projectName` and HTTPS `logo` are public serializable branding. Relative local UI logos remain supported. Server `otp.email` can override projectName/logoUrl and configure domain/contactUrl/contactEmail/colors. HTTPS URLs reject credentials; supported colors are six-digit hex. All server email strings are escaped. |
+| Secrets             | OTP key, Google credentials, clock/origin callbacks and email sender configuration never enter publicConfig. Private option snapshots include nested colors.                                                                                                                                                                 |
 
 Ambient cookie/header/document locale detectors remain exported convenience functions, **not automatic defaults**. A consumer that deliberately wants detection should call the detector and pass its result explicitly. Malformed locale cookies do not throw.
+
+## Email identity updates
+
+Public/native account updates cannot change email until a dedicated reauthenticated ownership-change workflow is implemented. REST, GraphQL and untrusted Local API updates containing `email` return `METHOD_DISABLED` (403), including unchanged values and bulk updates. Omit `email` when updating unrelated profile fields; account reads and plugin ownership-signup creation are unaffected.
+
+Trusted host provisioning remains explicit: Local API **and** `overrideAccess: true` **and** `context.authLoginCredentialProvisioning: true`. Forwarding a REST/GraphQL request with those flags is not trusted. The host must establish ownership evidence for the new address or explicitly clear `_verified`; the plugin does not assert new ownership or implement email-change UX on the host's behalf.
 
 ## Workflow and HTTP contracts
 
@@ -41,15 +47,15 @@ Email contact uses the validated `contactUrl` with a localized label when config
 
 ## Migration before removing legacy forms
 
-| Previous behavior | Required migration |
-| --- | --- |
-| Global/ambient locale selection | Pass `locale` explicitly through plugin/provider/form. |
-| Optional OTP success context | Narrow success/error unions; successful emission always has context/retryAfter. Handle `AuthRequestError`, not arbitrary text. |
-| Verify response exposes token in client type | Use native cookie/session; do not extract tokens from UI workflows. Server `removeTokenFromResponses` remains authoritative. |
-| Environment-derived email config | Pass domain/sender/branding explicitly. Correct unsafe generator usage before removing legacy wrappers. |
-| Duplicate style-specific page workflows | Use shared forms or exported page adapters; do not reimplement HTTP/auth transitions in a shell. |
-| Disabled global `checkEmail/sendOtp/verifyOtp/signup/setUserPassword` exports | Migrate to scoped `createAuthService`; disabled names remain inert compatibility stubs and never discover accounts. |
-| `onSignup({ name, email })` callbacks | Ownership signup is server-driven. Legacy callback types remain for source migration but cannot bypass ownership proof. |
+| Previous behavior                                                             | Required migration                                                                                                             |
+| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Global/ambient locale selection                                               | Pass `locale` explicitly through plugin/provider/form.                                                                         |
+| Optional OTP success context                                                  | Narrow success/error unions; successful emission always has context/retryAfter. Handle `AuthRequestError`, not arbitrary text. |
+| Verify response exposes token in client type                                  | Use native cookie/session; do not extract tokens from UI workflows. Server `removeTokenFromResponses` remains authoritative.   |
+| Environment-derived email config                                              | Pass domain/sender/branding explicitly. Correct unsafe generator usage before removing legacy wrappers.                        |
+| Duplicate style-specific page workflows                                       | Use shared forms or exported page adapters; do not reimplement HTTP/auth transitions in a shell.                               |
+| Disabled global `checkEmail/sendOtp/verifyOtp/signup/setUserPassword` exports | Migrate to scoped `createAuthService`; disabled names remain inert compatibility stubs and never discover accounts.            |
+| `onSignup({ name, email })` callbacks                                         | Ownership signup is server-driven. Legacy callback types remain for source migration but cannot bypass ownership proof.        |
 
 The issue05 presentation change alone introduced no database credential/session migration. The issue06 migration below is separate; reverting UI/contracts does **not** authorize restoring historical password-mutating OTP, unsafe email previews or account discovery. Preserve security migrations from issues01–04 and their rollback guides.
 

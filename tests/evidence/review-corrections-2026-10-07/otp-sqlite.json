@@ -1,0 +1,32 @@
+{
+  "passed": true,
+  "database": "SQLite real",
+  "browser": "Chromium",
+  "instances": 2,
+  "verified": [
+    "cross-process OTP login, password/other session preserved, hidden token/native cookie, replay denied",
+    "shared-DB concurrent issuance and single-use consume",
+    "atomic three-attempt exhaustion and same-code resend without reset",
+    "resend retains initial five-minute TTL; account/purpose/context binding",
+    "shared one-second fixture cooldown and five/hour account cap",
+    "real email-adapter failure, bounded retry and credentials preserved",
+    "native password/OTP, logout/OTP and refresh/OTP session races preserve additions/revocations",
+    "real account-email reassignment cannot transfer the original OTP proof to a replacement ID",
+    "50/hour trusted-origin quota shared across processes; spoofing denied; password unaffected",
+    "Chromium packed modal request/failed verify/resend/login/logout; no client secrets",
+    "SQLite real security-storage outage fails closed without cookie",
+    "captured native logger and OTP events contain correlation only, no credentials/codes/token/SQL"
+  ],
+  "sqliteConfiguration": {
+    "adapter": "sqlite",
+    "journalMode": "wal",
+    "busyTimeout": 1000
+  },
+  "sourceHash": "d200448eea135d327bca54adc7084f2c15779e8600525425122c193f26caaad4",
+  "fixtureHash": "671b680aaa79adcf5e9539207c49bbad3bd397d080bb3854008f741696a33f31",
+  "harnessHash": "9340d36da212d4b29a5fa7dbbec9fff71cc6e9eab3de84d1871b85eded09b3fa",
+  "packedSha256": "a78d359d372e2bb462893675dd57eb0131fb3a5e4a82a2c56c14b0ac0a91f3bb",
+  "node": "v22.23.2",
+  "declarations": "passed",
+  "snapshot": "unchanged"
+}

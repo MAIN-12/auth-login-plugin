@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "database": "SQLite real",
+  "instances": 2,
+  "browser": "Chromium",
+  "verified": [
+    "legacy unverified account proves email across processes without password change, permit or automatic login; replay and purpose substitution rejected",
+    "Chromium packed verify-email form has no password input and creates no application cookie; original password remains usable",
+    "maintenance cutoff rejects pre-cutoff sessions, OTP codes and ownership grants in both processes while preserving accounts/passwords",
+    "pre/post-cutoff OAuth correlations reject before provider exchange in both processes; stable Google association survives cutoff and restored backup",
+    "real database backup restore with re-applied cutoff and unchanged host keys fresh collection generation cannot resurrect pre/post-cutoff sessions/codes/grants"
+  ],
+  "humanScreenReader": "pending",
+  "sqliteConfiguration": {
+    "adapter": "sqlite",
+    "journalMode": "wal",
+    "busyTimeout": 1000
+  },
+  "sourceHash": "d200448eea135d327bca54adc7084f2c15779e8600525425122c193f26caaad4",
+  "fixtureHash": "671b680aaa79adcf5e9539207c49bbad3bd397d080bb3854008f741696a33f31",
+  "harnessHash": "9340d36da212d4b29a5fa7dbbec9fff71cc6e9eab3de84d1871b85eded09b3fa",
+  "packedSha256": "a78d359d372e2bb462893675dd57eb0131fb3a5e4a82a2c56c14b0ac0a91f3bb",
+  "node": "v22.23.2",
+  "declarations": "passed",
+  "snapshot": "unchanged"
+}
