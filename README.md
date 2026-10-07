@@ -8,6 +8,17 @@ Read [the local plugin contracts and migration guide](docs/plugin-contracts.md) 
 
 Automatic presentation acceptance uses `pnpm test:integration:acceptance`; manual screen-reader evidence remains a separate gate. No automatic pass certifies the host application.
 
+## HeroUI theme inheritance
+
+With `style: 'hero-ui'`, cards, forms, OTP fields, and modals inherit the host's
+HeroUI light/dark/custom theme. Load HeroUI v3 styles in the host application and
+place the auth components below its theme scope (`.dark`, `data-theme`, or custom
+CSS variables). Modal portals stay inside that scope; no plugin-owned light mode
+or primary color overrides are applied. Shared text, errors, and password-strength
+indicators use HeroUI semantic tokens. Explicit caller classes still take precedence.
+The `tailwind` adapter retains its standalone light palette; email colors remain
+configured separately.
+
 ## Supported flow and explicit limits
 
 - Password login delegates to Payload's real local login operation: existing passwords, hooks, verification, lockouts and field-read filtering remain authoritative. Native `collection.access.read` controls `/me`/CRUD, not whether valid credentials can log in; use rejecting login hooks for host login policy.
@@ -25,9 +36,9 @@ import { authLoginPlugin } from '@main12/auth-login'
 
 export const authPlugin = authLoginPlugin({
   collection: 'customers',
-  apiPrefix: '/backend',             // must match Payload routes.api
-  authEndpointPrefix: '/access',    // relative to the API prefix
-  basePath: '/account',             // your AuthPages mount
+  apiPrefix: '/backend', // must match Payload routes.api
+  authEndpointPrefix: '/access', // relative to the API prefix
+  basePath: '/account', // your AuthPages mount
   passwordLogin: true,
   otpLogin: false,
   providers: { google: false },
@@ -113,15 +124,15 @@ Recovery issues the same limited ten-minute permit, bound to the original accoun
 
 Voluntary change or explicit password addition requires an authenticated current session and a five-minute reauthentication permit bound to that SID/account. Password reauthentication runs native Payload permission, password, lockout and login hooks. An unforgeable request-local capability suppresses the new native SID, so even a token observed by login hooks cannot authenticate; no new session/token/cookie is returned. An OTP-enabled account can instead prove email ownership with purpose `reauth`, including a passwordless account adding its first password while password login is enabled. The proof never enables a disabled method. Confirmation revokes all other sessions and replaces the current SID, preserving its original `createdAt` and absolute cap; refresh cannot turn the rotation into an unlimited extension. Hook errors roll back credential/session/permit consumption together; the owner can retry the unconsumed, still-current permit.
 
-| Managed HTTP surface | Bounded JSON / result |
-|---|---|
-| `POST /backend/access/otp/send` | `{ email, purpose: 'signup' \| 'recovery' \| 'reauth', context? }`; generic accepted issuance contract |
-| `POST /backend/access/otp/verify` | `{ email, purpose, context, otp }`; `{ success: true, permit, expiresAt }`, never a login cookie/token |
-| `POST /backend/access/forgot-password` | `{ email, context? }`; convenience alias for recovery issuance |
-| `POST /backend/access/signup` | `{ permit, password }`; commit the verified owner's account, no session |
-| `POST /backend/access/reset-password` | `{ permit, password }`; atomic credential/reset/revoke-all, then fresh login |
-| `POST /backend/access/reauthenticate` | `{ password }` plus authenticated native cookie; five-minute limited permit |
-| `POST /backend/access/set-password` | `{ permit, password }` plus the exact authenticated SID; capped rotated cookie/token honoring `removeTokenFromResponses` |
+| Managed HTTP surface                   | Bounded JSON / result                                                                                                    |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `POST /backend/access/otp/send`        | `{ email, purpose: 'signup' \| 'recovery' \| 'reauth', context? }`; generic accepted issuance contract                   |
+| `POST /backend/access/otp/verify`      | `{ email, purpose, context, otp }`; `{ success: true, permit, expiresAt }`, never a login cookie/token                   |
+| `POST /backend/access/forgot-password` | `{ email, context? }`; convenience alias for recovery issuance                                                           |
+| `POST /backend/access/signup`          | `{ permit, password }`; commit the verified owner's account, no session                                                  |
+| `POST /backend/access/reset-password`  | `{ permit, password }`; atomic credential/reset/revoke-all, then fresh login                                             |
+| `POST /backend/access/reauthenticate`  | `{ password }` plus authenticated native cookie; five-minute limited permit                                              |
+| `POST /backend/access/set-password`    | `{ permit, password }` plus the exact authenticated SID; capped rotated cookie/token honoring `removeTokenFromResponses` |
 
 Every permit is one use via a durable nonce-consumption record committed with the credential, so deleting an account cannot make signup permits reusable. Extra account/email/role fields cannot retarget a permit. The public UI completes signup/recovery through email → verify → set password → login. The existing `set-password` form offers password or enabled-email reauthentication for voluntary change/addition. Its per-tab `sessionStorage` continuation is scoped by API/endpoint/collection, cleared on success/expiry, and never put in a URL; it is not session authority or protection against XSS. Closing the tab/restarting the flow is safe. A mounted permit expires back to its purpose-specific signup/recovery start or reauthentication screen; authoritative `AUTH_FAILED` clears the invalid continuation. Transient `AUTH_UNAVAILABLE` and correctable `INVALID_INPUT` keep the still-valid proof for retry. Legacy `onSignup` callbacks are retained as deprecated prop types but no longer create accounts: the managed form uses the configured ownership API directly.
 
@@ -150,12 +161,12 @@ Admin defaults to denied without an explicit policy; email OTP alone is always d
 
 `evidence` is request-local, bound to the native Payload instance, exact Headers object, exact authenticated principal object and verified identity/SID/collection. Native GraphQL request proxies preserve those object identities; fabricated Local API user copies do not. A server-only namespaced WeakMap registry survives independently evaluated Next REST/GraphQL bundles. It stores no global configuration/secrets and partitions records by the exact Payload instance, so consumers cannot borrow another instance's evidence. Evidence never comes from a client body, database method field or request context. Password login stamps signed `authenticatedAt`; Google exposes only signed provider `auth_time`/`amr` when present. Missing claims are **not** proof of freshness/MFA. `getAuthenticationEvidence(req)` is a server-only hook seam. Original consumer Admin-eligibility checks for OTP issuance and later native authentication remain enforced; the new default-deny wrapper cannot hide eligibility changes. Google and OTP share the proven native-session adapter; `isOtpSessionRequest(req)` still identifies only OTP.
 
-| Google HTTP surface | Contract |
-|---|---|
-| `GET .../oauth/google?returnTo=/local` | Start a ten-minute browser-bound correlation and redirect to Google |
-| `GET .../oauth/google/callback` | Consume once; validate state, S256, nonce, issuer/audience/time and RS256 signature before account effects; return native cookie and local 303 |
-| `POST .../oauth/google/link` | Authenticated current SID plus `{ permit, confirm: true, returnTo? }`; no implicit email linking |
-| `GET .../oauth/google/reauthenticate` | Authenticate the **already linked subject**, requiring signed `auth_time` within five minutes; JSON `{ success, permit, expiresAt }`, no new session |
+| Google HTTP surface                    | Contract                                                                                                                                             |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET .../oauth/google?returnTo=/local` | Start a ten-minute browser-bound correlation and redirect to Google                                                                                  |
+| `GET .../oauth/google/callback`        | Consume once; validate state, S256, nonce, issuer/audience/time and RS256 signature before account effects; return native cookie and local 303       |
+| `POST .../oauth/google/link`           | Authenticated current SID plus `{ permit, confirm: true, returnTo? }`; no implicit email linking                                                     |
+| `GET .../oauth/google/reauthenticate`  | Authenticate the **already linked subject**, requiring signed `auth_time` within five minutes; JSON `{ success, permit, expiresAt }`, no new session |
 
 For an explicit consumer account-settings action, use the client package's instance service:
 
@@ -181,18 +192,18 @@ Private `auth_login_google_identities` and encrypted OAuth records in `auth_logi
 
 With the example prefixes:
 
-| Surface | Result |
-|---|---|
-| `POST /backend/access/login` | Bounded JSON `{ email, password }`; normalized email; Payload password login |
-| `POST /backend/customers/login` | Same guarded implementation, not a bypass |
-| `GET /backend/customers/me` | Authoritative current session via native Payload |
-| `POST /backend/customers/refresh-token` | Native refresh with absolute expiry enforcement |
-| `POST /backend/customers/logout` | Native server-session revocation |
-| `GET /backend/access/credentials` | Authenticated self-only non-secret capabilities |
-| `POST /backend/access/otp/send` | `{ email, purpose: 'login', context? }`; accepted response `{ success: true, code: 'OTP_REQUEST_ACCEPTED', context, retryAfter }` |
-| `POST /backend/access/otp/verify` | `{ email, purpose: 'login', context, otp }`; native session/cookie, no password changes |
-| `POST /backend/access/check-email` | `403 METHOD_DISABLED`; never account discovery |
-| Disabled method endpoints | `403 METHOD_DISABLED`; no credential/email effects |
+| Surface                                 | Result                                                                                                                            |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /backend/access/login`            | Bounded JSON `{ email, password }`; normalized email; Payload password login                                                      |
+| `POST /backend/customers/login`         | Same guarded implementation, not a bypass                                                                                         |
+| `GET /backend/customers/me`             | Authoritative current session via native Payload                                                                                  |
+| `POST /backend/customers/refresh-token` | Native refresh with absolute expiry enforcement                                                                                   |
+| `POST /backend/customers/logout`        | Native server-session revocation                                                                                                  |
+| `GET /backend/access/credentials`       | Authenticated self-only non-secret capabilities                                                                                   |
+| `POST /backend/access/otp/send`         | `{ email, purpose: 'login', context? }`; accepted response `{ success: true, code: 'OTP_REQUEST_ACCEPTED', context, retryAfter }` |
+| `POST /backend/access/otp/verify`       | `{ email, purpose: 'login', context, otp }`; native session/cookie, no password changes                                           |
+| `POST /backend/access/check-email`      | `403 METHOD_DISABLED`; never account discovery                                                                                    |
+| Disabled method endpoints               | `403 METHOD_DISABLED`; no credential/email effects                                                                                |
 
 Failures use `{ success: false, code }` with `INVALID_INPUT`, `AUTH_FAILED`, `METHOD_DISABLED`, `UNAUTHENTICATED`, `AUTH_UNAVAILABLE` or `ORIGIN_DENIED`. Password login uses one generic response for an unknown account, wrong password, locked or unverified account; it never publishes internal exceptions. Requests are limited to 4096 body bytes, 254 email characters and 1024 password characters; the latter is an input bound, **not** a new legacy-password complexity rule. Login accepts no unrelated properties.
 
@@ -209,6 +220,26 @@ The credential adapter reads native hash/salt only within protected server stora
 5. A rollback must retain the revocations and disabled unsafe flows. Do **not** restore revoked sessions/codes or silently redeploy legacy OTP password substitution. Restore availability through the last security-equivalent artifact or keep access disabled; restoring a database backup must not restore security artifacts as valid.
 
 The package version is intentionally not a release promise on this branch. Publish only as a major change after review and the remaining applicable acceptance gates.
+
+## Local formatting and Git hooks
+
+Run `pnpm install --frozen-lockfile` to install dependencies and Git hooks through
+`prepare`. If installation used `--ignore-scripts`, run `pnpm hooks:install` afterward.
+
+- **Before commit:** validate a changed dependency manifest/lockfile, then run Prettier
+  and ESLint `--fix` sequentially on staged files. Fixes are staged automatically;
+  Lefthook temporarily hides unstaged edits in partially staged files. If those edits
+  conflict with formatting, the commit stops: resolve the conflict before retrying.
+- **Before push:** run `pnpm typecheck`. Database, packed-consumer and browser acceptance
+  stay explicit commands below; hooks never generate Payload types or import maps.
+- **Manual formatting:** `pnpm format:check` checks the repository;
+  `pnpm format` rewrites it. Existing formatting debt is not migrated automatically.
+  To keep a change focused, use `pnpm exec prettier --write path/to/file.ts`.
+
+Generated files, lockfiles, captured evidence, scratch files and copied architecture
+references are excluded in `.prettierignore`. ESLint keeps the existing `src`/`tests`
+boundary. Lock validation uses frozen, lockfile-only mode without lifecycle scripts;
+if it fails, run `pnpm install` and stage the updated manifest and lockfile together.
 
 ## Maintainer boundaries and evidence
 
@@ -242,3 +273,12 @@ AUTH_CONSUMER_DB=postgres pnpm test:migration:acceptance
 The consumer harness cleans its own temporary directory. It is not a mock auth server. See the candidate traceability for exact runtime/adapter outcomes. Human screen-reader/real-device checks and remote CI execution remain separate pending gates; unit mocks are not evidence for those claims. TypeScript lint uses an explicitly TS6-compatible parser instead of an unrelated vendor repository's formatting config. Existing non-critical `any`/dormant UI warnings are reported, not hidden.
 
 **Concurrent SQLite host requirement:** configure `sqliteAdapter({ wal: true, busyTimeout: 1000, ... })` on every instance. The demonstrated two-process setup uses WAL plus a 1,000 ms native read busy timeout; default DELETE journal/zero timeout can fail native authentication/logout during overlapping OTP writes. The plugin does not silently change the host journal mode or retry authentication hooks. Local file/WAL requires a filesystem that supports SQLite shared-memory/locking; multi-host network filesystems are not established support.
+
+### Repository scripts
+
+Repository tooling in `scripts/` is TypeScript and runs through the `tsx`
+development dependency. Use the package commands (for example,
+`pnpm build:fix-esm-imports` and `pnpm test:consumer`) or
+`pnpm exec tsx scripts/<name>.ts`. `pnpm typecheck` also checks these scripts
+with their strict, no-emit configuration; they are not emitted into `dist/`.
+The existing browser acceptance helpers remain JavaScript.
