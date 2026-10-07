@@ -1,6 +1,9 @@
 'use client'
 
-import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
+import {
+  useAuthPresentation,
+  useAuthTranslations,
+} from '../auth-presentation/AuthPresentationContext'
 import React from 'react'
 
 export interface ButtonProps {
@@ -25,8 +28,16 @@ const variantClasses: Record<string, string> = {
 }
 
 export const Button: React.FC<ButtonProps> = ({
-  children, type = 'button', fullWidth = true, size = 'lg',
-  isLoading, isDisabled, onPress, onClick, variant = 'primary', className = '',
+  children,
+  type = 'button',
+  fullWidth = true,
+  size = 'lg',
+  isLoading,
+  isDisabled,
+  onPress,
+  onClick,
+  variant = 'primary',
+  className = '',
 }) => (
   <button
     type={type}
@@ -64,31 +75,51 @@ export interface InputProps {
 }
 
 export const Input: React.FC<InputProps> = ({
-  type = 'text', label, value, onChange, onValueChange,
-  isRequired, isDisabled, autoFocus, autoComplete, placeholder, className = '', name, error,
+  type = 'text',
+  label,
+  value,
+  onChange,
+  onValueChange,
+  isRequired,
+  isDisabled,
+  autoFocus,
+  autoComplete,
+  placeholder,
+  className = '',
+  name,
+  error,
   variant = 'default',
 }) => {
   const inputId = React.useId()
   return (
-  <div className="w-full">
-    {label && <label htmlFor={inputId} className="block text-sm font-medium text-gray-600 mb-1">{label}{isRequired ? ' *' : ''}</label>}
-    <input
-      id={inputId}
-      aria-invalid={Boolean(error)}
-      aria-describedby={error ? `${inputId}-error` : undefined}
-      type={type}
-      value={value}
-      onChange={onChange || (onValueChange ? e => onValueChange(e.target.value) : undefined)}
-      required={isRequired}
-      disabled={isDisabled}
-      autoFocus={autoFocus}
-      autoComplete={autoComplete}
-      placeholder={placeholder}
-      name={name}
-      className={`w-full h-12 px-4 ${variant === 'secondary' ? 'bg-gray-100' : 'bg-white'} border border-gray-300 hover:border-gray-400 rounded-xl text-gray-900 text-base transition-colors outline-none focus:border-[#D5E855] focus:ring-2 focus:ring-[#D5E855]/30 ${className}`}
-    />
-    {error && <span id={`${inputId}-error`} className="sr-only">{error}</span>}
-  </div>
+    <div className="w-full">
+      {label && (
+        <label htmlFor={inputId} className="block text-sm font-medium text-gray-600 mb-1">
+          {label}
+          {isRequired ? ' *' : ''}
+        </label>
+      )}
+      <input
+        id={inputId}
+        aria-invalid={Boolean(error)}
+        aria-describedby={error ? `${inputId}-error` : undefined}
+        type={type}
+        value={value}
+        onChange={onChange || (onValueChange ? (e) => onValueChange(e.target.value) : undefined)}
+        required={isRequired}
+        disabled={isDisabled}
+        autoFocus={autoFocus}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        name={name}
+        className={`w-full h-12 px-4 ${variant === 'secondary' ? 'bg-gray-100' : 'bg-white'} border border-gray-300 hover:border-gray-400 rounded-xl text-gray-900 text-base transition-colors outline-none focus:border-[#D5E855] focus:ring-2 focus:ring-[#D5E855]/30 ${className}`}
+      />
+      {error && (
+        <span id={`${inputId}-error`} className="sr-only">
+          {error}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -131,9 +162,15 @@ export const Divider: React.FC<{ className?: string }> = ({ className = '' }) =>
   <hr className={`border-0 h-px bg-gray-200 ${className}`} />
 )
 
-export interface SpinnerProps { size?: 'sm' | 'lg'; className?: string }
+export interface SpinnerProps {
+  size?: 'sm' | 'lg'
+  className?: string
+}
 export const Spinner: React.FC<SpinnerProps> = ({ size = 'lg', className = '' }) => (
-  <div className={`inline-block animate-spin rounded-full border-2 border-current border-t-transparent ${size === 'lg' ? 'w-6 h-6' : 'w-4 h-4'} ${className}`} role="status">
+  <div
+    className={`inline-block animate-spin rounded-full border-2 border-current border-t-transparent ${size === 'lg' ? 'w-6 h-6' : 'w-4 h-4'} ${className}`}
+    role="status"
+  >
     <span className="sr-only">{useAuthTranslations().common.loading}</span>
   </div>
 )
@@ -150,8 +187,16 @@ export interface OtpInputProps {
 }
 
 export const OtpInput: React.FC<OtpInputProps> = ({
-  length = 6, value, onChange, onValueChange, isDisabled, autoFocus, error, locale,
+  length = 6,
+  value,
+  onChange,
+  onValueChange,
+  isDisabled,
+  autoFocus,
+  error,
+  locale,
 }) => {
+  const { style } = useAuthPresentation()
   const t = useAuthTranslations(locale).verifyOtp
   const description = React.useId()
   const positions = value.padEnd(length, ' ').slice(0, length).split('')
@@ -166,23 +211,31 @@ export const OtpInput: React.FC<OtpInputProps> = ({
 
   return (
     <div role="group" aria-label={t.codeLabel} className="flex w-full justify-center gap-2">
-      {inputs.map(i => (
+      {inputs.map((i) => (
         <input
           key={i}
-          ref={el => { inputRefs.current[i] = el }}
+          ref={(el) => {
+            inputRefs.current[i] = el
+          }}
           type="text"
           inputMode="numeric"
           autoComplete="one-time-code"
           maxLength={length}
-          aria-label={t.digitLabel.replace('{position}', String(i + 1)).replace('{length}', String(length))}
+          aria-label={t.digitLabel
+            .replace('{position}', String(i + 1))
+            .replace('{length}', String(length))}
           aria-invalid={Boolean(error)}
           aria-describedby={error ? description : undefined}
           value={positions[i].trim()}
           disabled={isDisabled}
           autoFocus={autoFocus && i === 0}
-          onChange={e => {
+          onChange={(e) => {
             const digits = e.target.value.replace(/[^0-9]/g, '')
-            if (digits.length > 1) { setValue(digits.slice(0, length).padEnd(length, ' ')); focusInput(Math.min(digits.length, length - 1)); return }
+            if (digits.length > 1) {
+              setValue(digits.slice(0, length).padEnd(length, ' '))
+              focusInput(Math.min(digits.length, length - 1))
+              return
+            }
             const char = digits.slice(-1)
             const newVal = [...positions]
             newVal[i] = char || ' '
@@ -192,9 +245,15 @@ export const OtpInput: React.FC<OtpInputProps> = ({
               focusInput(i + 1)
             }
           }}
-          onKeyDown={e => {
+          onKeyDown={(e) => {
             if (e.key === 'Backspace') {
-              if (positions[i].trim()) { e.preventDefault(); const updated = [...positions]; updated[i] = ' '; setValue(updated.join('')); return }
+              if (positions[i].trim()) {
+                e.preventDefault()
+                const updated = [...positions]
+                updated[i] = ' '
+                setValue(updated.join(''))
+                return
+              }
               if (!positions[i].trim() && i > 0) {
                 // Empty box — move to previous box and clear it
                 e.preventDefault()
@@ -211,19 +270,26 @@ export const OtpInput: React.FC<OtpInputProps> = ({
               focusInput(i + 1)
             }
           }}
-          onPaste={e => {
+          onPaste={(e) => {
             e.preventDefault()
-            const pasted = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, length)
+            const pasted = e.clipboardData
+              .getData('text')
+              .replace(/[^0-9]/g, '')
+              .slice(0, length)
             if (!pasted) return
             setValue(pasted.padEnd(length, ' '))
             const nextIndex = Math.min(pasted.length, length - 1)
             focusInput(nextIndex)
           }}
-          onFocus={e => e.target.select()}
-          className="w-12 min-w-0 h-14 text-center text-2xl font-semibold text-gray-900 border-2 border-gray-300 rounded-xl focus:border-[#D5E855] focus:ring-2 focus:ring-[#D5E855]/30 outline-none transition-all bg-white"
+          onFocus={(e) => e.target.select()}
+          className={`w-12 min-w-0 h-14 text-center text-2xl font-semibold border-2 rounded-xl outline-none transition-all ${style === 'hero-ui' ? 'input input--primary text-field-foreground bg-field border-field focus:border-focus focus:ring-2 focus:ring-focus aria-[invalid=true]:border-danger' : 'text-gray-900 border-gray-300 focus:border-[#D5E855] focus:ring-2 focus:ring-[#D5E855]/30 bg-white'}`}
         />
       ))}
-      {error && <span id={description} className="sr-only">{error}</span>}
+      {error && (
+        <span id={description} className="sr-only">
+          {error}
+        </span>
+      )}
     </div>
   )
 }

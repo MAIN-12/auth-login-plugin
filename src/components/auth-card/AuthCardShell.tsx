@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { Card, CardContent, CardFooter } from '../ui/index'
+import { useAuthThemeClasses } from '../ui/theme'
 import { PoweredBy } from '../PoweredBy'
 import { useAuthPresentation } from '../auth-presentation/AuthPresentationContext'
 import type { PoweredByConfig } from '../auth-presentation/types'
@@ -34,12 +35,17 @@ export function AuthCardShell({
 }: AuthCardShellProps) {
   const presentation = useAuthPresentation({ logo, poweredBy })
   const displayLogo = presentation.logo
+  const theme = useAuthThemeClasses()
 
   const header = (displayLogo || title) && (
     <div className="flex flex-col items-center gap-2 pt-8 pb-4 px-8">
       {displayLogo && <div className="flex justify-center mb-3">{displayLogo}</div>}
-      {title && <h1 className="text-2xl font-bold text-gray-900 text-center tracking-tight">{title}</h1>}
-      {subtitle && <p className="text-gray-600 text-sm text-center">{subtitle}</p>}
+      {title && (
+        <h1 className={`text-2xl font-bold ${theme.foreground} text-center tracking-tight`}>
+          {title}
+        </h1>
+      )}
+      {subtitle && <p className={`${theme.muted} text-sm text-center`}>{subtitle}</p>}
     </div>
   )
 
@@ -47,10 +53,12 @@ export function AuthCardShell({
     removeBorder ? '!border-0' : '',
     removeShadow ? '!shadow-none' : '',
     mobileVariant === 'plain' ? 'max-md:!border-0 max-md:!shadow-none' : '',
-  ].filter(Boolean).join(' ')
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   const cardBody = (
-    <div className="w-full max-w-md mx-auto light" data-theme="light" style={{ maxWidth: '448px', colorScheme: 'light' }}>
+    <div className="w-full max-w-md mx-auto" style={{ maxWidth: '448px' }}>
       <Card className={`${cardBorderShadowClass} ${cardClassName}`.trim()}>
         {header}
         <CardContent>{children}</CardContent>
