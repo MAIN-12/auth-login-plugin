@@ -66,9 +66,9 @@ export function createPasswordLoginEndpoint(settings: PublicAuthConfig, path = `
     } catch (error) { return authFailureResponse(error, req) }
   } }
 }
-export function createAuthEndpoints(settings: PublicAuthConfig, otpOptions?: OtpOptions): Endpoint[] {
+export function createAuthEndpoints(settings: PublicAuthConfig, otpOptions?: OtpOptions, assertPublicAccount?: (req: PayloadRequest) => Promise<void>): Endpoint[] {
   const disabled: Endpoint['handler'] = req => authFailureResponse(new AuthFailure('METHOD_DISABLED', 403), req)
-  return [createPasswordLoginEndpoint(settings), ...createOtpEndpoints(settings, otpOptions), ...createPasswordEndpoints(settings, otpOptions),
+  return [createPasswordLoginEndpoint(settings), ...createOtpEndpoints(settings, otpOptions, assertPublicAccount), ...createPasswordEndpoints(settings, otpOptions, assertPublicAccount),
     { path: `${settings.authEndpointPrefix}/check-email`, method: 'post', handler: disabled },
     { path: `${settings.authEndpointPrefix}/credentials`, method: 'get', handler: async req => {
       if (!req.user || req.user.collection !== settings.collection) return authFailureResponse(new AuthFailure('UNAUTHENTICATED', 401), req)
@@ -97,7 +97,7 @@ export function createRefreshEndpoint(settings: PublicAuthConfig): Endpoint {
   } }
 }
 
-function createOtpEndpoints(settings: PublicAuthConfig, options?: OtpOptions): Endpoint[] {
+function createOtpEndpoints(settings: PublicAuthConfig, options?: OtpOptions, assertOriginalAdminDenied?: (req: PayloadRequest) => Promise<void>): Endpoint[] {
   return ['send', 'verify'].map(action => ({ path: `${settings.authEndpointPrefix}/otp/${action}`, method: 'post', handler: async req => {
     if (!settings.otpLogin && !settings.allowSignup && !settings.recovery) return authFailureResponse(new AuthFailure('METHOD_DISABLED', 403), req)
     let purpose: { input: unknown; purpose: unknown }
@@ -113,7 +113,7 @@ function createOtpEndpoints(settings: PublicAuthConfig, options?: OtpOptions): E
           return account ? encodeProofBinding({ accountID: account.id, version: credentialVersion(req.payload.secret, account) }) : null
         },
         quotaIdentity: proofQuotaIdentity,
-        session: (account, email) => { const binding = decodeProofBinding(account); if (binding.accountID === null) throw new AuthFailure('AUTH_FAILED', 401); return createOtpSession(req, binding.accountID, settings.collection, email, binding.version) },
+        session: (account, email) => { const binding = decodeProofBinding(account); if (binding.accountID === null) throw new AuthFailure('AUTH_FAILED', 401); return createOtpSession(req, binding.accountID, settings.collection, email, binding.version, { method: 'otp' }, assertOriginalAdminDenied) },
         deliver: async ({ email, code }) => {
           const mail = otpEmail(code, options.email)
           await req.payload.sendEmail({ to: email, ...(options.email ? { from: options.email.from } : {}), ...mail })

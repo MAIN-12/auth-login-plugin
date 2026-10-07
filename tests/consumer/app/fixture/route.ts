@@ -1,21 +1,21 @@
 // Only copied into the disposable acceptance app; never part of the published package.
-import { getPayload } from 'payload'
+import { createPayloadRequest, getPayload } from 'payload'
 import { config, capturedLogs, fixture, inbox } from '../auth-config'
 export async function GET(request: Request) {
-  if (process.env.AUTH_CONSUMER_OTP !== '1' && process.env.AUTH_CONSUMER_PASSWORD !== '1') return new Response(null, { status: 404 })
+  if (process.env.AUTH_CONSUMER_OTP !== '1' && process.env.AUTH_CONSUMER_PASSWORD !== '1' && process.env.AUTH_CONSUMER_OAUTH !== '1') return new Response(null, { status: 404 })
   const email = new URL(request.url).searchParams.get('email')
   if (email) {
-    const payload = await getPayload({ config, key: 'browser-consumer' })
-    const { docs } = await payload.find({ collection: 'customers', where: { email: { equals: email } }, overrideAccess: true })
-    return Response.json({ users: docs.map(user => ({ id: user.id, email: user.email, role: user.role, verified: user._verified })) })
+    const payload = await getPayload({ config })
+    const { docs } = await payload.find({ collection: 'customers', where: { email: { equals: email } }, overrideAccess: true, showHiddenFields: process.env.AUTH_CONSUMER_OAUTH === '1' })
+    return Response.json({ users: docs.map(user => ({ id: user.id, email: user.email, role: user.role, verified: user._verified, ...(process.env.AUTH_CONSUMER_OAUTH === '1' ? { sessions: user.sessions } : {}) })) })
   }
-  return Response.json({ inbox, logs: capturedLogs, now: fixture.now, loginBarrier: fixture.loginBarrier })
+  return Response.json({ requestOrigin: new URL(request.url).origin, requestHost: request.headers.get('host'), inbox, logs: capturedLogs, now: fixture.now, loginBarrier: fixture.loginBarrier, hooks: fixture.hooks })
 }
 export async function POST(request: Request) {
-  if (process.env.AUTH_CONSUMER_OTP !== '1' && process.env.AUTH_CONSUMER_PASSWORD !== '1') return new Response(null, { status: 404 })
+  if (process.env.AUTH_CONSUMER_OTP !== '1' && process.env.AUTH_CONSUMER_PASSWORD !== '1' && process.env.AUTH_CONSUMER_OAUTH !== '1') return new Response(null, { status: 404 })
   const body = await request.json()
   if (typeof body.armLogin === 'string' && process.env.AUTH_CONSUMER_PASSWORD === '1') {
-    const payload = await getPayload({ config, key: 'browser-consumer' })
+    const payload = await getPayload({ config })
     const actualUpdate = payload.db.updateOne.bind(payload.db)
     fixture.loginBarrier = { email: body.armLogin, entered: false, released: false }
     // Instrument scheduling only, not authentication/storage results: forward exact args to the real adapter.
@@ -33,17 +33,29 @@ export async function POST(request: Request) {
   }
   if (body.releaseLogin && fixture.loginBarrier) { fixture.loginBarrier.released = true; return Response.json({ released: true }) }
   if (typeof body.deleteEmail === 'string' && process.env.AUTH_CONSUMER_PASSWORD === '1') {
-    const payload = await getPayload({ config, key: 'browser-consumer' })
+    const payload = await getPayload({ config })
     await payload.delete({ collection: 'customers', where: { email: { equals: body.deleteEmail } }, overrideAccess: true })
     return Response.json({ deleted: true })
   }
   if (body.replaceEmail === 'replacement@example.com') {
-    const payload = await getPayload({ config, key: 'browser-consumer' })
+    const payload = await getPayload({ config })
     const { docs } = await payload.find({ collection: 'customers', where: { email: { equals: body.replaceEmail } }, overrideAccess: true })
     const original = docs[0]
     await payload.update({ collection: 'customers', id: original.id, data: { email: 'displaced-replacement@example.com' }, overrideAccess: true })
     const replacement = await payload.create({ collection: 'customers', data: { email: body.replaceEmail, password: 'actual-browser-test-password', _verified: true }, disableVerificationEmail: true, overrideAccess: true, context: { authLoginCredentialProvisioning: true } })
     return Response.json({ originalID: original.id, replacementID: replacement.id })
+  }
+  for (const key of ['denyOriginalAdmin', 'failOriginalAdmin', 'denyAccountRead', 'denyRoleRead', 'denyProtectedRead', 'injectPublicAdmin', 'maskPublicAdminRole'] as const) if (typeof body[key] === 'boolean') fixture[key] = body[key]
+  if (typeof body.adminUnavailable === 'boolean') fixture.adminUnavailable = body.adminUnavailable
+  if (typeof body.adminEligible === 'boolean') fixture.adminEligible = body.adminEligible
+  if (body.sessionLifetime && process.env.AUTH_CONSUMER_OAUTH === '1' && [1, 600].includes(body.sessionLifetime)) {
+    const payload = await getPayload({ config }); payload.collections.customers.config.auth.tokenExpiration = body.sessionLifetime
+  }
+  if (body.localAccess && process.env.AUTH_CONSUMER_OAUTH === '1') {
+    const payload = await getPayload({ config })
+    const req = await createPayloadRequest({ config, request })
+    if (body.localAccess === 'copied-principal' && req.user) req.user = { ...req.user, role: 'admin' }
+    try { const result = await payload.find({ collection: 'administrative-records', ...(body.localAccess === 'user-only' ? { user: req.user } : { req }), overrideAccess: body.localAccess === 'trusted' }); return Response.json({ count: result.docs.length }) } catch { return new Response(null, { status: 403 }) }
   }
   if (Number.isSafeInteger(body.now)) fixture.now = body.now
   if (typeof body.failCredentialWrite === 'boolean') fixture.failCredentialWrite = body.failCredentialWrite

@@ -88,8 +88,8 @@ export function useLoginFlow({ redirectTo, onPasswordLogin }: UseLoginFlowOption
   }, [])
 
   const handleGoogleLogin = useCallback(() => {
-    if (config.googleOAuthEnabled) initiateGoogleLogin(redirectTo)
-  }, [redirectTo, config.googleOAuthEnabled])
+    if (config.googleOAuthEnabled) initiateGoogleLogin(redirectTo, config)
+  }, [redirectTo, config])
 
   return {
     step,

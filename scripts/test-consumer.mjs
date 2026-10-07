@@ -9,9 +9,13 @@ import { chromium } from '@playwright/test'
 import { temporaryPostgres, freePort } from './otp-postgres.mjs'
 import { verifyPasswordAcceptance } from '../tests/password-browser.mjs'
 import { verifyOtpAcceptance } from '../tests/otp-browser.mjs'
+import { verifyOauthAcceptance } from '../tests/oauth-browser.mjs'
+import { controlledOidcProvider } from './oauth-provider.mjs'
 const password = process.env.AUTH_CONSUMER_PASSWORD === '1'
 const otp = process.env.AUTH_CONSUMER_OTP === '1'
-const shared = otp || password
+const oauth = process.env.AUTH_CONSUMER_OAUTH === '1'
+const shared = otp || password || oauth
+let provider
 let postgres
 let secondary
 let diagnosticPage
@@ -38,18 +42,19 @@ async function digestDirectory(directory) {
   return hash.digest('hex')
 }
 try {
+  if (oauth) provider = await controlledOidcProvider()
   if (shared && process.env.AUTH_CONSUMER_DB !== 'sqlite') postgres = await temporaryPostgres()
   await mkdir(join(root, 'dist'), { recursive: true })
   await writeFile(join(root, 'dist', '__stale-consumer-test.js'), 'obsolete')
-  const sourceHash = password ? await digestDirectory(join(root, 'src')) : null
+  const sourceHash = password || oauth ? await digestDirectory(join(root, 'src')) : null
   execFileSync('pnpm', ['build'], { cwd: root, stdio: 'inherit' })
   await assert.rejects(access(join(root, 'dist', '__stale-consumer-test.js')))
   execFileSync('pnpm', ['pack', '--pack-destination', packageDir], { cwd: root, stdio: 'inherit' })
   const tarball = join(packageDir, (await readdir(packageDir)).find(file => file.endsWith('.tgz')))
-  if (password) assert.equal(await digestDirectory(join(root, 'src')), sourceHash, 'production source changed during build/pack; rerun at a frozen checkpoint')
-  const fixtureHash = password ? await digestDirectory(join(root, 'tests/consumer')) : null
+  if (password || oauth) assert.equal(await digestDirectory(join(root, 'src')), sourceHash, 'production source changed during build/pack; rerun at a frozen checkpoint')
+  const fixtureHash = password || oauth ? await digestDirectory(join(root, 'tests/consumer')) : null
   await cp(join(root, 'tests/consumer'), app, { recursive: true })
-  if (password) {
+  if (password || oauth) {
     assert.equal(await digestDirectory(app), fixtureHash, 'fixture source changed while copying')
     console.log(JSON.stringify({ sourceHash, fixtureHash, packedSha256: createHash('sha256').update(await readFile(tarball)).digest('hex'), node: process.version, payload: '3.90.2', next: '16.3.6', react: '19.2.6' }))
   }
@@ -62,7 +67,7 @@ try {
   const port = probe.address().port
   await new Promise(resolve => probe.close(resolve))
   const origin = `http://127.0.0.1:${port}`
-  server = spawn('pnpm', ['exec', 'next', 'dev', ...bundlerArgs, '--hostname', '127.0.0.1', '--port', String(port)], { cwd: app, env: { ...process.env, AUTH_CONSUMER_PORT: String(port), ...(postgres ? { AUTH_CONSUMER_DATABASE_URL: postgres.url } : {}), NEXT_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
+  server = spawn('pnpm', ['exec', 'next', 'dev', ...bundlerArgs, '--hostname', '127.0.0.1', '--port', String(port)], { cwd: app, env: { ...process.env, AUTH_CONSUMER_PORT: String(port), ...(provider ? { AUTH_CONSUMER_OIDC_ISSUER: provider.issuer } : {}), ...(postgres ? { AUTH_CONSUMER_DATABASE_URL: postgres.url } : {}), NEXT_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
   server.stdout.on('data', data => { logs += String(data) })
   server.stderr.on('data', data => { logs += String(data) })
   for (let attempt = 0; attempt < 120; attempt++) {
@@ -72,7 +77,7 @@ try {
   }
   if (shared) {
     const port2 = await freePort()
-    secondary = spawn('pnpm', ['exec', 'next', 'dev', ...bundlerArgs, '--hostname', '127.0.0.1', '--port', String(port2)], { cwd: app, env: { ...process.env, AUTH_CONSUMER_OTP: process.env.AUTH_CONSUMER_OTP ?? '0', AUTH_CONSUMER_SECONDARY: '1', ...(postgres ? { AUTH_CONSUMER_DATABASE_URL: postgres.url } : {}), AUTH_CONSUMER_PORT: String(port2), NEXT_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
+    secondary = spawn('pnpm', ['exec', 'next', 'dev', ...bundlerArgs, '--hostname', '127.0.0.1', '--port', String(port2)], { cwd: app, env: { ...process.env, AUTH_CONSUMER_OTP: process.env.AUTH_CONSUMER_OTP ?? '0', AUTH_CONSUMER_SECONDARY: '1', ...(postgres ? { AUTH_CONSUMER_DATABASE_URL: postgres.url } : {}), AUTH_CONSUMER_PORT: String(port2), ...(provider ? { AUTH_CONSUMER_OIDC_ISSUER: provider.issuer, AUTH_CONSUMER_PRIMARY_PORT: String(port) } : {}), NEXT_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
     secondary.stdout.on('data', data => { logs += String(data) })
     secondary.stderr.on('data', data => { logs += String(data) })
     const origin2 = `http://127.0.0.1:${port2}`
@@ -82,10 +87,11 @@ try {
       await new Promise(resolve => setTimeout(resolve, 500))
     }
     browser = await chromium.launch({ headless: true })
-    if (password) await verifyPasswordAcceptance({ browser, origin, origin2, database: postgres?.version ?? 'SQLite real', onPage: page => { diagnosticPage = page; page.on('response', response => browserEvidence.push({ url: response.url(), status: response.status() })); page.on('pageerror', error => browserEvidence.push({ pageerror: error.message })) } })
+    if (oauth) await verifyOauthAcceptance({ browser, origin, origin2, provider, database: postgres?.version ?? 'SQLite real', onPage: page => { diagnosticPage = page } })
+    else if (password) await verifyPasswordAcceptance({ browser, origin, origin2, database: postgres?.version ?? 'SQLite real', onPage: page => { diagnosticPage = page; page.on('response', response => browserEvidence.push({ url: response.url(), status: response.status() })); page.on('pageerror', error => browserEvidence.push({ pageerror: error.message })) } })
     else await verifyOtpAcceptance({ browser, origin, origin2, postgresVersion: postgres.version, outage: postgres.outage })
     execFileSync('pnpm', ['exec', 'tsc', '--noEmit'], { cwd: app, stdio: 'inherit' })
-    console.log('OTP consumer declarations GREEN')
+    console.log(`${oauth ? 'OAuth' : password ? 'Password' : 'OTP'} consumer declarations GREEN`)
     process.exitCode = 0
   } else {
   browser = await chromium.launch({ headless: true })
@@ -157,5 +163,6 @@ try {
     }
   }
   await postgres?.close()
+  await provider?.close()
   await rm(temp, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 })
 }

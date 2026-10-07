@@ -55,3 +55,7 @@ it('does not mutate collection settings or observe caller mutations after constr
   expect(output.collections?.[0].auth).toMatchObject({ tokenExpiration: 30 })
   expect(plugin.publicConfig.passwordLogin).toBe(true)
 })
+it('rejects non-string Google secrets and malformed admin scopes before producing a plugin', () => {
+  expect(() => authLoginPlugin({ ...enabledOptions, providers: { google: { enabled: true, clientId: 123, clientSecret: {}, redirectURI: 'https://app.test/api/auth/oauth/google/callback' } } } as never)).toThrow('auth-login:')
+  expect(() => authLoginPlugin({ ...enabledOptions, admin: { authorize: () => true, collections: [{ slug: 'users', operations: ['read'] }, { slug: 'users', operations: ['update'] }] } })).toThrow('duplicate')
+})

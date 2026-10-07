@@ -1,3 +1,4 @@
+import { setAuthenticationEvidence, type AuthenticationEvidence } from './adminPolicy'
 import { randomUUID } from 'node:crypto'
 import { createClient, type Config as SQLiteConfig } from '@libsql/client'
 import { drizzle } from 'drizzle-orm/libsql'
@@ -5,9 +6,10 @@ import { APIError, checkLoginPermission, getFieldsToSign, jwtSign, type Payload,
 import { credentialVersion, isCredentialRequest, isReauthenticationRequest } from './credentialRequest'
 import { applyUserReadAccess } from 'payload/internal'
 
-const otpRequests = new WeakSet<PayloadRequest>()
+const provenRequests = new WeakMap<PayloadRequest, AuthenticationEvidence['method']>()
 /** This proof is unforgeable by HTTP bodies or caller-controlled request context. */
-export const isOtpSessionRequest = (req: PayloadRequest): boolean => otpRequests.has(req)
+export const isOtpSessionRequest = (req: PayloadRequest): boolean => provenRequests.get(req) === 'otp'
+export const isProvenSessionRequest = (req: PayloadRequest): boolean => provenRequests.has(req)
 type NativeUser = NonNullable<PayloadRequest['user']>
 export interface DrizzleDatabase {
   name: string
@@ -23,7 +25,7 @@ export interface DrizzleDatabase {
 /** OTP consumption commits before this adapter runs: failures burn proof rather than replay it.
  * Native user/session storage, hooks, read access and native signing remain authoritative.
  */
-export async function createOtpSession(req: PayloadRequest, userID: string | number, collection: string, expectedEmail: string, expectedVersion?: string) {
+export async function createOtpSession(req: PayloadRequest, userID: string | number, collection: string, expectedEmail: string, expectedVersion?: string, proof: AuthenticationEvidence = { method: 'otp' }, assertOriginalAdminDenied?: (req: PayloadRequest) => Promise<void>) {
   const payload = req.payload
   const nativeCollection = payload.collections[collection]
   if (!nativeCollection || !nativeCollection.config.auth || !nativeCollection.config.auth.useSessions) throw new APIError('AUTH_FAILED', 401)
@@ -32,7 +34,7 @@ export async function createOtpSession(req: PayloadRequest, userID: string | num
   const originalUser = req.user
   const config = nativeCollection.config
   const transactionID = randomUUID()
-  otpRequests.add(req)
+  provenRequests.set(req, proof.method)
   try {
     return await nativeTransaction(db, async tx => {
       db.sessions[transactionID] = { db: tx, reject: async () => { throw new APIError('AUTH_FAILED', 401) }, resolve: async () => { throw new APIError('AUTH_FAILED', 401) } }
@@ -65,17 +67,25 @@ export async function createOtpSession(req: PayloadRequest, userID: string | num
         // user fields even for session-only updates. Exclude credentials entirely.
         const { hash: _hash, salt: _salt, password: _password, ...sessionData } = user
         await payload.db.updateOne({ collection, id: userID, req, data: { ...sessionData, sessions, ...(config.auth.maxLoginAttempts > 0 ? { loginAttempts: 0, lockUntil: null } : {}) }, returning: false })
-        const fieldsToSign = { ...getFieldsToSign({ collectionConfig: config, email: String(user.email), sid, user }), authLoginMethod: 'otp' }
+        const fieldsToSign = { ...getFieldsToSign({ collectionConfig: config, email: String(user.email), sid, user }), authLoginMethod: proof.method, authAuthenticatedAt: proof.authenticatedAt, authAmr: proof.amr }
+        user._sid = sid
+        req.user = user
+        user.authLoginMethod = proof.method
+        setAuthenticationEvidence(req, proof)
         for (const hook of config.hooks.beforeLogin ?? []) user = await hook({ collection: config, context: req.context, req, user }) || user
         if (user.id !== userID || user.collection !== collection || user._verified !== true) throw new APIError('AUTH_FAILED', 401)
         checkLoginPermission({ req, user })
         const { exp, token } = await jwtSign({ fieldsToSign, secret: payload.secret, tokenExpiration: config.auth.tokenExpiration })
         req.user = user
+        user.authLoginMethod = proof.method
+        setAuthenticationEvidence(req, proof)
         for (const hook of config.hooks.afterLogin ?? []) user = await hook({ collection: config, context: req.context, req, token, user }) || user
         if (user.id !== userID || user.collection !== collection || user._verified !== true) throw new APIError('AUTH_FAILED', 401)
         req.user = user
+        setAuthenticationEvidence(req, proof)
+        if (proof.method === 'otp') await assertOriginalAdminDenied?.(req)
         // Email OTP alone never authorizes Admin, even when the host defaults to all users.
-        if (!config.access.admin || await config.access.admin({ req }) !== false) throw new APIError('AUTH_FAILED', 401)
+        if (proof.method === 'otp' && (!config.access.admin || await config.access.admin({ req }) !== false)) throw new APIError('AUTH_FAILED', 401)
         const visibleUser = await applyUserReadAccess({ collection: config, overrideAccess: false, req, showHiddenFields: false, user })
         let result = { exp, token, user: visibleUser }
         for (const hook of config.hooks.afterOperation ?? []) {
@@ -92,7 +102,7 @@ export async function createOtpSession(req: PayloadRequest, userID: string | num
   } catch (error) {
     req.user = originalUser
     throw error
-  } finally { otpRequests.delete(req) }
+  } finally { provenRequests.delete(req) }
 }
 
 /** Resolve the native adapter table and lock the durable user before every session read/write. */
@@ -156,7 +166,7 @@ export function installNativeSessionCoordination(payload: Payload, collection: s
     // Payload's auth operations use null updatedAt + returning:false. Ordinary
     // collection writes forcibly timestamp their cloned DB input; JSON fields
     // (_strategy/id/updatedAt) cannot manufacture this internal call boundary.
-    const nativeAuthSnapshot = isOtpSessionRequest(req) || (args.returning === false && args.data.updatedAt === null)
+    const nativeAuthSnapshot = isProvenSessionRequest(req) || (args.returning === false && args.data.updatedAt === null)
     const incoming = args.data.sessions as NativeSession[]
     const resolvedID = args.id ?? args.data.id
     const identity = resolvedID === undefined ? await findOne({ collection, req, where: args.where }) : { id: resolvedID }
@@ -197,7 +207,7 @@ export function installNativeSessionCoordination(payload: Payload, collection: s
       const { hash: _hash, salt: _salt, password: _password, ...fresh } = current
       // Native auth writes carry a full user snapshot; keep fresh non-session data.
       // Explicit application updates retain their supplied data and access semantics.
-      const data = nativeAuthSnapshot ? { ...fresh, sessions: merged, updatedAt: null, ...(isOtpSessionRequest(req) ? { loginAttempts: args.data.loginAttempts, lockUntil: args.data.lockUntil } : {}) } : { ...fresh, ...args.data, sessions: merged }
+      const data = nativeAuthSnapshot ? { ...fresh, sessions: merged, updatedAt: null, ...(isProvenSessionRequest(req) ? { loginAttempts: args.data.loginAttempts, lockUntil: args.data.lockUntil } : {}) } : { ...fresh, ...args.data, sessions: merged }
       const { where: _where, ...writeArgs } = args
       const result = await updateOne({ ...writeArgs, id: userID, req, data })
       args.data.sessions = merged

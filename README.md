@@ -1,11 +1,11 @@
-# @main12/auth-login — hardened password/OTP/ownership candidate
+# @main12/auth-login — hardened password/OTP/Google candidate
 
-This working branch contains **tickets 01–03**, a breaking base-auth/configuration change. It is not a claim that the complete hardening spec or the remaining tickets are finished, and is not ready for publication until the PR gates pass.
+This working branch contains **tickets 01–04**, a breaking base-auth/configuration change. It is not a claim that the complete hardening spec or the remaining tickets are finished, and is not ready for publication until the PR gates pass.
 
 ## Supported flow and explicit limits
 
 - Password login delegates to Payload's real local login operation: existing passwords, hooks, verification, lockouts and field-read filtering remain authoritative. Native `collection.access.read` controls `/me`/CRUD, not whether valid credentials can log in; use rejecting login hooks for host login policy.
-- Google remains unavailable; enabling it fails at startup. Signup is closed by default in the explicit configuration. Signup, recovery and managed password changes are available only through the ownership-proof flows below; legacy native forgot/reset/first-register and raw credential CRUD still deny access. Public account discovery stays removed.
+- Google uses browser-bound, single-use OIDC/PKCE with native Payload sessions. Explicit private configuration and provider callback registration are required. Signup is closed by default in the explicit configuration. Signup, recovery and managed password changes are available only through the ownership-proof flows below; legacy native forgot/reset/first-register and raw credential CRUD still deny access. Public account discovery stays removed.
 - The target collection requires explicit `auth.useSessions: true`, `auth.verify: true`, email local strategy, and no API keys/custom authentication strategies. A verified account must have trustworthy `_verified: true` evidence. Do not mark legacy accounts verified by default.
 - Initial JWT lifetime is `min(auth.tokenExpiration, session.maxAge)`. `maxAge` defaults to 7200 **seconds**. Refresh cannot exceed `session.createdAt + lifetime`; it cannot lengthen a smaller host token lifetime. Logout revokes the native server session.
 - Host CORS, CSRF and cookie settings remain effective. `removeTokenFromResponses` is honored by login/refresh. The proxy only canonicalizes paths; a cookie is never proof of authentication.
@@ -98,7 +98,7 @@ Resend reuses the original code, context, expiry and remaining attempts. Another
 
 ## Signup, recovery and password management
 
-Enable `allowSignup: true` and/or `recovery: true` with `passwordLogin: true` and the same explicit `otp` server options above. Recovery works with `otpLogin: false`; enabling recovery never enables OTP application login. Google remains disabled. Public registration needs a frontend-only `access.admin: () => false` policy: creation rolls back if host defaults/hooks make the new account admin eligible. Native account creation is still denied anonymously, and arbitrary fields/roles are rejected by the managed signup contract. Consumer hooks can intentionally deny provisioning; unknown required consumer fields must be provisioned by an authorized host flow instead of accepting arbitrary public input.
+Enable `allowSignup: true` and/or `recovery: true` with `passwordLogin: true` and the same explicit `otp` server options above. Recovery works with `otpLogin: false`; enabling recovery never enables OTP application login. Google-only accounts never gain a password through recovery. Public registration needs a frontend-only `access.admin: () => false` policy: creation rolls back if host defaults/hooks make the new account admin eligible. Native account creation is still denied anonymously, and arbitrary fields/roles are rejected by the managed signup contract. Consumer hooks can intentionally deny provisioning; unknown required consumer fields must be provisioned by an authorized host flow instead of accepting arbitrary public input.
 
 No user, name, password or session is reserved during signup. Only a short-lived, purpose/browser-bound email challenge is stored. Another browser cannot replace a live challenge; its bounded TTL prevents an indefinite reservation. Verification issues an **opaque, AEAD-encrypted completion permit valid for ten minutes**, not an application token or cookie. Only then does the owner choose a password. Duplicate signup requests have the same accepted issuance contract; an existing account is never overwritten. Completing signup requires a fresh login.
 
@@ -121,6 +121,54 @@ Every permit is one use via a durable nonce-consumption record committed with th
 New passwords require **15 Unicode characters**, allow phrases/Unicode/paste without composition rules, and use the same client/server rule. Legacy password login is not revalidated against this new rule. A versioned, exact-match local SecLists common/compromised-derived 100,000-password corpus is included with its MIT notice; this is not exhaustive breach screening. Provenance, hashes, limitations and deterministic update/rollback checks live in `tests/evidence/issue03-blocklist.md`. Updating it changes new-password policy only, never invalidates stored legacy credentials.
 
 Private tables `auth_login_credential_locks` and `auth_login_password_permits` have no Payload CRUD surface. All instances must share the supported native SQLite/PostgreSQL database and secrets. Preserve these and `auth_login_otp_security` through schema push/migrations: Payload does not manage their schema and may propose deleting them. Do not accept that deletion. Consumption records can be deleted only after their `expires_at` millisecond deadline; live records must survive rollback/restore or permits could replay. Email lock rows are keyed, not email plaintext, and currently have no automatic cleanup: quiesce all instances before maintenance. OTP/security state retention and table growth remain consumer operator responsibilities. Security-key rotation invalidates old proofs; restoring an old key/state snapshot must not revive revoked credentials/sessions/permits.
+
+## Google and administrative authorization
+
+Register exactly `<apiPrefix><authEndpointPrefix>/oauth/google/callback` with Google, then configure the server plugin (never its client props):
+
+```ts
+providers: { google: {
+  enabled: true, clientId: 'server-client-id', clientSecret: 'server-secret',
+  redirectURI: 'https://app.example.com/backend/access/oauth/google/callback',
+} },
+admin: {
+  authorize: ({ req, evidence }) => req.user?.role === 'admin'
+    && evidence.method !== 'otp', // add verified freshness/amr requirements here if needed
+  collections: [{ slug: 'administrative-records', operations: ['read', 'create', 'update', 'delete'] }],
+  globals: [{ slug: 'settings', operations: ['read', 'update'] }],
+},
+```
+
+Admin defaults to denied without an explicit policy; email OTP alone is always denied. Enumerate **every administrative resource/operation**: selected native access callbacks compose the consumer callback, covering REST, GraphQL and Local API `overrideAccess:false`, not only the Admin UI. Unlisted resources keep their consumer access rules; ordinary self/service operations are not blanket-blocked. Policy exceptions or unverifiable requirements deny access. Trusted maintenance deliberately uses native Local API `overrideAccess:true`; do not forward untrusted HTTP inputs to that authority. Original `access.admin` remains an additional condition for both Admin entry and every enumerated native operation; false or exceptions deny even when the explicit policy authorizes. Configure non-privileged public account defaults/hooks: public provisioning evaluates a fresh private native storage row, not an `afterRead` presentation, and rolls back when that stored principal is admin-eligible.
+
+`evidence` is request-local, bound to the native Payload instance, exact Headers object, exact authenticated principal object and verified identity/SID/collection. Native GraphQL request proxies preserve those object identities; fabricated Local API user copies do not. A server-only namespaced WeakMap registry survives independently evaluated Next REST/GraphQL bundles. It stores no global configuration/secrets and partitions records by the exact Payload instance, so consumers cannot borrow another instance's evidence. Evidence never comes from a client body, database method field or request context. Password login stamps signed `authenticatedAt`; Google exposes only signed provider `auth_time`/`amr` when present. Missing claims are **not** proof of freshness/MFA. `getAuthenticationEvidence(req)` is a server-only hook seam. Original consumer Admin-eligibility checks for OTP issuance and later native authentication remain enforced; the new default-deny wrapper cannot hide eligibility changes. Google and OTP share the proven native-session adapter; `isOtpSessionRequest(req)` still identifies only OTP.
+
+| Google HTTP surface | Contract |
+|---|---|
+| `GET .../oauth/google?returnTo=/local` | Start a ten-minute browser-bound correlation and redirect to Google |
+| `GET .../oauth/google/callback` | Consume once; validate state, S256, nonce, issuer/audience/time and RS256 signature before account effects; return native cookie and local 303 |
+| `POST .../oauth/google/link` | Authenticated current SID plus `{ permit, confirm: true, returnTo? }`; no implicit email linking |
+| `GET .../oauth/google/reauthenticate` | Authenticate the **already linked subject**, requiring signed `auth_time` within five minutes; JSON `{ success, permit, expiresAt }`, no new session |
+
+For an explicit consumer account-settings action, use the client package's instance service:
+
+```ts
+const service = createAuthService(publicConfig)
+const proof = await service.reauthenticateGoogle() // invoke from a user gesture; bounded popup
+await service.completePassword(proof, ownerChosenPassword) // only when password method is enabled
+// Or obtain a password/OTP reauth permit, then explicitly link:
+await service.linkGoogle(reauthPermit, '/account#methods')
+```
+
+There is no new full account-settings UI: these actions compose with the consumer's own confirmed controls. Existing Google login buttons use the configured API/endpoint prefixes. Popup mode is validated and stored in the correlation; its callback has a nonce CSP, no-store/no-referrer, and sends the grant only to the configured callback origin. The client requires the exact returned popup and same-origin typed message; blocked/closed popups and a five-minute UI timeout reject. No permit appears in a URL or new storage. Direct reauthentication without popup mode retains the JSON contract. Parent and callback must share the configured public origin.
+
+Linking accepts the same five-minute opaque reauthentication permit issued by password, enabled email OTP or linked Google. Its native SID/account/email/credential version must remain current; the shared durable nonce ledger makes link and password completion mutually one-use. Subject/account SQL uniqueness cannot overwrite conflicts; after conflict-tolerant insertion the transaction re-reads the authoritative owner, so a concurrent loser cannot report success. Provider email changes do not update local email or replace stable subject identity. Signup-closed consumers can log in existing linked accounts but never provision new ones. No matching email autolink occurs.
+
+A verified cross-site link/reauth callback replaces Origin-CSRF proof **only after** durable browser correlation consumption and verified OIDC signature. The named native adapter clones headers for native `payload.auth`, retains the exact incoming token/cookie, then checks the original SID and live session/version under native locks. It does not mutate incoming headers or disable CSRF for other routes. This compatibility exception should retire when native Payload exposes a verified-OAuth authentication context. Google provisioning uses a discarded random bootstrap password only because Payload 3.90 native registration requires it; native hooks run and hash/salt are cleared in the same transaction before identity commit. Committed Google-only accounts have no password capability.
+
+Only local returns are supported. Encoded authority/backslash/control variants are denied, while permitted query/hash remain unchanged. Proxy remains a path canonicalizer, never treats cookie presence as authentication and does not block login/reset for invalid or revoked cookies. Private server-only `customFetch` is a provider-transport test seam, not a client option or alternate issuer. Issuer is fixed to Google. The controlled OIDC acceptance server is not proof of live Google acceptance.
+
+Private `auth_login_google_identities` and encrypted OAuth records in `auth_login_otp_security` must be preserved alongside native users/sessions and credential permit ledgers across deploy/rollback. Losing subject mappings must not be "repaired" by email autolink. Rejected callbacks log only a server-generated UUID request ID and a constant event; the matching `X-Auth-Request-ID` response header permits incident correlation without logging state, codes, cookies, tokens or provider errors. OAuth consumption tombstones must survive live correlation deadlines; operator-controlled retention applies as for OTP. Do not let schema push delete unmanaged security tables.
 
 ## HTTP contract
 
@@ -157,7 +205,10 @@ The package version is intentionally not a release promise on this branch. Publi
 
 ## Maintainer boundaries and evidence
 
-- `src/config.ts`: pure instance/public contract, no React/Next/Payload imports.
+- `src/config.ts`: pure instance/public contract, no React/Next/Payload imports. Server options are separate type-only modules; only `PublicAuthConfig` crosses client boundaries.
+- `src/auth/application/googleFlow.ts` and `googleAccountPolicy.ts`: framework-free OAuth correlation and account-policy owners with explicit provider/storage/clock/account dependencies.
+- `src/auth/server/googleAuthentication.ts`, `googleAccount.ts`, `googleProvider.ts`: declared Payload-integrated workflow/SQL/OIDC adapters; `src/endpoints/googleEndpoints.ts` validates/translates the HTTP interface.
+- CLEAN collection-owner adaptation: this reusable plugin owns the configurable auth collection, not a fixed consumer `src/collections/Users`. Package `src/index.ts` is its explicit public seam; native-integrated session/credential/OAuth workflows are named exceptions where transaction/hooks require Payload. Retire these exceptions when Payload supplies equivalent public operations; a directory rewrite or consumer fixed-slug API would not preserve the plugin contract.
 - `src/auth/domain/login.ts`: input/method policy and login use case with explicit authentication dependency, no transport/framework imports.
 - `src/endpoints/authEndpoints.ts` and `passwordEndpoints.ts`: HTTP translation and Payload-bound adapter composition; `authSchemas.ts` declares strict Zod interfaces without duplicating authorization policy.
 - `src/auth/application/ownershipVerification.ts`: purpose-specific account eligibility with explicit native account/evidence/principal/grant dependencies; no transport or Payload imports.
@@ -174,6 +225,8 @@ pnpm test:unit                    # includes real Payload/SQLite HTTP acceptance
 pnpm build                        # cleans dist before generating JS/declarations/assets
 pnpm exec playwright install chromium
 pnpm test:otp:acceptance          # packed PostgreSQL/two-process/browser OTP acceptance
+pnpm test:oauth:sqlite            # packed controlled-OIDC Chromium + native API acceptance
+pnpm test:oauth:postgres          # same behavior against PostgreSQL/two processes
 pnpm test:consumer                # packs, installs a fresh Next consumer, real browser + SQLite
 ```
 

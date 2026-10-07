@@ -1,3 +1,4 @@
+import { initializeMethodPermitLedger, consumeMethodPermit } from './methodPermitLedger'
 import { createHmac, randomUUID } from 'node:crypto'
 import { checkLoginPermission, getFieldsToSign, jwtSign, loginOperation, type PayloadRequest } from 'payload'
 import { AuthFailure } from '../domain/login'
@@ -30,21 +31,20 @@ export async function credentialTransaction<T>(req: PayloadRequest, collection: 
     } finally { credentialRequests.delete(req); delete req.transactionID; delete db.sessions[id] }
   })
 }
-export async function commitPassword(req: PayloadRequest, collection: string, permit: PasswordPermit, password: string, now: () => number = Date.now): Promise<{ success: boolean; token?: string; exp?: number }> {
-  const db = req.payload.db as unknown as DrizzleDatabase
-  await db.execute({ db: db.drizzle, raw: 'CREATE TABLE IF NOT EXISTS auth_login_password_permits (key TEXT PRIMARY KEY, expires_at BIGINT NOT NULL)' })
+export async function commitPassword(req: PayloadRequest, collection: string, permit: PasswordPermit, password: string, now: () => number = Date.now, assertPublicAccount?: (req: PayloadRequest) => Promise<void>): Promise<{ success: boolean; token?: string; exp?: number }> {
+  await initializeMethodPermitLedger(req)
   const originalUser = req.user
   try {
     return await credentialTransaction(req, collection, permit.email, async () => {
-      if (!permit.nonce || !permit.expiresAt || permit.expiresAt <= now()) throw new AuthFailure('AUTH_FAILED', 401)
-      const consumedKey = createHmac('sha256', req.payload.secret).update(permit.nonce).digest('hex')
-      const tx = db.sessions[String(await req.transactionID)].db
-      await db.execute({ db: tx, raw: `INSERT INTO auth_login_password_permits (key, expires_at) VALUES ('${consumedKey}', ${permit.expiresAt})` })
+      await consumeMethodPermit(req, permit, now)
       const record = await req.payload.db.findOne({ collection, req, where: { email: { equals: permit.email } } }) as User | null
       if (permit.purpose === 'signup') {
         if (record || permit.account !== null) throw new AuthFailure('AUTH_FAILED', 401)
         const user = await req.payload.create({ collection, req, overrideAccess: true, disableVerificationEmail: true, data: { email: permit.email, password, _verified: true } })
-        req.user = { ...user, collection } as User
+        const native = await req.payload.db.findOne<User>({ collection, req, where: { id: { equals: user.id } } })
+        if (!native || native.email !== permit.email) throw new AuthFailure('AUTH_FAILED', 401)
+        req.user = { ...native, collection } as User
+        await assertPublicAccount?.(req)
         // Public registration can never create an admin-eligible principal via host defaults/hooks.
         if (await req.payload.collections[collection].config.access.admin?.({ req }) !== false) throw new AuthFailure('AUTH_FAILED', 401)
         return { success: true }
@@ -68,7 +68,7 @@ export async function commitPassword(req: PayloadRequest, collection: string, pe
       const fresh = await req.payload.db.findOne({ collection, req, where: { id: { equals: record.id } } }) as User
       const sid = randomUUID()
       await req.payload.db.updateOne({ collection, id: record.id, req, data: { ...fresh, sessions: [{ id: sid, createdAt: session.createdAt, expiresAt: new Date(cap) }] }, returning: false })
-      const signed = await jwtSign({ fieldsToSign: { ...getFieldsToSign({ collectionConfig: config, email: permit.email, sid, user: fresh }), authLoginMethod: originalUser.authLoginMethod === 'otp' ? 'otp' : 'password' }, secret: req.payload.secret, tokenExpiration: Math.max(1, Math.floor((cap - Date.now()) / 1000)) })
+      const signed = await jwtSign({ fieldsToSign: { ...getFieldsToSign({ collectionConfig: config, email: permit.email, sid, user: fresh }), authLoginMethod: originalUser.authLoginMethod === 'otp' ? 'otp' : originalUser.authLoginMethod === 'google' ? 'google' : 'password', authAuthenticatedAt: typeof originalUser.authAuthenticatedAt === 'number' ? originalUser.authAuthenticatedAt : undefined, authAmr: Array.isArray(originalUser.authAmr) ? originalUser.authAmr : undefined }, secret: req.payload.secret, tokenExpiration: Math.max(1, Math.floor((cap - Date.now()) / 1000)) })
       return { success: true, ...signed }
     })
   } finally { req.user = originalUser }

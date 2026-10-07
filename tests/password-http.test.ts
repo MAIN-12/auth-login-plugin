@@ -11,11 +11,14 @@ let config: Awaited<ReturnType<typeof buildConfig>>
 const key = 'password-http-test'
 let html = ''
 let failChange = false
+let publicAdminEligible = false
+let publicAdminDefaults = false
+let hidePublicRole = false
 beforeAll(async () => {
   dir = await mkdtemp(join(tmpdir(), key))
   config = await buildConfig({ secret: 'shared-lifecycle-secret-32-characters', db: sqliteAdapter({ client: { url: `file:${dir}/test.db` } }), telemetry: false,
     email: () => ({ name: 'test', defaultFromAddress: 'auth@example.com', defaultFromName: 'Test', sendEmail: async mail => { html = String(mail.html) } }),
-    collections: [{ slug: 'customers', auth: { useSessions: true, verify: true, removeTokenFromResponses: true }, access: { admin: () => false }, fields: [], hooks: { beforeChange: [({ data }) => { if (failChange) throw new Error('fixture failure'); return data }] } }],
+    collections: [{ slug: 'customers', auth: { useSessions: true, verify: true, removeTokenFromResponses: true }, access: { admin: ({ req }) => publicAdminEligible || req.user?.role === 'admin' }, fields: [{ name: 'role', type: 'text', defaultValue: () => publicAdminDefaults ? 'admin' : 'customer' }], hooks: { afterRead: [({ doc }) => { if (hidePublicRole) delete doc.role; return doc }], beforeChange: [({ data }) => { if (failChange) throw new Error('fixture failure'); return data }] } }],
     plugins: [authLoginPlugin({ collection: 'customers', passwordLogin: true, otpLogin: false, providers: { google: false }, allowSignup: true, recovery: true,
       otp: { secret: 'dedicated-lifecycle-secret-32-characters', origin: () => 'trusted-peer', email: { from: 'auth@example.com', locale: 'en' } } })],
   })
@@ -85,4 +88,22 @@ it('strict ownership HTTP schemas reject extra authority fields, unknown purpose
     expect(response.status).toBe(400)
     expect(await response.json()).toEqual({ success: false, code: 'INVALID_INPUT' })
   }
+})
+
+it('public native signup cannot hide original consumer Admin eligibility behind the plugin deny policy', async () => {
+  const grant = await verify('admin-default@example.com', 'signup')
+  publicAdminEligible = true
+  try { expect((await request('/auth/signup', { permit: grant.permit, password: 'a safe public owner phrase' })).status).toBe(401) }
+  finally { publicAdminEligible = false }
+  expect((await request('/auth/login', { email: 'admin-default@example.com', password: 'a safe public owner phrase' })).status).toBe(401)
+  expect((await request('/auth/signup', { permit: grant.permit, password: 'a safe public owner phrase' })).status).toBe(200)
+})
+
+it('public native provisioning checks stored Admin eligibility even when afterRead hides the role', async () => {
+  const grant = await verify('hidden-admin-default@example.com', 'signup')
+  publicAdminDefaults = true; hidePublicRole = true
+  try { expect((await request('/auth/signup', { permit: grant.permit, password: 'safe owner phrase for signup' })).status).toBe(401) }
+  finally { publicAdminDefaults = false; hidePublicRole = false }
+  expect((await request('/auth/login', { email: 'hidden-admin-default@example.com', password: 'safe owner phrase for signup' })).status).toBe(401)
+  expect((await request('/auth/signup', { permit: grant.permit, password: 'safe owner phrase for signup' })).status).toBe(200)
 })

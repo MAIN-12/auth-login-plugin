@@ -1,5 +1,6 @@
+import { setAuthenticationEvidence, getAuthenticationEvidence } from './adminPolicy'
 import { isCredentialRequest, isReauthenticationRequest } from './credentialRequest'
-import { isOtpSessionRequest } from './otpSession'
+import { isProvenSessionRequest } from './otpSession'
 import { APIError, type CollectionAfterOperationHook as AfterOperationHook, type CollectionBeforeOperationHook as BeforeOperationHook, type Payload, type PayloadRequest } from 'payload'
 import { decodeJwt, decodeProtectedHeader, jwtVerify, SignJWT } from 'jose'
 import { parseCookies } from 'payload/shared'
@@ -7,7 +8,7 @@ import { parsePasswordCredentials } from '../domain/login'
 
 interface Session { id: string; createdAt: string | Date; expiresAt: string | Date }
 /** Native Payload session storage is deliberately used, never a parallel session system. */
-export function createSessionPolicy(collection: string, lifetime: number) {
+export function createSessionPolicy(collection: string, lifetime: number, passwordEnabled = true, assertOriginalAdminDenied?: (req: PayloadRequest) => Promise<void>) {
   const requestCaps = new WeakMap<PayloadRequest, number>()
   const beforeOperation: BeforeOperationHook = async ({ operation, args, req }) => {
     if (operation === 'create' || operation === 'update') {
@@ -18,11 +19,12 @@ export function createSessionPolicy(collection: string, lifetime: number) {
       // request remains untrusted even when a host forwards it to privileged Local API.
       const privilegedProvisioning = req.payloadAPI === 'local' && writeArgs.overrideAccess === true && req.context.authLoginCredentialProvisioning === true
       if (mutatesCredentials && !privilegedProvisioning && !isCredentialRequest(req)) throw new APIError('METHOD_DISABLED', 403)
-      const mutatesSessionAuthority = data !== null && typeof data === 'object' && ['sessions', '_sid', '_strategy', 'authLoginMethod'].some(key => Object.prototype.hasOwnProperty.call(data, key))
+      const mutatesSessionAuthority = data !== null && typeof data === 'object' && ['sessions', '_sid', '_strategy', 'authLoginMethod', 'authAuthenticatedAt', 'authAmr'].some(key => Object.prototype.hasOwnProperty.call(data, key))
       if (mutatesSessionAuthority && !privilegedProvisioning && !isCredentialRequest(req)) throw new APIError('METHOD_DISABLED', 403)
     }
     if (operation === 'forgotPassword' || operation === 'resetPassword') throw new APIError('METHOD_DISABLED', 403)
-    if (operation === 'login' && !isOtpSessionRequest(req)) {
+    if (operation === 'login' && !isProvenSessionRequest(req)) {
+      if (!passwordEnabled) throw new APIError('METHOD_DISABLED', 403)
       // Guard Local API/GraphQL as well as custom HTTP. Hooks cannot manufacture another method.
       const loginArgs = args as Parameters<typeof import('payload').loginOperation>[0]
       loginArgs.data = parsePasswordCredentials(loginArgs.data)
@@ -55,7 +57,10 @@ export function createSessionPolicy(collection: string, lifetime: number) {
     if (!Number.isFinite(cap) || cap <= Math.floor(Date.now() / 1000) || !session) throw new APIError('AUTH_FAILED', 401)
     const expiration = Math.min(typeof claims.exp === 'number' ? claims.exp : cap, cap)
     const { iat: _iat, exp: _exp, ...fieldsToSign } = claims
-    const signedToken = await new SignJWT({ ...fieldsToSign, ...(req.user?.authLoginMethod === 'otp' ? { authLoginMethod: 'otp' } : {}), iat: Math.floor(Date.now() / 1000), exp: expiration }).setProtectedHeader({ ...decodeProtectedHeader(token), alg: 'HS256' }).sign(new TextEncoder().encode(req.payload.secret))
+    if (operation === 'login' && !isProvenSessionRequest(req)) { fieldsToSign.authLoginMethod = 'password'; fieldsToSign.authAuthenticatedAt = Date.now(); delete fieldsToSign.authAmr }
+    const proof = operation === 'refresh' ? getAuthenticationEvidence(req) : undefined
+    if (operation === 'refresh' && !proof) throw new APIError('AUTH_FAILED', 401)
+    const signedToken = await new SignJWT({ ...fieldsToSign, ...(proof ? { authLoginMethod: proof.method, authAuthenticatedAt: proof.authenticatedAt, authAmr: proof.amr } : {}), iat: Math.floor(Date.now() / 1000), exp: expiration }).setProtectedHeader({ ...decodeProtectedHeader(token), alg: 'HS256' }).sign(new TextEncoder().encode(req.payload.secret))
     if (new Date(session.expiresAt).getTime() > expiration * 1000) {
       session.expiresAt = new Date(expiration * 1000)
       // Native sessions may contain other valid sessions; preserve them.
@@ -83,8 +88,16 @@ export function createSessionPolicy(collection: string, lifetime: number) {
           if (!token) return { ...result, user: null }
           const { payload: claims } = await jwtVerify(token, new TextEncoder().encode(payload.secret))
           if (claims.id !== user.id || claims.collection !== collection || claims.sid !== user._sid) return { ...result, user: null }
-          user.authLoginMethod = claims.authLoginMethod === 'otp' ? 'otp' : 'password'
+          user.authLoginMethod = claims.authLoginMethod === 'otp' ? 'otp' : claims.authLoginMethod === 'google' ? 'google' : 'password'
+          user.authAuthenticatedAt = typeof claims.authAuthenticatedAt === 'number' ? claims.authAuthenticatedAt : undefined
+          user.authAmr = Array.isArray(claims.authAmr) && claims.authAmr.every(value => typeof value === 'string') ? claims.authAmr : undefined
+          if (args.req) {
+            args.req.user = user
+            setAuthenticationEvidence(args.req, { method: user.authLoginMethod as 'password' | 'otp' | 'google', authenticatedAt: user.authAuthenticatedAt as number | undefined, amr: user.authAmr as string[] | undefined })
+          }
           if (user.authLoginMethod === 'otp') {
+            if (!args.req) return { ...result, user: null }
+            await assertOriginalAdminDenied?.(args.req)
             if (!args.req || await payload.collections[collection].config.access.admin?.({ req: { ...args.req, user } as PayloadRequest }) !== false) return { ...result, user: null }
           }
         } catch { return { ...result, user: null } }

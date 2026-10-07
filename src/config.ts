@@ -1,3 +1,5 @@
+import type { GoogleOptions } from './googleOptions'
+import type { AdminOptions } from './adminOptions'
 import type { OtpOptions } from './otpOptions'
 export type { OtpOptions } from './otpOptions'
 export type AuthStyle = 'tailwind' | 'hero-ui'
@@ -32,7 +34,8 @@ export interface AuthLoginPluginOptions {
   projectName?: string
   passwordLogin: boolean
   otpLogin: boolean
-  providers: { google: false | { enabled: boolean; clientId?: string; clientSecret?: string } }
+  providers: { google: false | GoogleOptions }
+  admin?: AdminOptions
   allowSignup: boolean
   recovery: boolean
   /** Seconds; absolute lifetime measured from Payload session.createdAt. Default 7200. */
@@ -56,11 +59,15 @@ export function resolveAuthConfig(options: AuthLoginPluginOptions): PublicAuthCo
   }
   if (google !== false && (typeof google !== 'object' || typeof google.enabled !== 'boolean')) throw new Error('auth-login: providers.google must be explicit')
   const googleEnabled = google !== false && google.enabled
-  if (googleEnabled) throw new Error('auth-login: Google is unavailable until their hardened implementations ship')
-  if (!options.passwordLogin && !options.otpLogin) throw new Error('auth-login: no usable login method')
-  if (options.allowSignup && !options.passwordLogin) throw new Error('auth-login: signup requires password login')
+  if (googleEnabled) {
+    if (typeof google.clientId !== 'string' || !google.clientId || typeof google.clientSecret !== 'string' || !google.clientSecret || typeof google.redirectURI !== 'string' || !google.redirectURI) throw new Error('auth-login: Google requires clientId, clientSecret and redirectURI')
+    try { const url = new URL(google.redirectURI); if (url.username || url.password || url.hash || (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname)))) throw new Error() } catch { throw new Error('auth-login: invalid Google redirectURI') }
+    if (google.customFetch !== undefined && typeof google.customFetch !== 'function') throw new Error('auth-login: invalid Google customFetch')
+  }
+  if (!options.passwordLogin && !options.otpLogin && !googleEnabled) throw new Error('auth-login: no usable login method')
+  if (options.allowSignup && !options.passwordLogin && !googleEnabled) throw new Error('auth-login: signup requires password login')
   if (options.recovery && !options.passwordLogin) throw new Error('auth-login: recovery requires password login')
-  if (options.otpLogin || options.allowSignup || options.recovery) {
+  if (options.otpLogin || (options.allowSignup && options.passwordLogin) || options.recovery) {
     if (!options.otp || typeof options.otp.secret !== 'string' || options.otp.secret.length < 32 || typeof options.otp.origin !== 'function') throw new Error('auth-login: OTP requires server secret and trusted origin resolver')
     for (const key of ['ttlSeconds', 'cooldownSeconds', 'maxAttempts', 'accountLimit', 'originLimit'] as const) if (options.otp[key] !== undefined && (!Number.isSafeInteger(options.otp[key]) || options.otp[key]! < 1)) throw new Error(`auth-login: invalid otp.${key}`)
     if (options.otp.now !== undefined && typeof options.otp.now !== 'function') throw new Error('auth-login: invalid OTP clock')
@@ -84,7 +91,7 @@ export function resolveAuthConfig(options: AuthLoginPluginOptions): PublicAuthCo
     authEndpointPrefix: path(options.authEndpointPrefix ?? '/auth', 'authEndpointPrefix'),
     authBasePath: path(options.basePath ?? (typeof options.routeRedirects === 'object' ? options.routeRedirects.basePath : undefined) ?? '/auth', 'basePath'),
     style: options.style ?? 'tailwind', logoUrl: options.logo, projectName: options.projectName,
-    passwordLogin: options.passwordLogin, otpLogin: options.otpLogin, googleOAuthEnabled: false,
+    passwordLogin: options.passwordLogin, otpLogin: options.otpLogin, googleOAuthEnabled: googleEnabled,
     allowSignup: options.allowSignup, recovery: options.recovery, modalLogin: options.modalLogin === true,
     routeRedirects: Boolean(options.routeRedirects) && !options.modalLogin,
   })

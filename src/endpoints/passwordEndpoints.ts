@@ -10,9 +10,9 @@ import { createPayloadOtpStore } from '../auth/server/otpStore'
 import { otpEmail } from '../auth/server/otpEmail'
 import { assertAllowedOrigin, authFailureResponse, readJSON } from './authEndpoints'
 
-function lifecycle(req: PayloadRequest, settings: PublicAuthConfig, options?: OtpOptions) {
-  return createPasswordLifecycle({ collection: settings.collection, secret: req.payload.secret, now: options?.now, signup: settings.allowSignup, recovery: settings.recovery, password: settings.passwordLogin,
-    commit: (permit, password) => commitPassword(req, settings.collection, permit, password, options?.now),
+function lifecycle(req: PayloadRequest, settings: PublicAuthConfig, options?: OtpOptions, assertPublicAccount?: (req: PayloadRequest) => Promise<void>) {
+  return createPasswordLifecycle({ collection: settings.collection, secret: req.payload.secret, now: options?.now, signup: settings.allowSignup, recovery: settings.recovery, password: settings.passwordLogin, reauthentication: settings.passwordLogin || settings.googleOAuthEnabled,
+    commit: (permit, password) => commitPassword(req, settings.collection, permit, password, options?.now, assertPublicAccount),
   })
 }
 export function createOwnershipOtpEndpoint(settings: PublicAuthConfig, options: OtpOptions | undefined, action: string, parsed?: unknown): Endpoint {
@@ -21,7 +21,7 @@ export function createOwnershipOtpEndpoint(settings: PublicAuthConfig, options: 
       assertAllowedOrigin(req)
       const input = parseAuthInterface(action === 'send' ? ownershipSendSchema : ownershipVerifySchema, parsed ?? await readJSON(req))
       const { purpose } = input
-      if (!options || !settings.passwordLogin || (purpose === 'signup' && !settings.allowSignup) || (purpose === 'recovery' && !settings.recovery) || (purpose === 'reauth' && !settings.otpLogin)) throw new AuthFailure('METHOD_DISABLED', 403)
+      if (!options || (purpose !== 'reauth' && !settings.passwordLogin) || (purpose === 'signup' && !settings.allowSignup) || (purpose === 'recovery' && !settings.recovery) || (purpose === 'reauth' && !settings.otpLogin)) throw new AuthFailure('METHOD_DISABLED', 403)
       if (purpose === 'reauth' && (!req.user || req.user.collection !== settings.collection || !req.user._sid)) throw new AuthFailure('UNAUTHENTICATED', 401)
       const flow = createOwnershipVerification({ ...options, collection: settings.collection, purpose, store: createPayloadOtpStore(req),
         principal: req.user?.collection === settings.collection ? { id: req.user.id, sid: req.user._sid ? String(req.user._sid) : undefined } : null,
@@ -39,13 +39,13 @@ export function createOwnershipOtpEndpoint(settings: PublicAuthConfig, options: 
     } catch (error) { return authFailureResponse(error, req) }
   } }
 }
-export function createPasswordEndpoints(settings: PublicAuthConfig, options?: OtpOptions): Endpoint[] {
+export function createPasswordEndpoints(settings: PublicAuthConfig, options?: OtpOptions, assertPublicAccount?: (req: PayloadRequest) => Promise<void>): Endpoint[] {
   const endpoints = (['signup', 'reset-password', 'set-password'] as const).map(path => ({ path: `${settings.authEndpointPrefix}/${path}`, method: 'post' as const, handler: async (req: PayloadRequest) => {
     try {
       assertAllowedOrigin(req)
       if (!settings.passwordLogin || (path === 'signup' && !settings.allowSignup) || (path === 'reset-password' && !settings.recovery) || (path === 'set-password' && (!req.user || req.user.collection !== settings.collection))) throw new AuthFailure('METHOD_DISABLED', 403)
       const input = parseAuthInterface(passwordCompletionSchema, await readJSON(req))
-      const result = await lifecycle(req, settings, options).complete(path === 'signup' ? 'signup' : path === 'reset-password' ? 'recovery' : 'reauth', input)
+      const result = await lifecycle(req, settings, options, assertPublicAccount).complete(path === 'signup' ? 'signup' : path === 'reset-password' ? 'recovery' : 'reauth', input)
       const headers = new Headers({ 'Cache-Control': 'no-store' })
       const collection = req.payload.collections[settings.collection]
       if (result.token) headers.set('Set-Cookie', generatePayloadCookie({ collectionAuthConfig: { ...collection.config.auth, tokenExpiration: Math.max(1, result.exp! - Math.floor(Date.now() / 1000)) }, cookiePrefix: req.payload.config.cookiePrefix, token: result.token }))
