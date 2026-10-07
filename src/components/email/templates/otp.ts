@@ -1,5 +1,10 @@
 import { type SocialLink } from '../constants'
-import { wrapInBaseTemplate, escapeEmailText, resolveEmailColors, type BaseTemplateOptions } from '../baseTemplate'
+import {
+  wrapInBaseTemplate,
+  escapeEmailText,
+  resolveEmailColors,
+  type BaseTemplateOptions,
+} from '../baseTemplate'
 import { getEmailTranslations, type SupportedLanguage } from '../translations'
 
 export interface OtpEmailParams {
@@ -17,7 +22,14 @@ export interface OtpEmailResult {
 }
 
 export function generateOtpEmail(params: OtpEmailParams): OtpEmailResult {
-  const { userName, otp, purpose = 'login', language = params.baseOptions?.language ?? 'en', socialLinks, baseOptions } = params
+  const {
+    userName,
+    otp,
+    purpose = 'login',
+    language = params.baseOptions?.language ?? 'en',
+    socialLinks,
+    baseOptions,
+  } = params
   const t = getEmailTranslations(language)
   const colors = resolveEmailColors(baseOptions?.colors)
   const purposeText = purpose === 'password-reset' ? t.otp.purposePasswordReset : t.otp.purposeLogin
@@ -46,6 +58,11 @@ export function generateOtpEmail(params: OtpEmailParams): OtpEmailResult {
 
   return {
     subject,
-    html: wrapInBaseTemplate(content, { ...baseOptions, preheader: t.otp.preheader, language, socialLinks }),
+    html: wrapInBaseTemplate(content, {
+      ...baseOptions,
+      preheader: t.otp.preheader,
+      language,
+      socialLinks,
+    }),
   }
 }

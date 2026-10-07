@@ -15,7 +15,9 @@ export function useForgotPasswordFlow(locale?: string) {
 
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(() => params.get('reason') === 'proof-expired' ? 'proofExpired' : null)
+  const [error, setError] = useState<string | null>(() =>
+    params.get('reason') === 'proof-expired' ? 'proofExpired' : null,
+  )
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -27,7 +29,19 @@ export function useForgotPasswordFlow(locale?: string) {
       try {
         const data = await createAuthService(config, locale).sendOwnership(email, 'recovery')
         if (data.success) {
-          router.push(authRoute(config.authBasePath, 'verify-otp', { email: email.trim(), purpose: 'password-reset', context: data.context, retryAfter: data.retryAfter }, params.get('redirect') ?? '/'))
+          router.push(
+            authRoute(
+              config.authBasePath,
+              'verify-otp',
+              {
+                email: email.trim(),
+                purpose: 'password-reset',
+                context: data.context,
+                retryAfter: data.retryAfter,
+              },
+              params.get('redirect') ?? '/',
+            ),
+          )
         } else {
           setError(data.message || 'error')
         }

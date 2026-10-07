@@ -6,9 +6,12 @@ import { config } from './app/auth-config'
 const payload = await getPayload({ config })
 try {
   const result = await migrateAuthLogin(payload, {
-    collection: 'customers', maintenance: true,
+    collection: 'customers',
+    maintenance: true,
     legacyOtpCollection: { slug: 'auth-otps', where: { collection: { equals: 'customers' } } },
   })
   await writeFile('migration-result.json', JSON.stringify(result))
   console.log(JSON.stringify(result))
-} finally { await payload.destroy() }
+} finally {
+  await payload.destroy()
+}

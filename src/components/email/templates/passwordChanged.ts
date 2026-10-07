@@ -1,5 +1,11 @@
 import { type SocialLink } from '../constants'
-import { wrapInBaseTemplate, escapeEmailText, validatedEmailUrl, resolveEmailColors, type BaseTemplateOptions } from '../baseTemplate'
+import {
+  wrapInBaseTemplate,
+  escapeEmailText,
+  validatedEmailUrl,
+  resolveEmailColors,
+  type BaseTemplateOptions,
+} from '../baseTemplate'
 import { getEmailTranslations, type SupportedLanguage } from '../translations'
 
 export interface PasswordChangedEmailParams {
@@ -10,10 +16,23 @@ export interface PasswordChangedEmailParams {
   baseOptions?: BaseTemplateOptions
 }
 
-export interface PasswordChangedEmailResult { subject: string; html: string }
+export interface PasswordChangedEmailResult {
+  subject: string
+  html: string
+}
 
-export function generatePasswordChangedEmail(params: PasswordChangedEmailParams): PasswordChangedEmailResult {
-  const { userName, loginUrl = params.baseOptions?.domain ? `${params.baseOptions.domain.replace(/\/$/, '')}/login` : 'https://example.com/login', language = params.baseOptions?.language ?? 'en', socialLinks, baseOptions } = params
+export function generatePasswordChangedEmail(
+  params: PasswordChangedEmailParams,
+): PasswordChangedEmailResult {
+  const {
+    userName,
+    loginUrl = params.baseOptions?.domain
+      ? `${params.baseOptions.domain.replace(/\/$/, '')}/login`
+      : 'https://example.com/login',
+    language = params.baseOptions?.language ?? 'en',
+    socialLinks,
+    baseOptions,
+  } = params
   const t = getEmailTranslations(language)
   const colors = resolveEmailColors(baseOptions?.colors)
 
@@ -37,6 +56,11 @@ export function generatePasswordChangedEmail(params: PasswordChangedEmailParams)
 
   return {
     subject: t.passwordChanged.subject,
-    html: wrapInBaseTemplate(content, { ...baseOptions, preheader: t.passwordChanged.preheader, language, socialLinks }),
+    html: wrapInBaseTemplate(content, {
+      ...baseOptions,
+      preheader: t.passwordChanged.preheader,
+      language,
+      socialLinks,
+    }),
   }
 }

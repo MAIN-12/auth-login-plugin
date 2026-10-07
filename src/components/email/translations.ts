@@ -80,7 +80,8 @@ const translations: Record<SupportedLanguage, EmailTranslations> = {
       subject: 'Your password has been updated',
       preheader: 'Your password has been changed successfully.',
       title: 'Password updated',
-      message: 'Your password has been successfully changed. You can now use your new password to sign in.',
+      message:
+        'Your password has been successfully changed. You can now use your new password to sign in.',
       warningMessage:
         "If you didn't make this change, please reset your password immediately and contact support.",
       ctaButton: 'Sign In',
@@ -106,7 +107,8 @@ const translations: Record<SupportedLanguage, EmailTranslations> = {
       subject: '¡Bienvenido! 🎉',
       preheader: 'Tu cuenta está lista',
       title: 'Bienvenido',
-      introMessage: 'Tu cuenta está lista. Comienza a explorar y aprovecha la plataforma al máximo.',
+      introMessage:
+        'Tu cuenta está lista. Comienza a explorar y aprovecha la plataforma al máximo.',
       ctaButton: 'Comenzar',
       helpMessage: '¿Preguntas? Estamos aquí para ayudar. Solo responde a este correo.',
     },
@@ -123,7 +125,8 @@ const translations: Record<SupportedLanguage, EmailTranslations> = {
       subject: 'Tu contraseña ha sido actualizada',
       preheader: 'Tu contraseña ha sido cambiada exitosamente.',
       title: 'Contraseña actualizada',
-      message: 'Tu contraseña ha sido cambiada exitosamente. Ahora puedes usar tu nueva contraseña.',
+      message:
+        'Tu contraseña ha sido cambiada exitosamente. Ahora puedes usar tu nueva contraseña.',
       warningMessage:
         'Si no realizaste este cambio, restablece tu contraseña inmediatamente y contacta a soporte.',
       ctaButton: 'Iniciar Sesión',

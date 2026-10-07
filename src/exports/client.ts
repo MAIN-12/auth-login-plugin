@@ -28,7 +28,11 @@ export {
 } from '../auth/application/services/authService'
 
 // Domain utilities
-export { evaluatePasswordStrength, isPasswordValid, MIN_PASSWORD_LENGTH } from '../auth/domain/passwordRules'
+export {
+  evaluatePasswordStrength,
+  isPasswordValid,
+  MIN_PASSWORD_LENGTH,
+} from '../auth/domain/passwordRules'
 
 // UI translations / locale utilities
 export { getUiTranslations, uiTranslations } from '../components/ui/translations'
@@ -49,12 +53,29 @@ export type { AuthPagesProps } from '../components/AuthPages'
 // Layout & shared components
 export { AuthLayout } from '../components/AuthLayout'
 export { AuthCard } from '../components/AuthCard'
-export type { AuthCardProps, AuthCardConfig, AuthCardWithSlugProps, AuthCardWithChildrenProps } from '../components/AuthCard'
+export type {
+  AuthCardProps,
+  AuthCardConfig,
+  AuthCardWithSlugProps,
+  AuthCardWithChildrenProps,
+} from '../components/AuthCard'
 export { PoweredBy } from '../components/PoweredBy'
 
 // Form components (for custom compositions)
-export { LoginForm, SignupForm, ForgotPasswordForm, VerifyOtpForm, SetPasswordForm } from '../components/forms/index'
-export type { LoginFormProps, SignupFormProps, ForgotPasswordFormProps, VerifyOtpFormProps, SetPasswordFormProps } from '../components/forms/index'
+export {
+  LoginForm,
+  SignupForm,
+  ForgotPasswordForm,
+  VerifyOtpForm,
+  SetPasswordForm,
+} from '../components/forms/index'
+export type {
+  LoginFormProps,
+  SignupFormProps,
+  ForgotPasswordFormProps,
+  VerifyOtpFormProps,
+  SetPasswordFormProps,
+} from '../components/forms/index'
 
 // Form registry (for advanced usage / extending)
 export { AUTH_FORMS, getFormBySlug, type AuthFormSlug } from '../components/forms/index'
@@ -84,10 +105,24 @@ export type { AuthLayoutConfig, AuthLayoutProps, AuthTexture } from '../componen
 export type { PoweredByProps } from '../components/PoweredBy'
 
 export { AuthProvider, useAuth } from '../components/AuthProvider'
-export type { AuthProviderProps, AuthContextValue, AuthUser, AuthStatus, OpenLoginOptions } from '../components/AuthProvider'
+export type {
+  AuthProviderProps,
+  AuthContextValue,
+  AuthUser,
+  AuthStatus,
+  OpenLoginOptions,
+} from '../components/AuthProvider'
 
-export type { AuthPresentationProps, AuthLocalizationProps, ResolvedAuthPresentation, PoweredByConfig } from '../components/auth-presentation/types'
-export { useAuthPresentation, useAuthTranslations } from '../components/auth-presentation/AuthPresentationContext'
+export type {
+  AuthPresentationProps,
+  AuthLocalizationProps,
+  ResolvedAuthPresentation,
+  PoweredByConfig,
+} from '../components/auth-presentation/types'
+export {
+  useAuthPresentation,
+  useAuthTranslations,
+} from '../components/auth-presentation/AuthPresentationContext'
 
 export type { CredentialCapabilities } from '../auth/domain/credentials'
 

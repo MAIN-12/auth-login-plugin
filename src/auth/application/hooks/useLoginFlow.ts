@@ -71,7 +71,14 @@ export function useLoginFlow({ redirectTo, onPasswordLogin, locale }: UseLoginFl
     try {
       const data = await createAuthService(config, locale).sendOtp(email)
       if (data.success) {
-        router.push(authRoute(config.authBasePath, 'verify-otp', { email: email.trim(), context: data.context, retryAfter: data.retryAfter }, redirectTo))
+        router.push(
+          authRoute(
+            config.authBasePath,
+            'verify-otp',
+            { email: email.trim(), context: data.context, retryAfter: data.retryAfter },
+            redirectTo,
+          ),
+        )
       } else {
         setError(data.message || 'otpSendFailed')
       }

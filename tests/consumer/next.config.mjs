@@ -1,1 +1,12 @@
-export default { distDir: process.env.AUTH_CONSUMER_DIST ?? (process.env.AUTH_CONSUMER_SECONDARY === '1' ? '.next-secondary' : '.next'), serverExternalPackages: ['payload', '@payloadcms/db-sqlite', '@payloadcms/db-postgres', '@libsql/client'], transpilePackages: ['@main12/auth-login'] }
+export default {
+  distDir:
+    process.env.AUTH_CONSUMER_DIST ??
+    (process.env.AUTH_CONSUMER_SECONDARY === '1' ? '.next-secondary' : '.next'),
+  serverExternalPackages: [
+    'payload',
+    '@payloadcms/db-sqlite',
+    '@payloadcms/db-postgres',
+    '@libsql/client',
+  ],
+  transpilePackages: ['@main12/auth-login'],
+}

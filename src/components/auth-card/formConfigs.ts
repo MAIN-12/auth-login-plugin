@@ -14,12 +14,32 @@ export interface FormPropsContext {
   setDynamicSubtitle: (subtitle: string | undefined) => void
 }
 
-import type { LoginFormProps, SignupFormProps, ForgotPasswordFormProps, VerifyOtpFormProps, SetPasswordFormProps } from '../forms'
-type FormProps = { login: LoginFormProps; signup: SignupFormProps; 'forgot-password': ForgotPasswordFormProps; 'verify-otp': VerifyOtpFormProps; 'set-password': SetPasswordFormProps }
-export type FormConfig = { translationKey: keyof UiTranslations; getProps: (ctx: FormPropsContext) => FormProps[AuthFormSlug] }
-type FormConfigs = { [K in AuthFormSlug]: { translationKey: keyof UiTranslations; getProps: (ctx: FormPropsContext) => FormProps[K] } }
+import type {
+  LoginFormProps,
+  SignupFormProps,
+  ForgotPasswordFormProps,
+  VerifyOtpFormProps,
+  SetPasswordFormProps,
+} from '../forms'
+type FormProps = {
+  login: LoginFormProps
+  signup: SignupFormProps
+  'forgot-password': ForgotPasswordFormProps
+  'verify-otp': VerifyOtpFormProps
+  'set-password': SetPasswordFormProps
+}
+export type FormConfig = {
+  translationKey: keyof UiTranslations
+  getProps: (ctx: FormPropsContext) => FormProps[AuthFormSlug]
+}
+type FormConfigs = {
+  [K in AuthFormSlug]: {
+    translationKey: keyof UiTranslations
+    getProps: (ctx: FormPropsContext) => FormProps[K]
+  }
+}
 export const FORM_CONFIGS: FormConfigs = {
-  'login': {
+  login: {
     translationKey: 'login',
     getProps: (ctx) => ({
       onPasswordLogin: ctx.onPasswordLogin,
@@ -34,7 +54,7 @@ export const FORM_CONFIGS: FormConfigs = {
       },
     }),
   },
-  'signup': {
+  signup: {
     translationKey: 'signup',
     getProps: (ctx) => ({
       onSignup: ctx.onSignup,

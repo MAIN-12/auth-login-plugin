@@ -13,16 +13,16 @@ export default async function AuthPages({ publicConfig, ...props }: AuthPagesPro
   const presentation = await getServerPresentationDefaults(publicConfig)
   return (
     <AuthConfigProvider publicConfig={publicConfig}>
-    <AuthPresentationDefaults value={presentation}>
-      <AuthSignupConfig enabled={publicConfig.allowSignup}>
-        <AuthPagesClient
-          {...props}
-          showGoogleOAuth={props.showGoogleOAuth ?? publicConfig.googleOAuthEnabled}
-          passwordLogin={props.passwordLogin ?? publicConfig.passwordLogin}
-          otpLogin={props.otpLogin ?? publicConfig.otpLogin}
-        />
-      </AuthSignupConfig>
-    </AuthPresentationDefaults>
+      <AuthPresentationDefaults value={presentation}>
+        <AuthSignupConfig enabled={publicConfig.allowSignup}>
+          <AuthPagesClient
+            {...props}
+            showGoogleOAuth={props.showGoogleOAuth ?? publicConfig.googleOAuthEnabled}
+            passwordLogin={props.passwordLogin ?? publicConfig.passwordLogin}
+            otpLogin={props.otpLogin ?? publicConfig.otpLogin}
+          />
+        </AuthSignupConfig>
+      </AuthPresentationDefaults>
     </AuthConfigProvider>
   )
 }

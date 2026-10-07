@@ -3,43 +3,136 @@ import { createPasswordLifecycle } from '../src/auth/domain/passwordLifecycle'
 
 it('Signup establishes only an owner-chosen phrase after verification, never pre-registers credentials', async () => {
   const writes: unknown[] = []
-  const flow = createPasswordLifecycle({ secret: 's'.repeat(32), collection: 'customers', now: () => 1000, signup: true, recovery: true, password: true,
-    commit: async (permit, password) => { writes.push({ permit, password }); return { success: true } },
+  const flow = createPasswordLifecycle({
+    secret: 's'.repeat(32),
+    collection: 'customers',
+    now: () => 1000,
+    signup: true,
+    recovery: true,
+    password: true,
+    commit: async (permit, password) => {
+      writes.push({ permit, password })
+      return { success: true }
+    },
   })
-  await expect(flow.complete('signup', { email: 'other@example.com', password: 'attacker password' })).rejects.toThrow('INVALID_INPUT')
+  await expect(
+    flow.complete('signup', { email: 'other@example.com', password: 'attacker password' }),
+  ).rejects.toThrow('INVALID_INPUT')
   expect(writes).toEqual([])
-  const grant = flow.grant({ purpose: 'signup', email: 'owner@example.com', account: null, version: '' })
+  const grant = flow.grant({
+    purpose: 'signup',
+    email: 'owner@example.com',
+    account: null,
+    version: '',
+  })
   expect(grant.expiresAt).toBe(601000)
-  expect(await flow.complete('signup', { permit: grant.permit, password: 'the river carries quiet dreams' })).toEqual({ success: true })
+  expect(
+    await flow.complete('signup', {
+      permit: grant.permit,
+      password: 'the river carries quiet dreams',
+    }),
+  ).toEqual({ success: true })
   expect(writes).toHaveLength(1)
 })
 it('a limited recovery grant is opaque, purpose-bound, expires at ten minutes and rejects weak passwords', async () => {
   let now = 1000
   let calls = 0
-  const flow = createPasswordLifecycle({ secret: 's'.repeat(32), collection: 'customers', now: () => now, signup: true, recovery: true, password: true, commit: async () => { calls++; return true } })
-  const grant = flow.grant({ purpose: 'recovery', email: 'owner@example.com', account: 1, version: 'credential-evidence' })
-  expect(Buffer.from(grant.permit.split('.')[0], 'base64url').toString()).not.toContain('owner@example.com')
-  await expect(flow.complete('signup', { permit: grant.permit, password: 'the river carries quiet dreams' })).rejects.toThrow('AUTH_FAILED')
-  await expect(flow.complete('recovery', { permit: grant.permit, password: 'short' })).rejects.toThrow('INVALID_INPUT')
+  const flow = createPasswordLifecycle({
+    secret: 's'.repeat(32),
+    collection: 'customers',
+    now: () => now,
+    signup: true,
+    recovery: true,
+    password: true,
+    commit: async () => {
+      calls++
+      return true
+    },
+  })
+  const grant = flow.grant({
+    purpose: 'recovery',
+    email: 'owner@example.com',
+    account: 1,
+    version: 'credential-evidence',
+  })
+  expect(Buffer.from(grant.permit.split('.')[0], 'base64url').toString()).not.toContain(
+    'owner@example.com',
+  )
+  await expect(
+    flow.complete('signup', { permit: grant.permit, password: 'the river carries quiet dreams' }),
+  ).rejects.toThrow('AUTH_FAILED')
+  await expect(
+    flow.complete('recovery', { permit: grant.permit, password: 'short' }),
+  ).rejects.toThrow('INVALID_INPUT')
   now = 601000
-  await expect(flow.complete('recovery', { permit: grant.permit, password: 'the river carries quiet dreams' })).rejects.toThrow('AUTH_FAILED')
+  await expect(
+    flow.complete('recovery', { permit: grant.permit, password: 'the river carries quiet dreams' }),
+  ).rejects.toThrow('AUTH_FAILED')
   expect(calls).toBe(0)
 })
 it('new passwords reject the versioned compromised corpus and count Unicode characters, not artificial composition', async () => {
-  const flow = createPasswordLifecycle({ secret: 's'.repeat(32), collection: 'customers', signup: true, recovery: false, password: true, commit: async () => true })
-  const grant = flow.grant({ purpose: 'signup', email: 'owner@example.com', account: null, version: '' })
-  await expect(flow.complete('signup', { permit: grant.permit, password: 'Mailcreated5240' })).rejects.toThrow('INVALID_INPUT')
-  await expect(flow.complete('signup', { permit: grant.permit, password: '🦉'.repeat(8) })).rejects.toThrow('INVALID_INPUT')
-  expect(await flow.complete('signup', { permit: grant.permit, password: 'a long lowercase quiet phrase' })).toBe(true)
+  const flow = createPasswordLifecycle({
+    secret: 's'.repeat(32),
+    collection: 'customers',
+    signup: true,
+    recovery: false,
+    password: true,
+    commit: async () => true,
+  })
+  const grant = flow.grant({
+    purpose: 'signup',
+    email: 'owner@example.com',
+    account: null,
+    version: '',
+  })
+  await expect(
+    flow.complete('signup', { permit: grant.permit, password: 'Mailcreated5240' }),
+  ).rejects.toThrow('INVALID_INPUT')
+  await expect(
+    flow.complete('signup', { permit: grant.permit, password: '🦉'.repeat(8) }),
+  ).rejects.toThrow('INVALID_INPUT')
+  expect(
+    await flow.complete('signup', {
+      permit: grant.permit,
+      password: 'a long lowercase quiet phrase',
+    }),
+  ).toBe(true)
 })
 it('reauthentication is limited to five minutes, one collection and the selected method', async () => {
   let now = 1000
-  const options = { secret: 's'.repeat(32), signup: false, recovery: false, password: true, now: () => now, commit: async () => true }
+  const options = {
+    secret: 's'.repeat(32),
+    signup: false,
+    recovery: false,
+    password: true,
+    now: () => now,
+    commit: async () => true,
+  }
   const flow = createPasswordLifecycle({ ...options, collection: 'customers' })
-  const permit = flow.grant({ purpose: 'reauth', email: 'owner@example.com', account: 1, version: 'proof', sid: 'current' })
+  const permit = flow.grant({
+    purpose: 'reauth',
+    email: 'owner@example.com',
+    account: 1,
+    version: 'proof',
+    sid: 'current',
+  })
   expect(permit.expiresAt).toBe(301000)
-  await expect(createPasswordLifecycle({ ...options, collection: 'admins' }).complete('reauth', { permit: permit.permit, password: 'a long lowercase quiet phrase' })).rejects.toThrow('AUTH_FAILED')
+  await expect(
+    createPasswordLifecycle({ ...options, collection: 'admins' }).complete('reauth', {
+      permit: permit.permit,
+      password: 'a long lowercase quiet phrase',
+    }),
+  ).rejects.toThrow('AUTH_FAILED')
   now = 301000
-  await expect(flow.complete('reauth', { permit: permit.permit, password: 'a long lowercase quiet phrase' })).rejects.toThrow('AUTH_FAILED')
-  expect(() => createPasswordLifecycle({ ...options, collection: 'customers', password: false }).grant({ purpose: 'reauth', email: 'owner@example.com', account: 1, version: 'proof' })).toThrow('METHOD_DISABLED')
+  await expect(
+    flow.complete('reauth', { permit: permit.permit, password: 'a long lowercase quiet phrase' }),
+  ).rejects.toThrow('AUTH_FAILED')
+  expect(() =>
+    createPasswordLifecycle({ ...options, collection: 'customers', password: false }).grant({
+      purpose: 'reauth',
+      email: 'owner@example.com',
+      account: 1,
+      version: 'proof',
+    }),
+  ).toThrow('METHOD_DISABLED')
 })

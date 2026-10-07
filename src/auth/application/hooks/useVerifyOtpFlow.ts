@@ -18,7 +18,14 @@ export interface UseVerifyOtpFlowOptions {
 /**
  * State machine for OTP verification: input → verify → redirect | resend.
  */
-export function useVerifyOtpFlow({ email, purpose, context, retryAfter = 0, redirectTo = '/', locale }: UseVerifyOtpFlowOptions) {
+export function useVerifyOtpFlow({
+  email,
+  purpose,
+  context,
+  retryAfter = 0,
+  redirectTo = '/',
+  locale,
+}: UseVerifyOtpFlowOptions) {
   const pluginConfig = useAuthConfig()
   const router = useAuthNavigation()
 
@@ -32,7 +39,7 @@ export function useVerifyOtpFlow({ email, purpose, context, retryAfter = 0, redi
 
   useEffect(() => {
     if (resendCooldown > 0) {
-      const timer = setTimeout(() => setResendCooldown(c => c - 1), 1000)
+      const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000)
       return () => clearTimeout(timer)
     }
   }, [resendCooldown])
@@ -49,15 +56,22 @@ export function useVerifyOtpFlow({ email, purpose, context, retryAfter = 0, redi
         return
       }
       if (purpose !== 'login') {
-        const proof = await createAuthService(pluginConfig, locale).verifyOwnership(email, purpose === 'password-reset' ? 'recovery' : purpose, otp, context)
-        storePasswordProof(pluginConfig, { ...proof, purpose: purpose === 'password-reset' ? 'recovery' : purpose })
+        const proof = await createAuthService(pluginConfig, locale).verifyOwnership(
+          email,
+          purpose === 'password-reset' ? 'recovery' : purpose,
+          otp,
+          context,
+        )
+        storePasswordProof(pluginConfig, {
+          ...proof,
+          purpose: purpose === 'password-reset' ? 'recovery' : purpose,
+        })
         router.push(authRoute(pluginConfig.authBasePath, 'set-password', {}, redirectTo))
         return
       }
       const data = await createAuthService(pluginConfig, locale).verifyOtp(email, otp, context)
       if (data.success) {
         await router.complete(redirectTo)
-
       } else {
         setError(data.error || 'error')
         setOtp('')
@@ -86,7 +100,13 @@ export function useVerifyOtpFlow({ email, purpose, context, retryAfter = 0, redi
     setError(null)
     try {
       const service = createAuthService(pluginConfig, locale)
-      const data = await (purpose === 'login' ? service.sendOtp(email, context) : service.sendOwnership(email, purpose === 'password-reset' ? 'recovery' : purpose, context))
+      const data = await (purpose === 'login'
+        ? service.sendOtp(email, context)
+        : service.sendOwnership(
+            email,
+            purpose === 'password-reset' ? 'recovery' : purpose,
+            context,
+          ))
       if (data.success) {
         setResendCooldown(data.retryAfter ?? 0)
       } else {

@@ -5,5 +5,11 @@ import { plugin } from '../auth-config'
 
 // Public standalone composition, exercising the same packed form as consumers.
 export default function ChangePage() {
-  return <AuthProvider publicConfig={plugin.publicConfig} locale="en"><Suspense><ChangeView /></Suspense></AuthProvider>
+  return (
+    <AuthProvider publicConfig={plugin.publicConfig} locale="en">
+      <Suspense>
+        <ChangeView />
+      </Suspense>
+    </AuthProvider>
+  )
 }

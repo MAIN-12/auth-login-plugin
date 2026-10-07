@@ -1,5 +1,10 @@
 import { type SocialLink } from '../constants'
-import { wrapInBaseTemplate, escapeEmailText, resolveEmailColors, type BaseTemplateOptions } from '../baseTemplate'
+import {
+  wrapInBaseTemplate,
+  escapeEmailText,
+  resolveEmailColors,
+  type BaseTemplateOptions,
+} from '../baseTemplate'
 import { getEmailTranslations, type SupportedLanguage } from '../translations'
 
 export interface PasswordResetEmailParams {
@@ -10,10 +15,21 @@ export interface PasswordResetEmailParams {
   baseOptions?: BaseTemplateOptions
 }
 
-export interface PasswordResetEmailResult { subject: string; html: string }
+export interface PasswordResetEmailResult {
+  subject: string
+  html: string
+}
 
-export function generatePasswordResetEmail(params: PasswordResetEmailParams): PasswordResetEmailResult {
-  const { userName, otp, language = params.baseOptions?.language ?? 'en', socialLinks, baseOptions } = params
+export function generatePasswordResetEmail(
+  params: PasswordResetEmailParams,
+): PasswordResetEmailResult {
+  const {
+    userName,
+    otp,
+    language = params.baseOptions?.language ?? 'en',
+    socialLinks,
+    baseOptions,
+  } = params
   const t = getEmailTranslations(language)
   const colors = resolveEmailColors(baseOptions?.colors)
 
@@ -40,6 +56,11 @@ export function generatePasswordResetEmail(params: PasswordResetEmailParams): Pa
 
   return {
     subject: t.passwordReset.subject,
-    html: wrapInBaseTemplate(content, { ...baseOptions, preheader: t.passwordReset.preheader, language, socialLinks }),
+    html: wrapInBaseTemplate(content, {
+      ...baseOptions,
+      preheader: t.passwordReset.preheader,
+      language,
+      socialLinks,
+    }),
   }
 }

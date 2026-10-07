@@ -54,7 +54,11 @@ export function FormRenderer({
   const allowSignup = useAllowSignup()
   const pluginConfig = useAuthConfig()
   const passwordHandler = onPasswordLogin ?? createAuthService(pluginConfig).login
-  const signupHandler = onSignup ?? (async () => { throw new Error('Signup unavailable') })
+  const signupHandler =
+    onSignup ??
+    (async () => {
+      throw new Error('Signup unavailable')
+    })
 
   const presentation = useAuthPresentation({ locale, messages })
   const resolvedLocale = presentation.locale
@@ -66,8 +70,17 @@ export function FormRenderer({
   const [dynamicSubtitle, setDynamicSubtitle] = useState<string | undefined>(undefined)
 
   const effectiveSlug: AuthFormSlug =
-    (normalizedSlug === 'signup' && (!allowSignup || !pluginConfig.passwordLogin)) || (normalizedSlug === 'forgot-password' && !pluginConfig.recovery) || ((normalizedSlug === 'verify-otp' || normalizedSlug === 'set-password') && !pluginConfig.passwordLogin && !pluginConfig.otpLogin && !pluginConfig.recovery && !pluginConfig.allowSignup) ? 'login' :
-    (Object.hasOwn(AUTH_FORMS, normalizedSlug) ? normalizedSlug : 'login')
+    (normalizedSlug === 'signup' && (!allowSignup || !pluginConfig.passwordLogin)) ||
+    (normalizedSlug === 'forgot-password' && !pluginConfig.recovery) ||
+    ((normalizedSlug === 'verify-otp' || normalizedSlug === 'set-password') &&
+      !pluginConfig.passwordLogin &&
+      !pluginConfig.otpLogin &&
+      !pluginConfig.recovery &&
+      !pluginConfig.allowSignup)
+      ? 'login'
+      : Object.hasOwn(AUTH_FORMS, normalizedSlug)
+        ? normalizedSlug
+        : 'login'
 
   const config = FORM_CONFIGS[effectiveSlug]
 
@@ -88,11 +101,27 @@ export function FormRenderer({
   const title = titleOverride ?? dynamicTitle ?? translationSection.title
   const subtitle = subtitleOverride ?? dynamicSubtitle ?? translationSection.subtitle
 
-  const form = effectiveSlug === 'login' ? <AUTH_FORMS.login {...FORM_CONFIGS.login.getProps(propsContext)} />
-    : effectiveSlug === 'signup' ? <AUTH_FORMS.signup {...FORM_CONFIGS.signup.getProps(propsContext)} />
-    : effectiveSlug === 'forgot-password' ? React.createElement(AUTH_FORMS['forgot-password'], FORM_CONFIGS['forgot-password'].getProps(propsContext))
-    : effectiveSlug === 'verify-otp' ? React.createElement(AUTH_FORMS['verify-otp'], FORM_CONFIGS['verify-otp'].getProps(propsContext))
-    : React.createElement(AUTH_FORMS['set-password'], FORM_CONFIGS['set-password'].getProps(propsContext))
+  const form =
+    effectiveSlug === 'login' ? (
+      <AUTH_FORMS.login {...FORM_CONFIGS.login.getProps(propsContext)} />
+    ) : effectiveSlug === 'signup' ? (
+      <AUTH_FORMS.signup {...FORM_CONFIGS.signup.getProps(propsContext)} />
+    ) : effectiveSlug === 'forgot-password' ? (
+      React.createElement(
+        AUTH_FORMS['forgot-password'],
+        FORM_CONFIGS['forgot-password'].getProps(propsContext),
+      )
+    ) : effectiveSlug === 'verify-otp' ? (
+      React.createElement(
+        AUTH_FORMS['verify-otp'],
+        FORM_CONFIGS['verify-otp'].getProps(propsContext),
+      )
+    ) : (
+      React.createElement(
+        AUTH_FORMS['set-password'],
+        FORM_CONFIGS['set-password'].getProps(propsContext),
+      )
+    )
 
   return (
     <AuthCardShell
@@ -106,7 +135,9 @@ export function FormRenderer({
       removeShadow={removeShadow}
       mobileVariant={mobileVariant}
     >
-      <AuthConfigProvider publicConfig={Object.freeze({ ...pluginConfig, authBasePath: base })}>{form}</AuthConfigProvider>
+      <AuthConfigProvider publicConfig={Object.freeze({ ...pluginConfig, authBasePath: base })}>
+        {form}
+      </AuthConfigProvider>
     </AuthCardShell>
   )
 }

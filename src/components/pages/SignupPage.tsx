@@ -18,5 +18,9 @@ export default function SignupPage(props: SignupPageProps) {
   const pluginConfig = useAuthConfig()
   const resolved = { showGoogleOAuth: pluginConfig.googleOAuthEnabled, ...props }
   const { style } = useAuthPresentation(props)
-  return style === 'hero-ui' ? <SignupPageHero {...resolved} /> : <SignupPageTailwind {...resolved} />
+  return style === 'hero-ui' ? (
+    <SignupPageHero {...resolved} />
+  ) : (
+    <SignupPageTailwind {...resolved} />
+  )
 }

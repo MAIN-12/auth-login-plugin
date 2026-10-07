@@ -4,6 +4,16 @@ import { useEffect, useState } from 'react'
 export function IndividualLogin() {
   const config = useAuthConfig()
   const [hydrated, setHydrated] = useState(false)
-  useEffect(() => { setHydrated(true) }, [])
-  return <main data-consumer-hydrated={hydrated ? 'true' : 'false'}><LoginPage onPasswordLogin={createAuthService(config).login} redirectTo="/landing?source=individual#complete" texture="none" /></main>
+  useEffect(() => {
+    setHydrated(true)
+  }, [])
+  return (
+    <main data-consumer-hydrated={hydrated ? 'true' : 'false'}>
+      <LoginPage
+        onPasswordLogin={createAuthService(config).login}
+        redirectTo="/landing?source=individual#complete"
+        texture="none"
+      />
+    </main>
+  )
 }

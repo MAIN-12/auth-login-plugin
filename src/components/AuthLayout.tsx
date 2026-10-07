@@ -52,9 +52,15 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
   texture = 'none',
 }) => {
   return (
-    <main style={{ position: 'relative', isolation: 'isolate' }} className={`flex flex-col min-h-screen ${backgroundClass}`}>
+    <main
+      style={{ position: 'relative', isolation: 'isolate' }}
+      className={`flex flex-col min-h-screen ${backgroundClass}`}
+    >
       {texture !== 'none' && <AuthPageTexture texture={texture} />}
-      <div style={{ position: 'relative', zIndex: 1 }} className={`flex-1 flex flex-col ${verticalAlign === 'top' ? 'justify-start' : 'justify-center'}`}>
+      <div
+        style={{ position: 'relative', zIndex: 1 }}
+        className={`flex-1 flex flex-col ${verticalAlign === 'top' ? 'justify-start' : 'justify-center'}`}
+      >
         {children}
       </div>
     </main>

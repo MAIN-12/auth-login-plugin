@@ -8,15 +8,31 @@ export type { AuthPagesProps } from '../components/AuthPagesServer'
 
 // Server component auth card (requires explicit publicConfig)
 export { AuthCard } from '../components/AuthCardServer'
-export type { AuthCardProps, AuthCardWithSlugProps, AuthCardWithChildrenProps } from '../components/AuthCardServer'
+export type {
+  AuthCardProps,
+  AuthCardWithSlugProps,
+  AuthCardWithChildrenProps,
+} from '../components/AuthCardServer'
 
 // Layout component (can be used in server or client components)
 export { AuthLayout } from '../components/AuthLayout'
 export type { AuthLayoutConfig, AuthLayoutProps, AuthTexture } from '../components/AuthLayout'
 
 // Form components (for custom compositions — re-exported from client)
-export { LoginForm, SignupForm, ForgotPasswordForm, VerifyOtpForm, SetPasswordForm } from '../components/forms/index'
-export type { LoginFormProps, SignupFormProps, ForgotPasswordFormProps, VerifyOtpFormProps, SetPasswordFormProps } from '../components/forms/index'
+export {
+  LoginForm,
+  SignupForm,
+  ForgotPasswordForm,
+  VerifyOtpForm,
+  SetPasswordForm,
+} from '../components/forms/index'
+export type {
+  LoginFormProps,
+  SignupFormProps,
+  ForgotPasswordFormProps,
+  VerifyOtpFormProps,
+  SetPasswordFormProps,
+} from '../components/forms/index'
 
 // Form registry (for advanced usage / extending)
 export { AUTH_FORMS, getFormBySlug, type AuthFormSlug } from '../components/forms/index'
@@ -35,20 +51,11 @@ export {
   generatePasswordChangedEmail,
 } from '../components/email/index'
 
-export type {
-  BaseTemplateOptions,
-} from '../components/email/baseTemplate'
+export type { BaseTemplateOptions } from '../components/email/baseTemplate'
 
-export type {
-  EmailColors,
-  SocialLink,
-  SocialPlatform,
-} from '../components/email/constants'
+export type { EmailColors, SocialLink, SocialPlatform } from '../components/email/constants'
 
-export type {
-  SupportedLanguage,
-  EmailTranslations,
-} from '../components/email/translations'
+export type { SupportedLanguage, EmailTranslations } from '../components/email/translations'
 
 export type {
   OtpEmailParams,
@@ -67,4 +74,9 @@ export type { AuthLoginPluginOptions } from '../index'
 export { AuthProvider } from '../components/AuthProviderServer'
 export type { AuthProviderProps, AuthUser } from '../components/AuthProvider'
 
-export type { AuthPresentationProps, AuthLocalizationProps, ResolvedAuthPresentation, PoweredByConfig } from '../components/auth-presentation/types'
+export type {
+  AuthPresentationProps,
+  AuthLocalizationProps,
+  ResolvedAuthPresentation,
+  PoweredByConfig,
+} from '../components/auth-presentation/types'

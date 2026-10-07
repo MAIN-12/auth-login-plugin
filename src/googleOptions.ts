@@ -1,1 +1,7 @@
-export interface GoogleOptions { enabled: boolean; clientId?: string; clientSecret?: string; redirectURI?: string; /** Private server-only transport seam. Production defaults to fetch. */ customFetch?: typeof fetch }
+export interface GoogleOptions {
+  enabled: boolean
+  clientId?: string
+  clientSecret?: string
+  redirectURI?: string
+  /** Private server-only transport seam. Production defaults to fetch. */ customFetch?: typeof fetch
+}

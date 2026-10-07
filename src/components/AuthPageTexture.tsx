@@ -16,7 +16,11 @@ export function AuthPageTexture({ texture }: { texture: Exclude<AuthTexture, 'no
     const pointer = window.matchMedia('(hover: hover) and (pointer: fine)')
     let frame = 0
     let active = false
-    let x = 0, y = 0, targetX = 0, targetY = 0, lastTime = 0
+    let x = 0,
+      y = 0,
+      targetX = 0,
+      targetY = 0,
+      lastTime = 0
     const stop = () => {
       active = false
       cancelAnimationFrame(frame)
@@ -51,7 +55,9 @@ export function AuthPageTexture({ texture }: { texture: Exclude<AuthTexture, 'no
       }
       if (!frame) frame = requestAnimationFrame(paint)
     }
-    const visibility = () => { if (document.hidden) stop() }
+    const visibility = () => {
+      if (document.hidden) stop()
+    }
     layout.addEventListener('pointermove', move, { passive: true })
     layout.addEventListener('pointerleave', stop)
     window.addEventListener('blur', stop)
@@ -71,8 +77,15 @@ export function AuthPageTexture({ texture }: { texture: Exclude<AuthTexture, 'no
     }
   }, [])
 
-  return <div ref={ref} aria-hidden="true" data-auth-texture={texture} className={`${styles.texture} ${texture === 'spotlight-grid' ? styles.grid : styles.dots}`}>
-    <div className={styles.base} />
-    <div className={styles.spotlight} />
-  </div>
+  return (
+    <div
+      ref={ref}
+      aria-hidden="true"
+      data-auth-texture={texture}
+      className={`${styles.texture} ${texture === 'spotlight-grid' ? styles.grid : styles.dots}`}
+    >
+      <div className={styles.base} />
+      <div className={styles.spotlight} />
+    </div>
+  )
 }

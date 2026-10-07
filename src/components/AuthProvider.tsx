@@ -1,12 +1,23 @@
 'use client'
 
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useRouter } from 'next/navigation'
 import type { PublicAuthConfig } from '../config'
 import { AuthConfigProvider } from './AuthConfigContext'
 import { AuthSignupConfig } from './AuthSignupConfig'
 import type { AuthPresentationProps } from './auth-presentation/types'
-import { AuthPresentationContext, useAuthPresentation } from './auth-presentation/AuthPresentationContext'
+import {
+  AuthPresentationContext,
+  useAuthPresentation,
+} from './auth-presentation/AuthPresentationContext'
 import { mergeAuthPresentation } from './auth-presentation/resolvePresentation'
 import { AuthFlowContext } from '../auth/application/AuthFlowContext'
 import { safeAuthRedirect } from '../auth/domain/redirect'
@@ -61,15 +72,37 @@ export function useAuth<TUser extends AuthUser = AuthUser>(): AuthContextValue<T
 const formSlugs = new Set(['login', 'signup', 'forgot-password', 'verify-otp', 'set-password'])
 
 export function AuthProvider({
-  children, publicConfig, modalLogin = publicConfig.modalLogin, style, locale, messages, logo, poweredBy, initialUser, authCardProps = {},
-  basePath = publicConfig.authBasePath, modalLabel, closeLabel,
+  children,
+  publicConfig,
+  modalLogin = publicConfig.modalLogin,
+  style,
+  locale,
+  messages,
+  logo,
+  poweredBy,
+  initialUser,
+  authCardProps = {},
+  basePath = publicConfig.authBasePath,
+  modalLabel,
+  closeLabel,
 }: AuthProviderProps) {
-  const presentation = useAuthPresentation({ style, locale, messages, logo, poweredBy }, publicConfig)
+  const presentation = useAuthPresentation(
+    { style, locale, messages, logo, poweredBy },
+    publicConfig,
+  )
   const router = useRouter()
   const [user, setUser] = useState<AuthUser | null>(initialUser ?? null)
-  const [status, setStatus] = useState<AuthStatus>(initialUser === undefined ? 'loading' : initialUser ? 'authenticated' : 'unauthenticated')
+  const [status, setStatus] = useState<AuthStatus>(
+    initialUser === undefined ? 'loading' : initialUser ? 'authenticated' : 'unauthenticated',
+  )
   const [error, setError] = useState<Error | null>(null)
-  const [flow, setFlow] = useState<{ id: number; slug: AuthFormSlug; search: string; destination: string; redirect: boolean } | null>(null)
+  const [flow, setFlow] = useState<{
+    id: number
+    slug: AuthFormSlug
+    search: string
+    destination: string
+    redirect: boolean
+  } | null>(null)
   const flowId = useRef(0)
   const sessionRequest = useRef(0)
   const base = basePath.replace(/\/$/, '')
@@ -77,18 +110,27 @@ export function AuthProvider({
   const refreshSession = useCallback(async () => {
     const request = ++sessionRequest.current
     try {
-      const response = await fetch(`${publicConfig.apiPrefix}/${publicConfig.collection}/me`, { credentials: 'include', cache: 'no-store' })
-      if (!response.ok && response.status !== 401) throw new Error('Unable to load the current session')
+      const response = await fetch(`${publicConfig.apiPrefix}/${publicConfig.collection}/me`, {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+      if (!response.ok && response.status !== 401)
+        throw new Error('Unable to load the current session')
       const data = response.status === 401 ? { user: null } : await response.json()
       const nextUser = data.user ?? null
-      if (request !== sessionRequest.current) throw new Error('Session check was superseded; please retry')
+      if (request !== sessionRequest.current)
+        throw new Error('Session check was superseded; please retry')
       setUser(nextUser)
       setStatus(nextUser ? 'authenticated' : 'unauthenticated')
       setError(null)
       return nextUser as AuthUser | null
     } catch (cause) {
-      const failure = cause instanceof Error ? cause : new Error('Unable to load the current session')
-      if (request === sessionRequest.current) { setError(failure); setStatus('error') }
+      const failure =
+        cause instanceof Error ? cause : new Error('Unable to load the current session')
+      if (request === sessionRequest.current) {
+        setError(failure)
+        setStatus('error')
+      }
       throw failure
     }
   }, [publicConfig.apiPrefix, publicConfig.collection])
@@ -96,7 +138,9 @@ export function AuthProvider({
   useEffect(() => {
     if (initialUser === undefined) void refreshSession().catch(() => {})
     const requestCounter = sessionRequest
-    return () => { requestCounter.current++ }
+    return () => {
+      requestCounter.current++
+    }
   }, [initialUser, refreshSession])
 
   const closeLogin = useCallback(() => {
@@ -106,25 +150,43 @@ export function AuthProvider({
     void refreshSession().catch(() => {})
   }, [refreshSession])
 
-  const openLogin = useCallback((options: OpenLoginOptions = {}) => {
-    const destination = safeAuthRedirect(options.redirectTo ?? (window.location.pathname + window.location.search + window.location.hash))
-    if (!modalLogin) {
-      router.push(base + '/login?redirect=' + encodeURIComponent(destination))
-      return
-    }
-    setFlow({ id: ++flowId.current, slug: 'login', search: '', destination, redirect: options.redirectTo !== undefined })
-  }, [base, modalLogin, router])
+  const openLogin = useCallback(
+    (options: OpenLoginOptions = {}) => {
+      const destination = safeAuthRedirect(
+        options.redirectTo ??
+          window.location.pathname + window.location.search + window.location.hash,
+      )
+      if (!modalLogin) {
+        router.push(base + '/login?redirect=' + encodeURIComponent(destination))
+        return
+      }
+      setFlow({
+        id: ++flowId.current,
+        slug: 'login',
+        search: '',
+        destination,
+        redirect: options.redirectTo !== undefined,
+      })
+    },
+    [base, modalLogin, router],
+  )
 
-  const isLoggedIn = useCallback(async (options?: OpenLoginOptions) => {
-    const currentUser = await refreshSession()
-    if (currentUser) return true
-    openLogin(options)
-    return false
-  }, [refreshSession, openLogin])
+  const isLoggedIn = useCallback(
+    async (options?: OpenLoginOptions) => {
+      const currentUser = await refreshSession()
+      if (currentUser) return true
+      openLogin(options)
+      return false
+    },
+    [refreshSession, openLogin],
+  )
 
   const logout = useCallback(async () => {
     ++sessionRequest.current
-    const response = await fetch(`${publicConfig.apiPrefix}/${publicConfig.collection}/logout`, { method: 'POST', credentials: 'include' })
+    const response = await fetch(`${publicConfig.apiPrefix}/${publicConfig.collection}/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    })
     if (!response.ok) throw new Error('Logout failed')
     ++sessionRequest.current
     ++flowId.current
@@ -146,7 +208,9 @@ export function AuthProvider({
         const url = new URL(href, window.location.origin)
         const slug = url.pathname.split('/').filter(Boolean).pop() as AuthFormSlug
         if (url.origin !== window.location.origin || !formSlugs.has(slug)) return
-        setFlow(current => current?.id === flow.id ? { ...current, slug, search: url.search } : current)
+        setFlow((current) =>
+          current?.id === flow.id ? { ...current, slug, search: url.search } : current,
+        )
       },
       complete: async () => {
         const authenticatedUser = await refreshSession()
@@ -160,30 +224,56 @@ export function AuthProvider({
     }
   }, [flow, refreshSession, router])
 
-  const value = useMemo(() => ({ user, status, error, isLoginOpen: Boolean(flow), openLogin, closeLogin, refreshSession, logout, isLoggedIn, isLogedin: isLoggedIn }),
-    [user, status, error, flow, openLogin, closeLogin, refreshSession, logout, isLoggedIn])
+  const value = useMemo(
+    () => ({
+      user,
+      status,
+      error,
+      isLoginOpen: Boolean(flow),
+      openLogin,
+      closeLogin,
+      refreshSession,
+      logout,
+      isLoggedIn,
+      isLogedin: isLoggedIn,
+    }),
+    [user, status, error, flow, openLogin, closeLogin, refreshSession, logout, isLoggedIn],
+  )
   const modalPresentation = mergeAuthPresentation(presentation, authCardProps)
   const modalLocale = modalPresentation.locale ?? presentation.locale
   const t = getUiTranslations(modalLocale, modalPresentation.messages)
 
   return (
     <AuthConfigProvider publicConfig={publicConfig}>
-    <AuthSignupConfig enabled={publicConfig.allowSignup}>
-    <AuthPresentationContext.Provider value={presentation}>
-      <AuthContext.Provider value={value}>
-        {children}
-        {modalLogin && flow && navigation && (
-          <AuthModal style={modalPresentation.style ?? presentation.style} label={modalLabel ?? t.login.title} closeLabel={closeLabel ?? (modalLocale.startsWith('es') ? 'Cerrar' : 'Close')} onClose={closeLogin}>
-            <AuthFlowContext.Provider value={navigation}>
-              <AuthCard {...authCardProps} key={flow.id + ':' + flow.slug + ':' + flow.search}
-                slug={flow.slug} basePath={base} redirectTo={flow.destination} locale={modalLocale}
-                mobileVariant="modal" removeBorder removeShadow />
-            </AuthFlowContext.Provider>
-          </AuthModal>
-        )}
-      </AuthContext.Provider>
-    </AuthPresentationContext.Provider>
-    </AuthSignupConfig>
+      <AuthSignupConfig enabled={publicConfig.allowSignup}>
+        <AuthPresentationContext.Provider value={presentation}>
+          <AuthContext.Provider value={value}>
+            {children}
+            {modalLogin && flow && navigation && (
+              <AuthModal
+                style={modalPresentation.style ?? presentation.style}
+                label={modalLabel ?? t.login.title}
+                closeLabel={closeLabel ?? (modalLocale.startsWith('es') ? 'Cerrar' : 'Close')}
+                onClose={closeLogin}
+              >
+                <AuthFlowContext.Provider value={navigation}>
+                  <AuthCard
+                    {...authCardProps}
+                    key={flow.id + ':' + flow.slug + ':' + flow.search}
+                    slug={flow.slug}
+                    basePath={base}
+                    redirectTo={flow.destination}
+                    locale={modalLocale}
+                    mobileVariant="modal"
+                    removeBorder
+                    removeShadow
+                  />
+                </AuthFlowContext.Provider>
+              </AuthModal>
+            )}
+          </AuthContext.Provider>
+        </AuthPresentationContext.Provider>
+      </AuthSignupConfig>
     </AuthConfigProvider>
   )
 }

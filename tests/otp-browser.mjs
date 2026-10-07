@@ -1,28 +1,67 @@
 import assert from 'node:assert/strict'
 
 // Approved public HTTP / packed-browser seams, real Payload + shared PostgreSQL.
-export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVersion, outage, database = postgresVersion }) {
+export async function verifyOtpAcceptance({
+  browser,
+  origin,
+  origin2,
+  postgresVersion,
+  outage,
+  database = postgresVersion,
+}) {
   const origins = [origin, origin2]
   const verified = []
-  const post = (base, path, body, cookie, headers = {}) => fetch(`${base}/backend${path}`, { method: 'POST', headers: { 'content-type': 'application/json', origin: base, ...(cookie ? { cookie } : {}), ...headers }, body: JSON.stringify(body) })
-  const inbox = async () => (await Promise.all(origins.map(async base => (await (await fetch(`${base}/fixture`)).json()).inbox))).flat().sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
-  const codeFrom = message => String(message.html).match(/\b(\d{6})\b/)[1]
-  const forAccount = async email => (await inbox()).filter(message => message.to === email)
+  const post = (base, path, body, cookie, headers = {}) =>
+    fetch(`${base}/backend${path}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        origin: base,
+        ...(cookie ? { cookie } : {}),
+        ...headers,
+      },
+      body: JSON.stringify(body),
+    })
+  const inbox = async () =>
+    (
+      await Promise.all(
+        origins.map(async (base) => (await (await fetch(`${base}/fixture`)).json()).inbox),
+      )
+    )
+      .flat()
+      .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
+  const codeFrom = (message) => String(message.html).match(/\b(\d{6})\b/)[1]
+  const forAccount = async (email) => (await inbox()).filter((message) => message.to === email)
   let now = (await (await fetch(`${origin}/fixture`)).json()).now
-  const tick = async milliseconds => {
+  const tick = async (milliseconds) => {
     now += milliseconds
-    await Promise.all(origins.map(base => fetch(`${base}/fixture`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ now }) })))
+    await Promise.all(
+      origins.map((base) =>
+        fetch(`${base}/fixture`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ now }),
+        }),
+      ),
+    )
   }
   const send = async (email, context, base = origin, headers) => {
-    const response = await post(base, '/access/otp/send', { email, purpose: 'login', ...(context ? { context } : {}) }, undefined, headers)
+    const response = await post(
+      base,
+      '/access/otp/send',
+      { email, purpose: 'login', ...(context ? { context } : {}) },
+      undefined,
+      headers,
+    )
     assert.equal(response.status, 200, await response.clone().text())
     const body = await response.json()
     assert.equal(body.code, 'OTP_REQUEST_ACCEPTED')
     assert.match(body.context, /^[a-f0-9]{64}$/)
     return body
   }
-  const verify = (email, context, otp, base = origin) => post(base, '/access/otp/verify', { email, purpose: 'login', context, otp })
-  const assertRejected = async response => {
+  const verify = (email, context, otp, base = origin) =>
+    post(base, '/access/otp/verify', { email, purpose: 'login', context, otp })
+  const assertRejected = async (response) => {
     assert.equal(response.status, 401, await response.clone().text())
     assert.equal(response.headers.get('set-cookie'), null)
     assert.deepEqual(await response.json(), { success: false, code: 'AUTH_FAILED' })
@@ -42,26 +81,40 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
   const identity = await login.json()
   assert.equal(identity.user.email, email)
   assert.equal('token' in identity, false)
-  assert.match(login.headers.get('set-cookie'), /^consumer-token=.+;.*HttpOnly(=true)?; SameSite=Lax/)
-  const oldIdentity = await fetch(`${origin2}/backend/customers/me`, { headers: { cookie: oldCookie, origin: origin2 } })
+  assert.match(
+    login.headers.get('set-cookie'),
+    /^consumer-token=.+;.*HttpOnly(=true)?; SameSite=Lax/,
+  )
+  const oldIdentity = await fetch(`${origin2}/backend/customers/me`, {
+    headers: { cookie: oldCookie, origin: origin2 },
+  })
   assert.equal((await oldIdentity.json()).user.email, email)
   assert.equal((await post(origin2, '/access/login', { email, password })).status, 200)
   await assertRejected(await verify(email, challenge.context, code))
-  verified.push('cross-process OTP login, password/other session preserved, hidden token/native cookie, replay denied')
+  verified.push(
+    'cross-process OTP login, password/other session preserved, hidden token/native cookie, replay denied',
+  )
 
   // Shared issuance reservation, then exactly one authorization among competing verifications.
   const raceEmail = 'race@example.com'
-  await Promise.all(origins.map(base => send(raceEmail, undefined, base)))
+  await Promise.all(origins.map((base) => send(raceEmail, undefined, base)))
   const raceMessages = await forAccount(raceEmail)
   assert.equal(raceMessages.length, 1, 'concurrent issuance must send one challenge')
   // Exercise consumption with a fresh challenge after the concurrent issuance TTL.
   await tick(300001)
   const raceChallenge = await send(raceEmail)
-  assert.equal((await forAccount(raceEmail)).length, 2, 'fixture clock must expire prior issuance before new challenge')
+  assert.equal(
+    (await forAccount(raceEmail)).length,
+    2,
+    'fixture clock must expire prior issuance before new challenge',
+  )
   const raceCode = codeFrom((await forAccount(raceEmail)).at(-1))
-  const outcomes = await Promise.all(origins.map(base => verify(raceEmail, raceChallenge.context, raceCode, base)))
-  assert.deepEqual(outcomes.map(response => response.status).sort(), [200, 401])
-  for (const response of outcomes.filter(response => response.status !== 200)) assert.equal(response.headers.get('set-cookie'), null)
+  const outcomes = await Promise.all(
+    origins.map((base) => verify(raceEmail, raceChallenge.context, raceCode, base)),
+  )
+  assert.deepEqual(outcomes.map((response) => response.status).sort(), [200, 401])
+  for (const response of outcomes.filter((response) => response.status !== 200))
+    assert.equal(response.headers.get('set-cookie'), null)
   verified.push('shared-DB concurrent issuance and single-use consume')
 
   // Three incorrect attempts across independent servers exhaust the original challenge.
@@ -69,7 +122,11 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
   const attemptChallenge = await send(attemptsEmail)
   const attemptCode = codeFrom((await forAccount(attemptsEmail)).at(-1))
   const wrongCode = attemptCode === '000000' ? '999999' : '000000'
-  await Promise.all([origin, origin2, origin].map(async base => assertRejected(await verify(attemptsEmail, attemptChallenge.context, wrongCode, base))))
+  await Promise.all(
+    [origin, origin2, origin].map(async (base) =>
+      assertRejected(await verify(attemptsEmail, attemptChallenge.context, wrongCode, base)),
+    ),
+  )
   await tick(1001)
   await send(attemptsEmail, attemptChallenge.context, origin2)
   assert.equal(codeFrom((await forAccount(attemptsEmail)).at(-1)), attemptCode)
@@ -80,7 +137,12 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
   const ttlChallenge = await send(ttlEmail)
   const ttlCode = codeFrom((await forAccount(ttlEmail)).at(-1))
   await assertRejected(await verify(ttlEmail, 'f'.repeat(64), ttlCode, origin2))
-  const wrongPurpose = await post(origin, '/access/otp/verify', { email: ttlEmail, purpose: 'password-reset', context: ttlChallenge.context, otp: ttlCode })
+  const wrongPurpose = await post(origin, '/access/otp/verify', {
+    email: ttlEmail,
+    purpose: 'password-reset',
+    context: ttlChallenge.context,
+    otp: ttlCode,
+  })
   assert.equal(wrongPurpose.status, 400)
   assert.equal(wrongPurpose.headers.get('set-cookie'), null)
   await tick(299000)
@@ -95,8 +157,15 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
   const limitChallenge = await send(limitEmail)
   const initialCount = (await forAccount(limitEmail)).length
   await send(limitEmail, limitChallenge.context, origin2)
-  assert.equal((await forAccount(limitEmail)).length, initialCount, 'shared cooldown prevents new mail')
-  for (let i = 0; i < 4; i++) { await tick(1001); await send(limitEmail, limitChallenge.context, origins[i % 2]) }
+  assert.equal(
+    (await forAccount(limitEmail)).length,
+    initialCount,
+    'shared cooldown prevents new mail',
+  )
+  for (let i = 0; i < 4; i++) {
+    await tick(1001)
+    await send(limitEmail, limitChallenge.context, origins[i % 2])
+  }
   assert.equal((await forAccount(limitEmail)).length, 5)
   await tick(1001)
   await send(limitEmail, limitChallenge.context, origin2)
@@ -105,10 +174,18 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
 
   // Provider failure spends quota but never changes credentials or existing sessions.
   const mailEmail = 'mail@example.com'
-  await fetch(`${origin}/fixture`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ failMail: true }) })
+  await fetch(`${origin}/fixture`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ failMail: true }),
+  })
   const mailChallenge = await send(mailEmail)
   assert.equal((await forAccount(mailEmail)).length, 0)
-  await fetch(`${origin}/fixture`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ failMail: false }) })
+  await fetch(`${origin}/fixture`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ failMail: false }),
+  })
   await tick(1001)
   await send(mailEmail, mailChallenge.context, origin2)
   assert.equal((await forAccount(mailEmail)).length, 1)
@@ -123,13 +200,31 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
     const existingCookie = initial.headers.get('set-cookie').split(';')[0]
     const issued = await send(raceAccount)
     const issuedCode = codeFrom((await forAccount(raceAccount)).at(-1))
-    const nativeRequest = nativeAction === 'password'
-      ? post(origin, '/access/login', { email: raceAccount, password })
-      : post(origin, nativeAction === 'logout' ? '/customers/logout' : '/customers/refresh-token', {}, existingCookie)
-    const [native, otpLogin] = await Promise.all([nativeRequest, verify(raceAccount, issued.context, issuedCode, origin2)])
-    assert.deepEqual([native.status, otpLogin.status], [200, 200], `overlap ${nativeAction}: ${await native.clone().text()} / ${await otpLogin.clone().text()}`)
+    const nativeRequest =
+      nativeAction === 'password'
+        ? post(origin, '/access/login', { email: raceAccount, password })
+        : post(
+            origin,
+            nativeAction === 'logout' ? '/customers/logout' : '/customers/refresh-token',
+            {},
+            existingCookie,
+          )
+    const [native, otpLogin] = await Promise.all([
+      nativeRequest,
+      verify(raceAccount, issued.context, issuedCode, origin2),
+    ])
+    assert.deepEqual(
+      [native.status, otpLogin.status],
+      [200, 200],
+      `overlap ${nativeAction}: ${await native.clone().text()} / ${await otpLogin.clone().text()}`,
+    )
     const otpCookie = otpLogin.headers.get('set-cookie').split(';')[0]
-    const me = async cookie => (await (await fetch(`${origin2}/backend/customers/me`, { headers: { origin: origin2, cookie } })).json()).user
+    const me = async (cookie) =>
+      (
+        await (
+          await fetch(`${origin2}/backend/customers/me`, { headers: { origin: origin2, cookie } })
+        ).json()
+      ).user
     assert.equal((await me(otpCookie)).email, raceAccount)
     if (nativeAction === 'logout') assert.equal(await me(existingCookie), null)
     else {
@@ -137,22 +232,35 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
       assert.equal((await me(native.headers.get('set-cookie').split(';')[0])).email, raceAccount)
     }
   }
-  verified.push('native password/OTP, logout/OTP and refresh/OTP session races preserve additions/revocations')
+  verified.push(
+    'native password/OTP, logout/OTP and refresh/OTP session races preserve additions/revocations',
+  )
 
   // Provisioning reassigns the same address to a distinct real account: old proof cannot follow email.
   const replacementEmail = 'replacement@example.com'
   const replacementChallenge = await send(replacementEmail)
   const replacementCode = codeFrom((await forAccount(replacementEmail)).at(-1))
-  const changedAccount = await fetch(`${origin}/fixture`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ replaceEmail: replacementEmail }) })
+  const changedAccount = await fetch(`${origin}/fixture`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ replaceEmail: replacementEmail }),
+  })
   assert.equal(changedAccount.status, 200)
   const replacementIdentity = await changedAccount.json()
   assert.notEqual(replacementIdentity.originalID, replacementIdentity.replacementID)
-  await assertRejected(await verify(replacementEmail, replacementChallenge.context, replacementCode, origin2))
-  verified.push('real account-email reassignment cannot transfer the original OTP proof to a replacement ID')
+  await assertRejected(
+    await verify(replacementEmail, replacementChallenge.context, replacementCode, origin2),
+  )
+  verified.push(
+    'real account-email reassignment cannot transfer the original OTP proof to a replacement ID',
+  )
 
   // Every origin request counts, including unknown identities; spoofed headers cannot change resolver.
   await tick(3600001)
-  for (let i = 0; i < 50; i++) await send(`absent-${i}@example.com`, undefined, origins[i % 2], { 'x-forwarded-for': `198.51.100.${i}` })
+  for (let i = 0; i < 50; i++)
+    await send(`absent-${i}@example.com`, undefined, origins[i % 2], {
+      'x-forwarded-for': `198.51.100.${i}`,
+    })
   const beforeOrigin = (await forAccount(email)).length
   await send(email, undefined, origin2, { 'x-forwarded-for': '203.0.113.99' })
   assert.equal((await forAccount(email)).length, beforeOrigin)
@@ -160,46 +268,52 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
   await send(email, undefined, origin, { 'x-real-ip': '203.0.113.100' })
   assert.equal((await forAccount(email)).length, beforeOrigin)
   assert.equal((await post(origin2, '/access/login', { email, password })).status, 200)
-  verified.push('50/hour trusted-origin quota shared across processes; spoofing denied; password unaffected')
+  verified.push(
+    '50/hour trusted-origin quota shared across processes; spoofing denied; password unaffected',
+  )
 
   // New window, genuine packed React modal: request, failed verification, resend, successful login.
   await tick(3600001)
   const context = await browser.newContext()
   const page = await context.newPage()
   const requests = []
-  page.on('request', request => requests.push(request.url()))
+  page.on('request', (request) => requests.push(request.url()))
   await page.goto(origin)
   await page.getByRole('button', { name: 'Open login' }).click()
   await page.getByLabel(/^Email/).fill(email)
   await page.getByRole('button', { name: 'Continue', exact: true }).click()
-  const sent = page.waitForResponse(response => response.url().endsWith('/access/otp/send'))
+  const sent = page.waitForResponse((response) => response.url().endsWith('/access/otp/send'))
   await page.getByRole('button', { name: 'Send Code', exact: true }).click()
   assert.equal((await sent).status(), 200)
   const browserCode = codeFrom((await forAccount(email)).at(-1))
   const inputs = page.locator('input[autocomplete="one-time-code"]')
   await inputs.first().waitFor()
   assert.equal(await inputs.count(), 6)
-  const failed = page.waitForResponse(response => response.url().endsWith('/access/otp/verify'))
+  const failed = page.waitForResponse((response) => response.url().endsWith('/access/otp/verify'))
   const incorrect = browserCode === '000000' ? '999999' : '000000'
   for (let i = 0; i < 6; i++) await inputs.nth(i).fill(incorrect[i])
   const failedResponse = await failed
   assert.equal(failedResponse.status(), 401)
-  assert.equal((await context.cookies()).filter(cookie => cookie.name === 'consumer-token').length, 0)
+  assert.equal(
+    (await context.cookies()).filter((cookie) => cookie.name === 'consumer-token').length,
+    0,
+  )
   await tick(1001)
-  const resend = page.waitForResponse(response => response.url().endsWith('/access/otp/send'))
+  const resend = page.waitForResponse((response) => response.url().endsWith('/access/otp/send'))
   await page.getByRole('button', { name: 'Resend Code', exact: true }).click()
   assert.equal((await resend).status(), 200)
   assert.equal(codeFrom((await forAccount(email)).at(-1)), browserCode)
   const verifyStartedAt = Date.now()
-  const browserVerify = page.waitForResponse(response => response.url().endsWith('/access/otp/verify'))
-    .then(response => ({ response, receivedAt: Date.now() }))
+  const browserVerify = page
+    .waitForResponse((response) => response.url().endsWith('/access/otp/verify'))
+    .then((response) => ({ response, receivedAt: Date.now() }))
   for (let i = 0; i < 6; i++) await inputs.nth(i).fill(browserCode[i])
   const { response: browserResult, receivedAt: verifyReceivedAt } = await browserVerify
   assert.equal(browserResult.status(), 200, await browserResult.text())
-  assert.equal('token' in await browserResult.json(), false)
+  assert.equal('token' in (await browserResult.json()), false)
   await page.getByTestId('email').filter({ hasText: email }).waitFor()
   assert.equal(await page.locator('dialog').count(), 0)
-  const cookie = (await context.cookies()).find(cookie => cookie.name === 'consumer-token')
+  const cookie = (await context.cookies()).find((cookie) => cookie.name === 'consumer-token')
   assert.ok(cookie?.httpOnly)
   assert.equal(cookie.sameSite, 'Lax')
   const jwtExp = JSON.parse(Buffer.from(cookie.value.split('.')[1], 'base64url')).exp
@@ -220,17 +334,27 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
   const adjustedStart = wireExpires + verifyStartedAt / 1000 - responseDate
   const adjustedEnd = wireExpires + verifyReceivedAt / 1000 - responseDate
   assert.ok(cookie.expires >= adjustedStart - 0.002 && cookie.expires <= adjustedEnd + 0.002)
-  assert.ok(!requests.some(url => url.includes('check-email')))
-  for (const source of await page.locator('script[src]').evaluateAll(nodes => nodes.map(node => node.src))) {
+  assert.ok(!requests.some((url) => url.includes('check-email')))
+  for (const source of await page
+    .locator('script[src]')
+    .evaluateAll((nodes) => nodes.map((node) => node.src))) {
     const javascript = await (await fetch(source)).text()
-    for (const secret of ['consumer-only-private-secret-not-production', 'consumer-only-otp-secret-not-production']) assert.ok(!javascript.includes(secret))
+    for (const secret of [
+      'consumer-only-private-secret-not-production',
+      'consumer-only-otp-secret-not-production',
+    ])
+      assert.ok(!javascript.includes(secret))
   }
   await page.getByRole('button', { name: 'Logout', exact: true }).click()
   await page.getByTestId('email').filter({ hasText: 'anonymous' }).waitFor()
-  const replay = await fetch(`${origin2}/backend/customers/me`, { headers: { cookie: `consumer-token=${cookie.value}`, origin: origin2 } })
+  const replay = await fetch(`${origin2}/backend/customers/me`, {
+    headers: { cookie: `consumer-token=${cookie.value}`, origin: origin2 },
+  })
   assert.equal((await replay.json()).user, null)
   await context.close()
-  verified.push('Chromium packed modal request/failed verify/resend/login/logout; no client secrets')
+  verified.push(
+    'Chromium packed modal request/failed verify/resend/login/logout; no client secrets',
+  )
   await outage(async () => {
     const unavailable = await verify(email, challenge.context, code, origin2)
     assert.equal(unavailable.status, 503, await unavailable.clone().text())
@@ -238,16 +362,39 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
     assert.deepEqual(await unavailable.json(), { success: false, code: 'AUTH_UNAVAILABLE' })
   })
   verified.push(`${database} security-storage outage fails closed without cookie`)
-  const logs = (await Promise.all(origins.map(async base => (await (await fetch(`${base}/fixture`)).json()).logs))).flat()
+  const logs = (
+    await Promise.all(
+      origins.map(async (base) => (await (await fetch(`${base}/fixture`)).json()).logs),
+    )
+  ).flat()
   const serializedLogs = logs.join('')
-  for (const sensitive of [cookie.value, password]) assert.ok(!serializedLogs.includes(sensitive), 'logger must not contain authentication secrets')
-  for (const sensitive of (await inbox()).map(codeFrom)) assert.ok(!new RegExp(`\\b${sensitive}\\b`).test(serializedLogs), 'logger must not contain OTP codes')
-  assert.ok(!/Failed query|params:|SELECT .*hash|\"hash\":|\"salt\":/i.test(serializedLogs), 'logger must not expose security SQL/credentials')
-  const events = logs.flatMap(chunk => chunk.split('\n').filter(Boolean)).map(line => JSON.parse(line)).filter(line => String(line.event).startsWith('auth.otp.'))
-  assert.ok(events.some(event => event.event === 'auth.otp.mail_failed'))
-  assert.ok(events.some(event => event.event === 'auth.otp.unavailable'))
+  for (const sensitive of [cookie.value, password])
+    assert.ok(!serializedLogs.includes(sensitive), 'logger must not contain authentication secrets')
+  for (const sensitive of (await inbox()).map(codeFrom))
+    assert.ok(
+      !new RegExp(`\\b${sensitive}\\b`).test(serializedLogs),
+      'logger must not contain OTP codes',
+    )
+  assert.ok(
+    !/Failed query|params:|SELECT .*hash|\"hash\":|\"salt\":/i.test(serializedLogs),
+    'logger must not expose security SQL/credentials',
+  )
+  const events = logs
+    .flatMap((chunk) => chunk.split('\n').filter(Boolean))
+    .map((line) => JSON.parse(line))
+    .filter((line) => String(line.event).startsWith('auth.otp.'))
+  assert.ok(events.some((event) => event.event === 'auth.otp.mail_failed'))
+  assert.ok(events.some((event) => event.event === 'auth.otp.unavailable'))
   for (const event of events) assert.match(event.correlation, /^[a-f0-9]{64}$/)
-  verified.push('captured native logger and OTP events contain correlation only, no credentials/codes/token/SQL')
-  console.log(JSON.stringify({ passed: true, database, browser: 'Chromium', instances: 2, verified }, null, 2))
+  verified.push(
+    'captured native logger and OTP events contain correlation only, no credentials/codes/token/SQL',
+  )
+  console.log(
+    JSON.stringify(
+      { passed: true, database, browser: 'Chromium', instances: 2, verified },
+      null,
+      2,
+    ),
+  )
   return { passed: true, database, browser: 'Chromium', instances: 2, verified }
 }

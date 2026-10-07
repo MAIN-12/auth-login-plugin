@@ -12,5 +12,14 @@ export interface OtpOptions {
   maxAttempts?: number
   accountLimit?: number
   originLimit?: number
-  email?: { from: string; locale: 'es' | 'en'; projectName?: string; logoUrl?: string; contactUrl?: string; contactEmail?: string; domain?: string; colors?: Partial<EmailColors> }
+  email?: {
+    from: string
+    locale: 'es' | 'en'
+    projectName?: string
+    logoUrl?: string
+    contactUrl?: string
+    contactEmail?: string
+    domain?: string
+    colors?: Partial<EmailColors>
+  }
 }

@@ -17,7 +17,12 @@ export interface AuthProxyOptions {
  * The default export is deliberately inert; no separately bundled globals are read.
  * Authentication/authorization belongs to the consumer's server guard, never cookies here.
  */
-export function createAuthProxy({ basePath, routes = AUTH_ROUTES, modalLogin, publicConfig }: AuthProxyOptions = {}) {
+export function createAuthProxy({
+  basePath,
+  routes = AUTH_ROUTES,
+  modalLogin,
+  publicConfig,
+}: AuthProxyOptions = {}) {
   const routeSet = new Set(routes)
 
   return function proxy(request: NextRequest) {
@@ -55,11 +60,11 @@ export const proxy = createAuthProxy()
 
 export const config = {
   matcher: [
-    '/admin/login', 
-    '/login', 
-    '/signup', 
-    '/forgot-password', 
-    '/verify-otp', 
+    '/admin/login',
+    '/login',
+    '/signup',
+    '/forgot-password',
+    '/verify-otp',
     '/set-password',
     '/auth/:path*',
   ],

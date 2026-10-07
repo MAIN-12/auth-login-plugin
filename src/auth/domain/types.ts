@@ -7,7 +7,8 @@ export type OTPPurpose = 'login' | 'signup' | 'password-reset'
 export type CheckEmailResponse = never
 
 import type { AuthErrorResponse } from './login'
-export type SendOtpResponse = { success: true; context: string; retryAfter: number } | (AuthErrorResponse & { message?: never })
+export type SendOtpResponse =
+  { success: true; context: string; retryAfter: number } | (AuthErrorResponse & { message?: never })
 export type VerifyOtpResponse = { success: true } | (AuthErrorResponse & { error?: never })
 export type SetPasswordResponse = { success: true } | (AuthErrorResponse & { message?: never })
 export type SignupResponse = SetPasswordResponse

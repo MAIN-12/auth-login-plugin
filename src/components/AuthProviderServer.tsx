@@ -6,25 +6,30 @@ import { AuthPresentationDefaults } from './auth-presentation/AuthPresentationCo
 import { getServerPresentationDefaults } from './auth-presentation/serverDefaults'
 
 /** Server composition root: adapt plugin/request defaults without overriding parent context. */
-export async function AuthProvider({ authCardProps = {}, publicConfig, ...props }: AuthProviderProps) {
+export async function AuthProvider({
+  authCardProps = {},
+  publicConfig,
+  ...props
+}: AuthProviderProps) {
   const presentation = await getServerPresentationDefaults(publicConfig)
   return (
     <AuthConfigProvider publicConfig={publicConfig}>
-    <AuthPresentationDefaults value={presentation}>
-      <AuthSignupConfig enabled={publicConfig.allowSignup}>
-        <ClientAuthProvider publicConfig={publicConfig}
-          {...props}
-          modalLogin={props.modalLogin ?? publicConfig.modalLogin}
-          basePath={props.basePath ?? publicConfig.authBasePath}
-          authCardProps={{
-            ...authCardProps,
-            showGoogleOAuth: authCardProps.showGoogleOAuth ?? publicConfig.googleOAuthEnabled,
-            passwordLogin: authCardProps.passwordLogin ?? publicConfig.passwordLogin,
-            otpLogin: authCardProps.otpLogin ?? publicConfig.otpLogin,
-          }}
-        />
-      </AuthSignupConfig>
-    </AuthPresentationDefaults>
+      <AuthPresentationDefaults value={presentation}>
+        <AuthSignupConfig enabled={publicConfig.allowSignup}>
+          <ClientAuthProvider
+            publicConfig={publicConfig}
+            {...props}
+            modalLogin={props.modalLogin ?? publicConfig.modalLogin}
+            basePath={props.basePath ?? publicConfig.authBasePath}
+            authCardProps={{
+              ...authCardProps,
+              showGoogleOAuth: authCardProps.showGoogleOAuth ?? publicConfig.googleOAuthEnabled,
+              passwordLogin: authCardProps.passwordLogin ?? publicConfig.passwordLogin,
+              otpLogin: authCardProps.otpLogin ?? publicConfig.otpLogin,
+            }}
+          />
+        </AuthSignupConfig>
+      </AuthPresentationDefaults>
     </AuthConfigProvider>
   )
 }

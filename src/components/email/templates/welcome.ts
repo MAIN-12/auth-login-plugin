@@ -1,5 +1,10 @@
 import { type SocialLink } from '../constants'
-import { wrapInBaseTemplate, validatedEmailUrl, resolveEmailColors, type BaseTemplateOptions } from '../baseTemplate'
+import {
+  wrapInBaseTemplate,
+  validatedEmailUrl,
+  resolveEmailColors,
+  type BaseTemplateOptions,
+} from '../baseTemplate'
 import { getEmailTranslations, type SupportedLanguage } from '../translations'
 
 export interface WelcomeEmailParams {
@@ -17,7 +22,15 @@ export interface WelcomeEmailResult {
 }
 
 export function generateWelcomeEmail(params: WelcomeEmailParams): WelcomeEmailResult {
-  const { userEmail, loginUrl = params.baseOptions?.domain ? `${params.baseOptions.domain.replace(/\/$/, '')}/login` : 'https://example.com/login', language = params.baseOptions?.language ?? 'en', socialLinks, baseOptions } = params
+  const {
+    userEmail,
+    loginUrl = params.baseOptions?.domain
+      ? `${params.baseOptions.domain.replace(/\/$/, '')}/login`
+      : 'https://example.com/login',
+    language = params.baseOptions?.language ?? 'en',
+    socialLinks,
+    baseOptions,
+  } = params
   const t = getEmailTranslations(language)
   const colors = resolveEmailColors(baseOptions?.colors)
 
@@ -45,6 +58,12 @@ export function generateWelcomeEmail(params: WelcomeEmailParams): WelcomeEmailRe
 
   return {
     subject: t.welcome.subject,
-    html: wrapInBaseTemplate(content, { ...baseOptions, preheader: t.welcome.preheader, language, socialLinks, userEmail }),
+    html: wrapInBaseTemplate(content, {
+      ...baseOptions,
+      preheader: t.welcome.preheader,
+      language,
+      socialLinks,
+      userEmail,
+    }),
   }
 }
