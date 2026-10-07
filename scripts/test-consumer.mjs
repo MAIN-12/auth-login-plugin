@@ -9,12 +9,14 @@ import { chromium } from '@playwright/test'
 import { temporaryPostgres, freePort } from './otp-postgres.mjs'
 import { verifyPasswordAcceptance } from '../tests/password-browser.mjs'
 import { verifyOtpAcceptance } from '../tests/otp-browser.mjs'
+import { verifyIntegrationAcceptance } from '../tests/integration-browser.mjs'
 import { verifyOauthAcceptance } from '../tests/oauth-browser.mjs'
 import { controlledOidcProvider } from './oauth-provider.mjs'
+const integration = process.env.AUTH_CONSUMER_ISSUE05 === '1'
 const password = process.env.AUTH_CONSUMER_PASSWORD === '1'
 const otp = process.env.AUTH_CONSUMER_OTP === '1'
 const oauth = process.env.AUTH_CONSUMER_OAUTH === '1'
-const shared = otp || password || oauth
+const shared = otp || password || oauth || integration
 let provider
 let postgres
 let secondary
@@ -29,6 +31,7 @@ const app = join(temp, 'app')
 let server
 let browser
 let logs = ''
+async function digestHarness() { return createHash('sha256').update(await readFile(join(root, 'scripts/test-consumer.mjs'))).update(await readFile(join(root, 'tests/integration-browser.mjs'))).digest('hex') }
 async function digestDirectory(directory) {
   const hash = createHash('sha256')
   async function visit(path, relative = '') {
@@ -42,21 +45,22 @@ async function digestDirectory(directory) {
   return hash.digest('hex')
 }
 try {
-  if (oauth) provider = await controlledOidcProvider()
+  if (oauth || integration) provider = await controlledOidcProvider()
   if (shared && process.env.AUTH_CONSUMER_DB !== 'sqlite') postgres = await temporaryPostgres()
   await mkdir(join(root, 'dist'), { recursive: true })
   await writeFile(join(root, 'dist', '__stale-consumer-test.js'), 'obsolete')
-  const sourceHash = password || oauth ? await digestDirectory(join(root, 'src')) : null
+  const harnessHash = integration ? await digestHarness() : null
+  const sourceHash = password || oauth || integration ? await digestDirectory(join(root, 'src')) : null
   execFileSync('pnpm', ['build'], { cwd: root, stdio: 'inherit' })
   await assert.rejects(access(join(root, 'dist', '__stale-consumer-test.js')))
   execFileSync('pnpm', ['pack', '--pack-destination', packageDir], { cwd: root, stdio: 'inherit' })
   const tarball = join(packageDir, (await readdir(packageDir)).find(file => file.endsWith('.tgz')))
-  if (password || oauth) assert.equal(await digestDirectory(join(root, 'src')), sourceHash, 'production source changed during build/pack; rerun at a frozen checkpoint')
-  const fixtureHash = password || oauth ? await digestDirectory(join(root, 'tests/consumer')) : null
+  if (password || oauth || integration) assert.equal(await digestDirectory(join(root, 'src')), sourceHash, 'production source changed during build/pack; rerun at a frozen checkpoint')
+  const fixtureHash = password || oauth || integration ? await digestDirectory(join(root, 'tests/consumer')) : null
   await cp(join(root, 'tests/consumer'), app, { recursive: true })
-  if (password || oauth) {
+  if (password || oauth || integration) {
     assert.equal(await digestDirectory(app), fixtureHash, 'fixture source changed while copying')
-    console.log(JSON.stringify({ sourceHash, fixtureHash, packedSha256: createHash('sha256').update(await readFile(tarball)).digest('hex'), node: process.version, payload: '3.90.2', next: '16.3.6', react: '19.2.6' }))
+    console.log(JSON.stringify({ sourceHash, fixtureHash, ...(integration ? { harnessHash } : {}), packedSha256: createHash('sha256').update(await readFile(tarball)).digest('hex'), node: process.version, payload: '3.90.2', next: '16.3.6', react: '19.2.6' }))
   }
   const manifest = JSON.parse(await readFile(join(app, 'package.json'), 'utf8'))
   manifest.dependencies['@main12/auth-login'] = `file:${tarball}`
@@ -75,7 +79,7 @@ try {
     if (server.exitCode !== null || attempt === 119) throw new Error(`Consumer failed to start:\n${logs}`)
     await new Promise(resolve => setTimeout(resolve, 500))
   }
-  if (shared) {
+  if (shared && !integration) {
     const port2 = await freePort()
     secondary = spawn('pnpm', ['exec', 'next', 'dev', ...bundlerArgs, '--hostname', '127.0.0.1', '--port', String(port2)], { cwd: app, env: { ...process.env, AUTH_CONSUMER_OTP: process.env.AUTH_CONSUMER_OTP ?? '0', AUTH_CONSUMER_SECONDARY: '1', ...(postgres ? { AUTH_CONSUMER_DATABASE_URL: postgres.url } : {}), AUTH_CONSUMER_PORT: String(port2), ...(provider ? { AUTH_CONSUMER_OIDC_ISSUER: provider.issuer, AUTH_CONSUMER_PRIMARY_PORT: String(port) } : {}), NEXT_TELEMETRY_DISABLED: '1' }, stdio: ['ignore', 'pipe', 'pipe'], detached: true })
     secondary.stdout.on('data', data => { logs += String(data) })
@@ -93,6 +97,20 @@ try {
     execFileSync('pnpm', ['exec', 'tsc', '--noEmit'], { cwd: app, stdio: 'inherit' })
     console.log(`${oauth ? 'OAuth' : password ? 'Password' : 'OTP'} consumer declarations GREEN`)
     process.exitCode = 0
+  } else if (integration) {
+    const diagnostic = process.env.AUTH_CONSUMER_ISSUE05_DIAGNOSTIC === '1'
+    browser = await chromium.launch({ headless: true })
+    const acceptance = await verifyIntegrationAcceptance({ browser, origin, provider, diagnostic, database: postgres?.version ?? 'SQLite real', onPage: page => { diagnosticPage = page } })
+    execFileSync('pnpm', ['exec', 'tsc', '--noEmit'], { cwd: app, stdio: 'inherit' })
+    assert.equal(await digestDirectory(join(root, 'src')), sourceHash, 'source changed during acceptance; rerun frozen')
+    assert.equal(await digestDirectory(join(root, 'tests/consumer')), fixtureHash, 'fixture changed during acceptance; rerun frozen')
+    assert.equal(await digestHarness(), harnessHash, 'acceptance harness changed during run; rerun frozen')
+    if (!diagnostic && process.env.AUTH_CONSUMER_EVIDENCE_PATH) await writeFile(resolve(process.env.AUTH_CONSUMER_EVIDENCE_PATH), JSON.stringify({ ...acceptance, sourceHash, fixtureHash, harnessHash, packedSha256: createHash('sha256').update(await readFile(tarball)).digest('hex'), node: process.version, declarations: 'passed', snapshot: 'unchanged' }, null, 2) + '\n')
+    console.log(diagnostic ? 'Issue05 DIAGNOSTIC subset only: declarations/snapshot checked; no final acceptance evidence' : 'Issue05 packed consumer declarations and snapshot GREEN')
+    if (process.env.AUTH_CONSUMER_KEEP === '1') {
+      console.log(JSON.stringify({ keep: true, origin, app, pid: process.pid, inspection: `${origin}/members/modal/tailwind/es/login` }))
+      await new Promise(resolve => { process.once('SIGTERM', resolve); process.once('SIGINT', resolve) })
+    }
   } else {
   browser = await chromium.launch({ headless: true })
   const context = await browser.newContext()

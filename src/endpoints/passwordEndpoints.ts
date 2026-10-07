@@ -8,7 +8,7 @@ import { commitPassword, passwordReauthentication } from '../auth/server/passwor
 import { credentialVersion } from '../auth/server/credentialRequest'
 import { createPayloadOtpStore } from '../auth/server/otpStore'
 import { otpEmail } from '../auth/server/otpEmail'
-import { assertAllowedOrigin, authFailureResponse, readJSON } from './authEndpoints'
+import { assertAllowedOrigin, authFailureResponse, readJSON, requestEmailSettings } from './authEndpoints'
 
 function lifecycle(req: PayloadRequest, settings: PublicAuthConfig, options?: OtpOptions, assertPublicAccount?: (req: PayloadRequest) => Promise<void>) {
   return createPasswordLifecycle({ collection: settings.collection, secret: req.payload.secret, now: options?.now, signup: settings.allowSignup, recovery: settings.recovery, password: settings.passwordLogin, reauthentication: settings.passwordLogin || settings.googleOAuthEnabled,
@@ -31,7 +31,7 @@ export function createOwnershipOtpEndpoint(settings: PublicAuthConfig, options: 
         },
         credentialVersion: account => credentialVersion(req.payload.secret, { id: account.id, email: account.email, hash: account.hash, salt: account.salt, _verified: account.verified }),
         grant: async permit => lifecycle(req, settings, options).grant(permit),
-        deliver: async ({ email, code }) => { await req.payload.sendEmail({ to: email, from: options.email!.from, ...otpEmail(code, options.email) }) },
+        deliver: async ({ email, code }) => { await req.payload.sendEmail({ to: email, from: options.email!.from, ...otpEmail(code, requestEmailSettings(req, options)) }) },
         event: (event, correlation) => req.payload.logger.info({ event: `auth.${purpose}.${event}`, correlation }),
       })
       const result = action === 'send' ? await flow.send(input, await options.origin(req)) : await flow.verify(input)

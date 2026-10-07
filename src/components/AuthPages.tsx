@@ -24,7 +24,7 @@ export default function AuthPages({
   logo,
   onPasswordLogin,
   onSignup,
-  basePath = '/auth',
+  basePath,
   showGoogleOAuth,
   passwordLogin = true,
   otpLogin = true,

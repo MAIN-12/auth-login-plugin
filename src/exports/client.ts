@@ -18,6 +18,7 @@ export { useSetPasswordFlow } from '../auth/application/hooks/useSetPasswordFlow
 // Auth service functions (client-side fetch wrappers)
 export {
   createAuthService,
+  AuthRequestError,
   checkEmail,
   sendOtp,
   verifyOtp,

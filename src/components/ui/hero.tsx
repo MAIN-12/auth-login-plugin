@@ -1,20 +1,28 @@
 'use client'
 
 import React from 'react'
-import { Button as HeroButton, Input as HeroInput, TextField, Label, Card as HeroCard, Separator, Spinner as HeroSpinner, InputOTP } from '@heroui/react'
-import type { ButtonProps, InputProps, CardProps, SpinnerProps, OtpInputProps } from './tailwind'
+import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
+import { Button as HeroButton, Input as HeroInput, TextField, Label, Card as HeroCard, Separator, Spinner as HeroSpinner,  } from '@heroui/react'
+import { OtpInput as PositionalOtpInput } from './tailwind'
+import type { ButtonProps, InputProps, CardProps, SpinnerProps } from './tailwind'
 
 export function Button({ children, type = 'button', fullWidth = true, size = 'lg', isLoading, isDisabled, onPress, onClick, variant = 'primary', className }: ButtonProps) {
-  return <HeroButton type={type} fullWidth={fullWidth} size={size} isPending={isLoading} isDisabled={isDisabled}
-    onPress={onPress || onClick} variant={variant === 'bordered' ? 'outline' : variant} className={className}>
-    {isLoading && <HeroSpinner color="current" size="sm" />}{children}
-  </HeroButton>
+  const t = useAuthTranslations()
+  // Vendor pending announcements retain button IDs after navigation unmounts them.
+  // A scoped text live region has no external label references to orphan.
+  return <><HeroButton type={type} fullWidth={fullWidth} size={size} isDisabled={isDisabled || isLoading}
+    onPress={onPress || onClick} variant={variant === 'bordered' ? 'outline' : variant} className={className}
+    style={variant === 'primary' ? { backgroundColor: '#D5E855', color: '#1d1d1f' } : undefined}>
+    {isLoading && <HeroSpinner aria-hidden="true" color="current" size="sm" />}{children}
+  </HeroButton><span role={isLoading ? 'status' : undefined} aria-live="polite" aria-atomic="true" className="sr-only">{isLoading ? t.common.loading : ''}</span></>
 }
 
-export function Input({ label, value, onChange, onValueChange, className, variant = 'default', ...props }: InputProps) {
-  return <TextField {...props} value={value} onChange={onChange ? undefined : onValueChange} fullWidth className={className}>
-    {label && <Label>{label}</Label>}
-    <HeroInput onChange={onChange} variant={variant === 'default' ? 'primary' : variant} />
+export function Input({ label, value, onChange, onValueChange, className, variant = 'default', error, ...props }: InputProps) {
+  const errorId = React.useId()
+  return <TextField {...props} validationBehavior="aria" isInvalid={Boolean(error)} value={value} onChange={onChange ? undefined : onValueChange} fullWidth className={className}>
+    {label && <Label style={error ? { color: '#b91c1c' } : undefined}>{label}</Label>}
+    {error && <span id={errorId} className="sr-only">{error}</span>}
+    <HeroInput required={props.isRequired} aria-describedby={error ? errorId : undefined} onChange={onChange} variant={variant === 'default' ? 'primary' : variant} />
   </TextField>
 }
 
@@ -26,8 +34,5 @@ export const CardTitle = (props: CardProps) => <HeroCard.Title {...props} />
 export const CardDescription = (props: CardProps) => <HeroCard.Description {...props} />
 export const Divider = (props: { className?: string }) => <Separator {...props} />
 export const Spinner = (props: SpinnerProps) => <HeroSpinner {...props} />
-export function OtpInput({ length = 6, value, onChange, onValueChange, isDisabled, autoFocus }: OtpInputProps) {
-  return <InputOTP maxLength={length} value={value} onChange={onChange || onValueChange} isDisabled={isDisabled} autoFocus={autoFocus} pattern="^\d+$" variant="secondary" aria-label="Verification code">
-    <InputOTP.Group>{Array.from({ length }, (_, index) => <InputOTP.Slot key={index} index={index} />)}</InputOTP.Group>
-  </InputOTP>
-}
+/** Same positional keyboard/autofill behavior for both style adapters. */
+export const OtpInput = PositionalOtpInput

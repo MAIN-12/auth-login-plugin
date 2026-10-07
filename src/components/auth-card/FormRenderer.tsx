@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useAllowSignup } from '../AuthSignupConfig'
 import { createAuthService } from '../../auth/application/services/authService'
-import { useAuthConfig } from '../AuthConfigContext'
+import { useAuthConfig, AuthConfigProvider } from '../AuthConfigContext'
 import { useAuthPresentation } from '../auth-presentation/AuthPresentationContext'
 import { getUiTranslations, type DeepPartial, type UiTranslations } from '../ui/translations'
 import { AUTH_FORMS, type AuthFormSlug } from '../forms/index'
@@ -37,7 +37,7 @@ export function FormRenderer({
   redirectTo = '/admin',
   onPasswordLogin,
   onSignup,
-  basePath = '/auth',
+  basePath,
   showGoogleOAuth,
   locale,
   messages,
@@ -60,17 +60,16 @@ export function FormRenderer({
   const resolvedLocale = presentation.locale
   const t = getUiTranslations(resolvedLocale, presentation.messages)
   const normalizedSlug = (Array.isArray(slug) ? slug[0] : slug) as AuthFormSlug
-  const base = basePath.replace(/\/$/, '')
+  const base = (basePath ?? pluginConfig.authBasePath).replace(/\/$/, '')
 
   const [dynamicTitle, setDynamicTitle] = useState<string | undefined>(undefined)
   const [dynamicSubtitle, setDynamicSubtitle] = useState<string | undefined>(undefined)
 
   const effectiveSlug: AuthFormSlug =
     (normalizedSlug === 'signup' && (!allowSignup || !pluginConfig.passwordLogin)) || (normalizedSlug === 'forgot-password' && !pluginConfig.recovery) || ((normalizedSlug === 'verify-otp' || normalizedSlug === 'set-password') && !pluginConfig.passwordLogin && !pluginConfig.otpLogin && !pluginConfig.recovery && !pluginConfig.allowSignup) ? 'login' :
-    (normalizedSlug in AUTH_FORMS ? normalizedSlug : 'login')
+    (Object.hasOwn(AUTH_FORMS, normalizedSlug) ? normalizedSlug : 'login')
 
   const config = FORM_CONFIGS[effectiveSlug]
-  const FormComponent = AUTH_FORMS[effectiveSlug] as React.ComponentType<any>
 
   const propsContext: FormPropsContext = {
     redirectTo,
@@ -89,7 +88,11 @@ export function FormRenderer({
   const title = titleOverride ?? dynamicTitle ?? translationSection.title
   const subtitle = subtitleOverride ?? dynamicSubtitle ?? translationSection.subtitle
 
-  const formProps = config.getProps(propsContext)
+  const form = effectiveSlug === 'login' ? <AUTH_FORMS.login {...FORM_CONFIGS.login.getProps(propsContext)} />
+    : effectiveSlug === 'signup' ? <AUTH_FORMS.signup {...FORM_CONFIGS.signup.getProps(propsContext)} />
+    : effectiveSlug === 'forgot-password' ? React.createElement(AUTH_FORMS['forgot-password'], FORM_CONFIGS['forgot-password'].getProps(propsContext))
+    : effectiveSlug === 'verify-otp' ? React.createElement(AUTH_FORMS['verify-otp'], FORM_CONFIGS['verify-otp'].getProps(propsContext))
+    : React.createElement(AUTH_FORMS['set-password'], FORM_CONFIGS['set-password'].getProps(propsContext))
 
   return (
     <AuthCardShell
@@ -103,7 +106,7 @@ export function FormRenderer({
       removeShadow={removeShadow}
       mobileVariant={mobileVariant}
     >
-      <FormComponent {...formProps} />
+      <AuthConfigProvider publicConfig={Object.freeze({ ...pluginConfig, authBasePath: base })}>{form}</AuthConfigProvider>
     </AuthCardShell>
   )
 }

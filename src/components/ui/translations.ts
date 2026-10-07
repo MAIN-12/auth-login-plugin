@@ -8,6 +8,7 @@
  */
 
 export interface UiTranslations {
+  common: { loading: string }
   login: {
     title: string
     subtitle: string
@@ -61,6 +62,9 @@ export interface UiTranslations {
     backToLogin: string
   }
   verifyOtp: {
+    incompleteLink: string
+    codeLabel: string
+    digitLabel: string
     title: string
     passwordResetTitle: string
     subtitle: string
@@ -73,6 +77,8 @@ export interface UiTranslations {
     backToLogin: string
   }
   setPassword: {
+    showPassword: string
+    hidePassword: string
     title: string
     subtitle: string
     newPasswordLabel: string
@@ -93,6 +99,7 @@ export type DeepPartial<T> = {
 }
 
 const en: UiTranslations = {
+  common: { loading: 'Loading' },
   login: {
     title: 'Welcome Back',
     subtitle: 'Sign in with your email to continue.',
@@ -146,6 +153,9 @@ const en: UiTranslations = {
     backToLogin: 'Back to Login',
   },
   verifyOtp: {
+    incompleteLink: 'This verification link is incomplete. Start again to request a code.',
+    codeLabel: 'Verification code',
+    digitLabel: 'Digit {position} of {length}',
     title: 'Check Your Email',
     passwordResetTitle: 'Reset Password',
     subtitle: 'We sent a 6-digit code to',
@@ -158,6 +168,8 @@ const en: UiTranslations = {
     backToLogin: 'Back to Login',
   },
   setPassword: {
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
     title: 'Set Your Password',
     subtitle: 'Create a secure password for your account',
     newPasswordLabel: 'New Password',
@@ -173,6 +185,7 @@ const en: UiTranslations = {
 }
 
 const es: UiTranslations = {
+  common: { loading: 'Cargando' },
   login: {
     title: 'Bienvenido de Nuevo',
     subtitle: 'Inicia sesión con tu correo para continuar.',
@@ -226,6 +239,9 @@ const es: UiTranslations = {
     backToLogin: 'Volver al Inicio de Sesión',
   },
   verifyOtp: {
+    incompleteLink: 'Este enlace de verificación está incompleto. Empieza de nuevo para solicitar un código.',
+    codeLabel: 'Código de verificación',
+    digitLabel: 'Dígito {position} de {length}',
     title: 'Revisa tu Correo',
     passwordResetTitle: 'Restablecer Contraseña',
     subtitle: 'Enviamos un código de 6 dígitos a',
@@ -238,6 +254,8 @@ const es: UiTranslations = {
     backToLogin: 'Volver al Inicio de Sesión',
   },
   setPassword: {
+    showPassword: 'Mostrar contraseña',
+    hidePassword: 'Ocultar contraseña',
     title: 'Establece tu Contraseña',
     subtitle: 'Crea una contraseña segura para tu cuenta',
     newPasswordLabel: 'Nueva Contraseña',
@@ -261,17 +279,17 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function deepMerge<T>(base: T, override?: DeepPartial<T>): T {
   if (!override) return base
-  const result: any = { ...base }
+  const result = { ...base } as Record<string, unknown>
   for (const key in override) {
-    const overrideValue = (override as any)[key]
-    const baseValue = (base as any)[key]
+    const overrideValue = (override as Record<string, unknown>)[key]
+    const baseValue = (base as Record<string, unknown>)[key]
     if (isPlainObject(overrideValue) && isPlainObject(baseValue)) {
       result[key] = deepMerge(baseValue, overrideValue)
     } else if (overrideValue !== undefined) {
       result[key] = overrideValue
     }
   }
-  return result
+  return result as T
 }
 
 /**
@@ -306,4 +324,11 @@ export function mergeUiMessages(
   overrides?: Record<string, DeepPartial<UiTranslations>>,
 ): Record<string, DeepPartial<UiTranslations>> {
   return deepMerge(base, overrides)
+}
+
+/** Unknown transport codes or consumer exceptions never become visible raw messages. */
+export function authErrorMessage(error: string | null, translations: UiTranslations): string | null {
+  if (!error) return null
+  const messages = translations.errors
+  return Object.prototype.hasOwnProperty.call(messages, error) ? messages[error as keyof typeof messages] : messages.genericError
 }

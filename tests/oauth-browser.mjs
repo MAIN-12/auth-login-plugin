@@ -26,8 +26,20 @@ export async function verifyOauthAcceptance({ browser, origin, origin2, provider
   const control = async body => { for (const base of bases) assert.equal((await post(base, '/fixture', body)).status, 200) }
   const users = async email => (await (await fetch(`${origin}/fixture?email=${encodeURIComponent(email)}`)).json()).users
   const appCookie = response => response.headers.getSetCookie().find(value => value.startsWith('consumer-token='))?.split(';')[0]
-  const rejectionIDs = new Set()
-  const rejected = async response => { assert.ok([400, 401, 403].includes(response.status), `${response.status}: ${await response.clone().text()}`); assert.equal(appCookie(response), undefined); const requestId = response.headers.get('x-auth-request-id'); if (requestId) { assert.match(requestId, /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/); rejectionIDs.add(requestId) } }
+  const rejectionIDs = new Map()
+  // Node HTTP's wrapped Response has no .url; retain its actual requested route
+  // separately without changing the received body/status/headers or logging secrets.
+  const responseURLs = new WeakMap()
+  const rejected = async response => {
+    assert.ok([400, 401, 403].includes(response.status), `${response.status}: ${await response.clone().text()}`)
+    assert.equal(appCookie(response), undefined)
+    const requestId = response.headers.get('x-auth-request-id')
+    if (requestId) {
+      assert.match(requestId, /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/)
+      const route = new URL(response.url || responseURLs.get(response)).pathname
+      rejectionIDs.set(requestId, route.endsWith('/oauth/google/callback') ? 'callback' : 'generic')
+    }
+  }
   const currentUser = async value => (await (await fetch(`${origin2}/backend/customers/me`, { headers: { origin: origin2, cookie: value } })).json()).user
   const begin = async (base = origin, returnTo = '/', nativeCookie) => {
     const start = await fetch(`${base}/backend/access/oauth/google?returnTo=${encodeURIComponent(returnTo)}`, { redirect: 'manual', headers: { origin: base, ...(nativeCookie ? { cookie: nativeCookie } : {}) } })
@@ -45,7 +57,9 @@ export async function verifyOauthAcceptance({ browser, origin, origin2, provider
       const request = httpRequest(`${base}${url.pathname}${url.search}`, { headers: { host: url.host, cookie: bound, ...extra } }, incoming => {
         const chunks = []; incoming.on('data', chunk => chunks.push(chunk)); incoming.on('end', () => {
           const headers = new Headers(); for (let index = 0; index < incoming.rawHeaders.length; index += 2) headers.append(incoming.rawHeaders[index], incoming.rawHeaders[index + 1])
-          resolve(new Response(Buffer.concat(chunks), { status: incoming.statusCode, headers }))
+          const response = new Response(Buffer.concat(chunks), { status: incoming.statusCode, headers })
+          responseURLs.set(response, `${base}${url.pathname}${url.search}`)
+          resolve(response)
         })
       }); request.on('error', reject); request.setTimeout(120000, () => request.destroy(new Error('OAuth callback native HTTP timed out'))); request.end()
     })
@@ -367,7 +381,11 @@ export async function verifyOauthAcceptance({ browser, origin, origin2, provider
   const logs = logChunks.join('')
   const callbackEvents = logChunks.flatMap(chunk => chunk.trim().split('\n').flatMap(line => { try { return [JSON.parse(line)] } catch { return [] } })).filter(event => event.event === 'auth_login_google_callback_rejected')
   assert.ok(rejectionIDs.size > 0)
-  for (const requestId of rejectionIDs) assert.ok(callbackEvents.some(event => event.requestId === requestId), 'failure header matches a sanitized rejection log')
+  const genericEvents = logChunks.flatMap(chunk => chunk.trim().split('\n').flatMap(line => { try { return [JSON.parse(line)] } catch { return [] } })).filter(event => ['auth.request.rejected', 'auth.infrastructure.failed'].includes(event.event))
+  for (const [requestId, kind] of rejectionIDs) {
+    if (kind === 'callback') assert.ok(callbackEvents.some(event => event.requestId === requestId), 'callback failure header matches its sanitized callback rejection log')
+    else assert.ok(genericEvents.some(event => event.correlation === requestId), 'generic failure header matches its sanitized generic rejection log')
+  }
   for (const callback of provider.callbacks) for (const key of ['state', 'code']) { const value = new URL(callback).searchParams.get(key); if (value) assert.ok(!logs.includes(value), `logs omit raw ${key}`) }
   for (const secret of ['consumer-google-secret-private', publicCookie.split('=')[1], refreshedCookie.split('=')[1]]) assert.ok(!logs.includes(secret))
   mark('native hooks/read access and custom cookies honored; refresh retains Google evidence and absolute cap, strict CSRF/wrong prefix rejected; logout revokes and short native expiry cannot refresh; invalid cookies do not block basePath login; client bundles/logs omit private secrets')

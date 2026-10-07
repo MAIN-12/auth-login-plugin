@@ -62,7 +62,7 @@ export function createGoogleEndpoints(settings: PublicAuthConfig, options?: Goog
       return new Response(null, { status: 303, headers })
     } catch (error) {
       req.payload.logger.info({ event: 'auth_login_google_callback_rejected', requestId })
-      const response = authFailureResponse(error, req)
+      const response = authFailureResponse(error, req, requestId)
       response.headers.set('X-Auth-Request-ID', requestId)
       if (options?.enabled && /^[A-Za-z0-9_-]{43}$/.test(state)) response.headers.append('Set-Cookie', cookie(state, '', true))
       return response

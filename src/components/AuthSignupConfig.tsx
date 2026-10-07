@@ -1,7 +1,10 @@
 'use client'
+import { AuthConfigContext } from './AuthConfigContext'
 import React, { createContext, useContext } from 'react'
-const SignupEnabledContext = createContext(false)
+const SignupEnabledContext = createContext<boolean | undefined>(undefined)
 export function AuthSignupConfig({ enabled, children }: { enabled: boolean; children: React.ReactNode }) {
   return <SignupEnabledContext.Provider value={enabled}>{children}</SignupEnabledContext.Provider>
 }
-export function useAllowSignup(): boolean { return useContext(SignupEnabledContext) }
+export function useAllowSignup(): boolean { const configured = useContext(SignupEnabledContext)
+  const config = useContext(AuthConfigContext)
+  return configured ?? config?.allowSignup ?? false }

@@ -9,20 +9,21 @@ const fixtureGlobal = globalThis as typeof globalThis & { __otpAcceptance?: { no
 export const fixture = fixtureGlobal.__otpAcceptance ??= { now: Date.now(), failMail: false, failCredentialWrite: false, inbox: [], logs: [] }
 export const inbox = fixture.inbox
 export const capturedLogs = fixture.logs
-const oauthEnabled = process.env.AUTH_CONSUMER_OAUTH === '1'
-const lifecycle = process.env.AUTH_CONSUMER_PASSWORD === '1'
+const integration = process.env.AUTH_CONSUMER_ISSUE05 === '1'
+const oauthEnabled = process.env.AUTH_CONSUMER_OAUTH === '1' || integration
+const lifecycle = process.env.AUTH_CONSUMER_PASSWORD === '1' || integration
 const otpEnabled = process.env.AUTH_CONSUMER_OTP === '1' || lifecycle || oauthEnabled
 
 const port = Number(process.env.AUTH_CONSUMER_PORT)
 const callbackPort = Number(process.env.AUTH_CONSUMER_PRIMARY_PORT ?? port)
 export const plugin = authLoginPlugin({
   collection: 'customers', apiPrefix: '/backend', authEndpointPrefix: '/access',
-  passwordLogin: true, otpLogin: process.env.AUTH_CONSUMER_OTP === '1',
+  passwordLogin: true, otpLogin: process.env.AUTH_CONSUMER_OTP === '1' || integration, ...(integration ? { basePath: '/members', locale: 'en' as const } : {}),
   ...(otpEnabled ? { otp: {
     secret: 'consumer-only-otp-secret-not-production',
     origin: () => 'trusted-loopback-fixture', now: () => fixture.now,
     cooldownSeconds: 1, accountLimit: 5, originLimit: 50,
-    email: { from: 'auth@example.test', locale: 'en' as const },
+    email: { from: 'auth@example.test', locale: 'en' as const, ...(integration ? { projectName: 'Consumer <Brand>', domain: 'https://consumer.example.test', contactEmail: 'help@consumer.example.test', contactUrl: 'https://consumer.example.test/contact' } : {}) },
   } } : {}),
   providers: { google: oauthEnabled ? { enabled: true, clientId: 'consumer-google-client', clientSecret: 'consumer-google-secret-private', redirectURI: `http://127.0.0.1:${callbackPort}/backend/access/oauth/google/callback`, customFetch: (input, init) => { const requested = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url); return fetch(`${process.env.AUTH_CONSUMER_OIDC_ISSUER}${requested.pathname}${requested.search}`, init) } } : false }, allowSignup: oauthEnabled ? process.env.AUTH_CONSUMER_SECONDARY !== '1' : lifecycle, recovery: lifecycle,
   ...(oauthEnabled ? { admin: { authorize: ({ req, evidence }) => { if (fixture.adminUnavailable) throw new Error('fixture unavailable policy'); return Boolean(fixture.adminEligible && req.user?.role === 'admin' && evidence.method !== 'otp') }, collections: [{ slug: 'administrative-records', operations: ['read', 'create', 'update', 'delete'] }] } } : {}),

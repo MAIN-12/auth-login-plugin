@@ -1,3 +1,4 @@
+import { resolveEmailColors, validatedEmailUrl } from './auth/domain/emailPresentation'
 import type { GoogleOptions } from './googleOptions'
 import type { AdminOptions } from './adminOptions'
 import type { OtpOptions } from './otpOptions'
@@ -10,6 +11,7 @@ export interface PublicAuthConfig {
   readonly apiPrefix: string
   readonly authEndpointPrefix: string
   readonly authBasePath: string
+  readonly locale?: 'es' | 'en'
   readonly style: AuthStyle
   readonly logoUrl?: string
   readonly projectName?: string
@@ -29,6 +31,7 @@ export interface AuthLoginPluginOptions {
   apiPrefix?: string
   authEndpointPrefix?: string
   basePath?: string
+  locale?: 'es' | 'en'
   style?: AuthStyle
   logo?: string
   projectName?: string
@@ -58,6 +61,7 @@ export function resolveAuthConfig(options: AuthLoginPluginOptions): PublicAuthCo
     if (typeof options[key] !== 'boolean') throw new Error(`auth-login: ${key} must be explicit`)
   }
   if (google !== false && (typeof google !== 'object' || typeof google.enabled !== 'boolean')) throw new Error('auth-login: providers.google must be explicit')
+  if (options.locale !== undefined && !['es', 'en'].includes(options.locale)) throw new Error('auth-login: locale must be es or en')
   const googleEnabled = google !== false && google.enabled
   if (googleEnabled) {
     if (typeof google.clientId !== 'string' || !google.clientId || typeof google.clientSecret !== 'string' || !google.clientSecret || typeof google.redirectURI !== 'string' || !google.redirectURI) throw new Error('auth-login: Google requires clientId, clientSecret and redirectURI')
@@ -74,7 +78,9 @@ export function resolveAuthConfig(options: AuthLoginPluginOptions): PublicAuthCo
     if (!options.otp.email) throw new Error('auth-login: OTP requires explicit email sender and locale')
     if (options.otp.email && (typeof options.otp.email.from !== 'string' || !/^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/.test(options.otp.email.from) || !['es', 'en'].includes(options.otp.email.locale))) throw new Error('auth-login: invalid OTP email configuration')
     if (options.otp.email.projectName !== undefined && typeof options.otp.email.projectName !== 'string') throw new Error('auth-login: invalid OTP projectName')
-    for (const url of [options.otp.email?.logoUrl, options.otp.email?.contactUrl]) if (url !== undefined) { try { if (new URL(url).protocol !== 'https:') throw new Error() } catch { throw new Error('auth-login: OTP email URLs require HTTPS') } }
+    resolveEmailColors(options.otp.email.colors)
+    if (options.otp.email.contactEmail && !/^[^\s<>"'@]+@[^\s<>"'@]+\.[^\s<>"'@]+$/.test(options.otp.email.contactEmail)) throw new Error('auth-login: invalid contactEmail')
+    for (const url of [options.otp.email?.logoUrl, options.otp.email?.contactUrl, options.otp.email?.domain]) if (url !== undefined) { try { validatedEmailUrl(url) } catch { throw new Error('auth-login: OTP email URLs require HTTPS') } }
   }
   const maxAge = options.session?.maxAge ?? 7200
   if (!Number.isSafeInteger(maxAge) || maxAge < 1) throw new Error('auth-login: session.maxAge must be a positive integer in seconds')
@@ -86,11 +92,12 @@ export function resolveAuthConfig(options: AuthLoginPluginOptions): PublicAuthCo
   if (typeof collection !== 'string' || !/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(collection)) throw new Error('auth-login: invalid collection')
   if (options.style !== undefined && options.style !== 'tailwind' && options.style !== 'hero-ui') throw new Error('auth-login: invalid style')
   if (options.logo !== undefined && typeof options.logo !== 'string') throw new Error('auth-login: logo must be a serializable URL; pass React branding directly to UI')
+  if (options.logo && !/^\/(?!\/)[a-zA-Z0-9/_.-]+$/.test(options.logo)) validatedEmailUrl(options.logo)
   return Object.freeze({
     collection, apiPrefix: path(options.apiPrefix ?? '/api', 'apiPrefix'),
     authEndpointPrefix: path(options.authEndpointPrefix ?? '/auth', 'authEndpointPrefix'),
     authBasePath: path(options.basePath ?? (typeof options.routeRedirects === 'object' ? options.routeRedirects.basePath : undefined) ?? '/auth', 'basePath'),
-    style: options.style ?? 'tailwind', logoUrl: options.logo, projectName: options.projectName,
+    locale: options.locale ?? options.otp?.email?.locale ?? 'en', style: options.style ?? 'tailwind', logoUrl: options.logo, projectName: options.projectName,
     passwordLogin: options.passwordLogin, otpLogin: options.otpLogin, googleOAuthEnabled: googleEnabled,
     allowSignup: options.allowSignup, recovery: options.recovery, modalLogin: options.modalLogin === true,
     routeRedirects: Boolean(options.routeRedirects) && !options.modalLogin,

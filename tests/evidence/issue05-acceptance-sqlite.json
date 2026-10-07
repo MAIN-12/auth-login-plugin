@@ -1,0 +1,581 @@
+{
+  "issue": "05",
+  "passed": true,
+  "diagnosticSubset": false,
+  "database": "SQLite real",
+  "browser": "Chromium",
+  "matrix": [
+    {
+      "surface": "card",
+      "style": "tailwind",
+      "locale": "en",
+      "viewport": 1280,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "card",
+      "style": "tailwind",
+      "locale": "en",
+      "viewport": 390,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "card",
+      "style": "tailwind",
+      "locale": "es",
+      "viewport": 1280,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "card",
+      "style": "tailwind",
+      "locale": "es",
+      "viewport": 390,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "card",
+      "style": "hero-ui",
+      "locale": "en",
+      "viewport": 1280,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "card",
+      "style": "hero-ui",
+      "locale": "en",
+      "viewport": 390,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "card",
+      "style": "hero-ui",
+      "locale": "es",
+      "viewport": 1280,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "card",
+      "style": "hero-ui",
+      "locale": "es",
+      "viewport": 390,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "page",
+      "style": "tailwind",
+      "locale": "en",
+      "viewport": 1280,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "page",
+      "style": "tailwind",
+      "locale": "en",
+      "viewport": 390,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "page",
+      "style": "tailwind",
+      "locale": "es",
+      "viewport": 1280,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "page",
+      "style": "tailwind",
+      "locale": "es",
+      "viewport": 390,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "page",
+      "style": "hero-ui",
+      "locale": "en",
+      "viewport": 1280,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "page",
+      "style": "hero-ui",
+      "locale": "en",
+      "viewport": 390,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "page",
+      "style": "hero-ui",
+      "locale": "es",
+      "viewport": 1280,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "page",
+      "style": "hero-ui",
+      "locale": "es",
+      "viewport": 390,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "modal",
+      "style": "tailwind",
+      "locale": "en",
+      "viewport": 1280,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "modal",
+      "style": "tailwind",
+      "locale": "en",
+      "viewport": 390,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "modal",
+      "style": "tailwind",
+      "locale": "es",
+      "viewport": 1280,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "modal",
+      "style": "tailwind",
+      "locale": "es",
+      "viewport": 390,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "modal",
+      "style": "hero-ui",
+      "locale": "en",
+      "viewport": 1280,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "modal",
+      "style": "hero-ui",
+      "locale": "en",
+      "viewport": 390,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "modal",
+      "style": "hero-ui",
+      "locale": "es",
+      "viewport": 1280,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    },
+    {
+      "surface": "modal",
+      "style": "hero-ui",
+      "locale": "es",
+      "viewport": 390,
+      "passwordLogin": "passed",
+      "keyboard": "passed",
+      "a11y": "passed",
+      "queryHash": "preserved"
+    }
+  ],
+  "a11y": [
+    {
+      "name": "card/tailwind/en/1280/email",
+      "violations": []
+    },
+    {
+      "name": "card/tailwind/en/1280/failed-password",
+      "violations": []
+    },
+    {
+      "name": "card/tailwind/en/390/email",
+      "violations": []
+    },
+    {
+      "name": "card/tailwind/en/390/failed-password",
+      "violations": []
+    },
+    {
+      "name": "card/tailwind/es/1280/email",
+      "violations": []
+    },
+    {
+      "name": "card/tailwind/es/1280/failed-password",
+      "violations": []
+    },
+    {
+      "name": "card/tailwind/es/390/email",
+      "violations": []
+    },
+    {
+      "name": "card/tailwind/es/390/failed-password",
+      "violations": []
+    },
+    {
+      "name": "card/hero-ui/en/1280/email",
+      "violations": []
+    },
+    {
+      "name": "card/hero-ui/en/1280/failed-password",
+      "violations": []
+    },
+    {
+      "name": "card/hero-ui/en/390/email",
+      "violations": []
+    },
+    {
+      "name": "card/hero-ui/en/390/failed-password",
+      "violations": []
+    },
+    {
+      "name": "card/hero-ui/es/1280/email",
+      "violations": []
+    },
+    {
+      "name": "card/hero-ui/es/1280/failed-password",
+      "violations": []
+    },
+    {
+      "name": "card/hero-ui/es/390/email",
+      "violations": []
+    },
+    {
+      "name": "card/hero-ui/es/390/failed-password",
+      "violations": []
+    },
+    {
+      "name": "page/tailwind/en/1280/email",
+      "violations": []
+    },
+    {
+      "name": "page/tailwind/en/1280/failed-password",
+      "violations": []
+    },
+    {
+      "name": "page/tailwind/en/390/email",
+      "violations": []
+    },
+    {
+      "name": "page/tailwind/en/390/failed-password",
+      "violations": []
+    },
+    {
+      "name": "page/tailwind/es/1280/email",
+      "violations": []
+    },
+    {
+      "name": "page/tailwind/es/1280/failed-password",
+      "violations": []
+    },
+    {
+      "name": "page/tailwind/es/390/email",
+      "violations": []
+    },
+    {
+      "name": "page/tailwind/es/390/failed-password",
+      "violations": []
+    },
+    {
+      "name": "page/hero-ui/en/1280/email",
+      "violations": []
+    },
+    {
+      "name": "page/hero-ui/en/1280/failed-password",
+      "violations": []
+    },
+    {
+      "name": "page/hero-ui/en/390/email",
+      "violations": []
+    },
+    {
+      "name": "page/hero-ui/en/390/failed-password",
+      "violations": []
+    },
+    {
+      "name": "page/hero-ui/es/1280/email",
+      "violations": []
+    },
+    {
+      "name": "page/hero-ui/es/1280/failed-password",
+      "violations": []
+    },
+    {
+      "name": "page/hero-ui/es/390/email",
+      "violations": []
+    },
+    {
+      "name": "page/hero-ui/es/390/failed-password",
+      "violations": []
+    },
+    {
+      "name": "modal/tailwind/en/1280/email",
+      "violations": []
+    },
+    {
+      "name": "modal/tailwind/en/1280/failed-password",
+      "violations": []
+    },
+    {
+      "name": "modal/tailwind/en/390/email",
+      "violations": []
+    },
+    {
+      "name": "modal/tailwind/en/390/failed-password",
+      "violations": []
+    },
+    {
+      "name": "modal/tailwind/es/1280/email",
+      "violations": []
+    },
+    {
+      "name": "modal/tailwind/es/1280/failed-password",
+      "violations": []
+    },
+    {
+      "name": "modal/tailwind/es/390/email",
+      "violations": []
+    },
+    {
+      "name": "modal/tailwind/es/390/failed-password",
+      "violations": []
+    },
+    {
+      "name": "modal/hero-ui/en/1280/email",
+      "violations": []
+    },
+    {
+      "name": "modal/hero-ui/en/1280/failed-password",
+      "violations": []
+    },
+    {
+      "name": "modal/hero-ui/en/390/email",
+      "violations": []
+    },
+    {
+      "name": "modal/hero-ui/en/390/failed-password",
+      "violations": []
+    },
+    {
+      "name": "modal/hero-ui/es/1280/email",
+      "violations": []
+    },
+    {
+      "name": "modal/hero-ui/es/1280/failed-password",
+      "violations": []
+    },
+    {
+      "name": "modal/hero-ui/es/390/email",
+      "violations": []
+    },
+    {
+      "name": "modal/hero-ui/es/390/failed-password",
+      "violations": []
+    },
+    {
+      "name": "card/tailwind/en/otp",
+      "violations": []
+    },
+    {
+      "name": "card/tailwind/en/set-password",
+      "violations": []
+    },
+    {
+      "name": "card/hero-ui/es/otp",
+      "violations": []
+    },
+    {
+      "name": "card/hero-ui/es/set-password",
+      "violations": []
+    },
+    {
+      "name": "page/tailwind/en/otp",
+      "violations": []
+    },
+    {
+      "name": "page/tailwind/en/set-password",
+      "violations": []
+    },
+    {
+      "name": "page/hero-ui/es/otp",
+      "violations": []
+    },
+    {
+      "name": "page/hero-ui/es/set-password",
+      "violations": []
+    },
+    {
+      "name": "modal/tailwind/en/otp",
+      "violations": []
+    },
+    {
+      "name": "modal/tailwind/en/set-password",
+      "violations": []
+    },
+    {
+      "name": "modal/hero-ui/es/otp",
+      "violations": []
+    },
+    {
+      "name": "modal/hero-ui/es/set-password",
+      "violations": []
+    },
+    {
+      "name": "card/tailwind/en/failed-otp",
+      "violations": []
+    },
+    {
+      "name": "card/hero-ui/es/failed-otp",
+      "violations": []
+    },
+    {
+      "name": "page/tailwind/en/failed-otp",
+      "violations": []
+    },
+    {
+      "name": "page/hero-ui/es/failed-otp",
+      "violations": []
+    },
+    {
+      "name": "modal/tailwind/en/failed-otp",
+      "violations": []
+    },
+    {
+      "name": "modal/hero-ui/es/failed-otp",
+      "violations": []
+    },
+    {
+      "name": "tailwind/en/incomplete-otp",
+      "violations": []
+    },
+    {
+      "name": "tailwind/en/incomplete-otp",
+      "violations": []
+    },
+    {
+      "name": "tailwind/es/incomplete-otp",
+      "violations": []
+    },
+    {
+      "name": "tailwind/es/incomplete-otp",
+      "violations": []
+    },
+    {
+      "name": "hero-ui/en/incomplete-otp",
+      "violations": []
+    },
+    {
+      "name": "hero-ui/en/incomplete-otp",
+      "violations": []
+    },
+    {
+      "name": "hero-ui/es/incomplete-otp",
+      "violations": []
+    },
+    {
+      "name": "hero-ui/es/incomplete-otp",
+      "violations": []
+    }
+  ],
+  "checks": [
+    "card/tailwind/en: signup, positional OTP paste/singleflight, ownership completion, recovery, real session revocation",
+    "card/hero-ui/es: signup, positional OTP paste/singleflight, ownership completion, recovery, real session revocation",
+    "page/tailwind/en: signup, positional OTP paste/singleflight, ownership completion, recovery, real session revocation",
+    "page/hero-ui/es: signup, positional OTP paste/singleflight, ownership completion, recovery, real session revocation",
+    "modal/tailwind/en: signup, positional OTP paste/singleflight, ownership completion, recovery, real session revocation",
+    "modal/hero-ui/es: signup, positional OTP paste/singleflight, ownership completion, recovery, real session revocation",
+    "card/tailwind/en: real failed/successful OTP login, localized announced failure, preserved query/hash",
+    "card/hero-ui/es: real failed/successful OTP login, localized announced failure, preserved query/hash",
+    "page/tailwind/en: real failed/successful OTP login, localized announced failure, preserved query/hash",
+    "page/hero-ui/es: real failed/successful OTP login, localized announced failure, preserved query/hash",
+    "modal/tailwind/en: real failed/successful OTP login, localized announced failure, preserved query/hash",
+    "modal/hero-ui/es: real failed/successful OTP login, localized announced failure, preserved query/hash",
+    "real correct-code OTP denied for original Admin-eligible fixture account; ordinary verified account OTP succeeds",
+    "public failed credentials indistinguishable for unknown/existing; browser rejects external/encoded/backslash return destinations",
+    "incomplete OTP links have localized explicit recovery, non-default custom destination",
+    "configured Google path and signed OIDC callback preserve query/hash in both locales/styles (not live Google)",
+    "independent LoginPage export in both adapters inherits configured signup/custom mount with destination",
+    "standalone email reauth preserves query/hash through OTP/proof/completion and rotates real native session",
+    "captured consumer logger excludes passwords, OTP and token bodies"
+  ],
+  "manualOutstanding": [
+    "real screen-reader announcement/reading-order validation",
+    "human visual contrast/zoom/target-size inspection",
+    "real mobile device and live Google acceptance"
+  ],
+  "claim": "Automated checks are evidence, not WCAG certification of consumer applications.",
+  "sourceHash": "01b18a53c3014b652411bdc32c199eb3215719ac6084ecff57808655671a866e",
+  "fixtureHash": "d51e640d3a46aa4a78cf4bd394cab689bfc813660852a8415364f338f73a89ca",
+  "harnessHash": "65a231f4651cceb0391d3bef6e20e9b0d417c9ba4cff6d20d66853119c278309",
+  "packedSha256": "76761a32c7c701796e4d02e2060c401da1e186353e8b5dfd7d83998fcd469c9c",
+  "node": "v22.23.2",
+  "declarations": "passed",
+  "snapshot": "unchanged"
+}

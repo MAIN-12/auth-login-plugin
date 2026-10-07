@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useAuthNavigation } from '../AuthFlowContext'
+import { useAuthNavigation, authRoute } from '../AuthFlowContext'
 import { createAuthService } from '../services/authService'
 import { storePasswordProof } from '../services/passwordProof'
 import { useAuthConfig } from '../../../components/AuthConfigContext'
@@ -9,6 +9,7 @@ import { useAuthConfig } from '../../../components/AuthConfigContext'
 export interface UseVerifyOtpFlowOptions {
   email: string
   purpose: 'login' | 'signup' | 'password-reset' | 'reauth'
+  locale?: string
   redirectTo?: string
   context: string
   retryAfter?: number
@@ -17,7 +18,7 @@ export interface UseVerifyOtpFlowOptions {
 /**
  * State machine for OTP verification: input → verify → redirect | resend.
  */
-export function useVerifyOtpFlow({ email, purpose, context, retryAfter = 0, redirectTo = '/' }: UseVerifyOtpFlowOptions) {
+export function useVerifyOtpFlow({ email, purpose, context, retryAfter = 0, redirectTo = '/', locale }: UseVerifyOtpFlowOptions) {
   const pluginConfig = useAuthConfig()
   const router = useAuthNavigation()
 
@@ -37,18 +38,18 @@ export function useVerifyOtpFlow({ email, purpose, context, retryAfter = 0, redi
   }, [resendCooldown])
 
   const handleSubmit = useCallback(async () => {
-    if (otp.length !== 6 || submitting.current) return
+    if (!/^\d{6}$/.test(otp) || !email || !context || submitting.current) return
     submitting.current = true
     setIsLoading(true)
     setError(null)
     try {
       if (purpose !== 'login') {
-        const proof = await createAuthService(pluginConfig).verifyOwnership(email, purpose === 'password-reset' ? 'recovery' : purpose, otp, context)
+        const proof = await createAuthService(pluginConfig, locale).verifyOwnership(email, purpose === 'password-reset' ? 'recovery' : purpose, otp, context)
         storePasswordProof(pluginConfig, { ...proof, purpose: purpose === 'password-reset' ? 'recovery' : purpose })
-        router.push(`${pluginConfig.authBasePath}/set-password`)
+        router.push(authRoute(pluginConfig.authBasePath, 'set-password', {}, redirectTo))
         return
       }
-      const data = await createAuthService(pluginConfig).verifyOtp(email, otp, context)
+      const data = await createAuthService(pluginConfig, locale).verifyOtp(email, otp, context)
       if (data.success) {
         await router.complete(redirectTo)
 
@@ -63,22 +64,23 @@ export function useVerifyOtpFlow({ email, purpose, context, retryAfter = 0, redi
       submitting.current = false
       setIsLoading(false)
     }
-  }, [otp, email, purpose, redirectTo, router, pluginConfig, context])
+  }, [otp, email, purpose, redirectTo, router, pluginConfig, context, locale])
 
   // Auto-verify when all 6 digits are entered
   useEffect(() => {
-    if (otp.length === 6 && !isLoading) {
+    if (/^\d{6}$/.test(otp) && !isLoading) {
       handleSubmit()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otp])
 
   const handleResendCode = useCallback(async () => {
-    if (resendCooldown > 0) return
+    if (resendCooldown > 0 || submitting.current || !email || !context) return
+    submitting.current = true
     setIsResending(true)
     setError(null)
     try {
-      const service = createAuthService(pluginConfig)
+      const service = createAuthService(pluginConfig, locale)
       const data = await (purpose === 'login' ? service.sendOtp(email, context) : service.sendOwnership(email, purpose === 'password-reset' ? 'recovery' : purpose, context))
       if (data.success) {
         setResendCooldown(data.retryAfter ?? 0)
@@ -88,9 +90,10 @@ export function useVerifyOtpFlow({ email, purpose, context, retryAfter = 0, redi
     } catch {
       setError('resendError')
     } finally {
+      submitting.current = false
       setIsResending(false)
     }
-  }, [email, purpose, resendCooldown, pluginConfig, context])
+  }, [email, purpose, resendCooldown, pluginConfig, context, locale])
 
   return {
     otp,

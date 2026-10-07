@@ -1,12 +1,13 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useAuthNavigation } from '../AuthFlowContext'
+import { useAuthNavigation, authRoute } from '../AuthFlowContext'
 import type { LoginStep } from '../../domain/types'
-import { createAuthService, initiateGoogleLogin } from '../services/authService'
+import { authErrorKey, createAuthService, initiateGoogleLogin } from '../services/authService'
 import { useAuthConfig } from '../../../components/AuthConfigContext'
 
 export interface UseLoginFlowOptions {
+  locale?: string
   redirectTo: string
   /** Called after successful password login with { email, password } */
   onPasswordLogin: (credentials: { email: string; password: string }) => Promise<void>
@@ -16,7 +17,7 @@ export interface UseLoginFlowOptions {
  * State machine for the multi-step login flow: email → password | otp-prompt.
  * The page component owns the UI; this hook owns the logic.
  */
-export function useLoginFlow({ redirectTo, onPasswordLogin }: UseLoginFlowOptions) {
+export function useLoginFlow({ redirectTo, onPasswordLogin, locale }: UseLoginFlowOptions) {
   const config = useAuthConfig()
   const router = useAuthNavigation()
 
@@ -55,8 +56,8 @@ export function useLoginFlow({ redirectTo, onPasswordLogin }: UseLoginFlowOption
       try {
         await onPasswordLogin({ email, password })
         await router.complete(redirectTo)
-      } catch {
-        setError('error')
+      } catch (failure) {
+        setError(authErrorKey(failure))
       } finally {
         setIsLoading(false)
       }
@@ -68,10 +69,9 @@ export function useLoginFlow({ redirectTo, onPasswordLogin }: UseLoginFlowOption
     setIsSendingOtp(true)
     setError(null)
     try {
-      const data = await createAuthService(config).sendOtp(email)
+      const data = await createAuthService(config, locale).sendOtp(email)
       if (data.success) {
-        const redirectParam = redirectTo !== '/' ? `&redirect=${encodeURIComponent(redirectTo)}` : ''
-        router.push(`/verify-otp?email=${encodeURIComponent(email.trim())}&context=${encodeURIComponent(data.context ?? '')}&retryAfter=${data.retryAfter ?? 0}${redirectParam}`)
+        router.push(authRoute(config.authBasePath, 'verify-otp', { email: email.trim(), context: data.context, retryAfter: data.retryAfter }, redirectTo))
       } else {
         setError(data.message || 'otpSendFailed')
       }
@@ -80,7 +80,7 @@ export function useLoginFlow({ redirectTo, onPasswordLogin }: UseLoginFlowOption
     } finally {
       setIsSendingOtp(false)
     }
-  }, [email, redirectTo, router, config])
+  }, [email, redirectTo, router, config, locale])
 
   const handleEditEmail = useCallback(() => {
     setStep('email')

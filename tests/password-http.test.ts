@@ -30,7 +30,7 @@ async function verify(email: string, purpose: string) {
   const sentResponse = await request('/auth/otp/send', { email, purpose })
   expect(sentResponse.status).toBe(200)
   const sent = await sentResponse.json()
-  const otp = html.match(/letter-spacing:8px">(\d{6})/)![1]
+  const otp = html.match(/>\s*(\d{6})\s*</)![1]
   const response = await request('/auth/otp/verify', { email, purpose, context: sent.context, otp })
   expect(response.status).toBe(200)
   expect(response.headers.get('set-cookie')).toBeNull()

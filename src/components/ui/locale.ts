@@ -28,7 +28,7 @@ function normalize(locale: string | null | undefined): string | undefined {
 function parseCookieLocale(cookieHeader: string | null | undefined): string | undefined {
   if (!cookieHeader) return undefined
   const match = cookieHeader.match(/(?:^|;\s*)NEXT_LOCALE=([^;]+)/)
-  return match ? normalize(decodeURIComponent(match[1])) : undefined
+  try { return match ? normalize(decodeURIComponent(match[1])) : undefined } catch { return undefined }
 }
 
 /** Parse the first preferred language from an `Accept-Language` header. */

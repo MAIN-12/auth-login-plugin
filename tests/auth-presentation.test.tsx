@@ -23,7 +23,7 @@ import { AuthConfigProvider } from '../src/components/AuthConfigContext'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
-  useSearchParams: () => new URLSearchParams('email=member@example.com'),
+  useSearchParams: () => new URLSearchParams(`email=member@example.com&context=${'a'.repeat(64)}`),
   redirect: vi.fn(),
 }))
 vi.mock('next/headers', () => ({ headers: async () => new Headers({ 'accept-language': 'en' }) }))
@@ -117,7 +117,7 @@ describe('shared presentation', () => {
   it('works without a provider and keeps AuthLayout independent of presentation', async () => {
     document.documentElement.lang = 'es'
     await render(<AuthLayout backgroundClass="bg-white" verticalAlign="top"><AuthCard slug="login" mobileVariant="modal" /></AuthLayout>)
-    expect(host.querySelector('h1')?.textContent).toBe(getUiTranslations('es').login.title)
+    expect(host.querySelector('h1')?.textContent).toBe(getUiTranslations('en').login.title)
     expect(host.querySelector('img')?.getAttribute('src')).toBe('/plugin-logo.svg')
     expect(host.querySelector('main')?.className).toContain('bg-white')
     expect(host.querySelector('main > div')?.className).toContain('justify-start')

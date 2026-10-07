@@ -24,7 +24,7 @@ beforeAll(async () => {
 afterAll(async () => { for (const instance of instances) await instance.payload.destroy(); if (dir) await rm(dir, { recursive: true, force: true }) })
 const request = (i: number, path: string, body?: unknown, cookie?: string, headers: Record<string, string> = {}) => handleEndpoints({ config: instances[i].config, payloadInstanceCacheKey: instances[i].key, request: new Request(`http://localhost:3000/backend${path}`, { method: body === undefined ? 'GET' : 'POST', headers: { ...(body === undefined ? {} : { 'content-type': 'application/json' }), ...headers, ...(cookie ? { cookie } : {}) }, ...(body === undefined ? {} : { body: JSON.stringify(body) }) }) })
 const send = async (email: string, context?: string, instance = 0) => { const response = await request(instance, '/access/otp/send', { email, purpose: 'login', ...(context ? { context } : {}) }); expect(response.status).toBe(200); return response.json() }
-const code = () => mail.at(-1)!.match(/letter-spacing:8px">(\d{6})/)![1]
+const code = () => mail.at(-1)!.match(/>\s*(\d{6})\s*</)![1]
 it('real SQLite HTTP authenticates once across instances and preserves password, hooks, field privacy and old session', async () => {
   const password = await request(0, '/access/login', { email: 'user@example.com', password: 'unchanged existing password' })
   const oldCookie = password.headers.get('set-cookie')!.split(';')[0]

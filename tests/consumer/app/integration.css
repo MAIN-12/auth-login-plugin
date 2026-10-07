@@ -1,0 +1,5 @@
+@import 'tailwindcss';
+@import '@heroui/styles';
+@source '../node_modules/@main12/auth-login/dist/**/*.js';
+@source './**/*.{ts,tsx}';
+body { margin: 0; }

@@ -3,29 +3,8 @@
  * These are the defaults; overridden by the host project's options.
  */
 
-export interface EmailColors {
-  primary: string
-  primaryText: string
-  accent: string
-  text: string
-  textSecondary: string
-  textTertiary: string
-  background: string
-  backgroundSecondary: string
-  border: string
-}
-
-export const DEFAULT_COLORS: EmailColors = {
-  primary: '#D5E855',       // Main12 green
-  primaryText: '#1d1d1f',
-  accent: '#0071e3',        // Apple blue for links
-  text: '#1d1d1f',
-  textSecondary: '#6e6e73',
-  textTertiary: '#86868b',
-  background: '#ffffff',
-  backgroundSecondary: '#f5f5f7',
-  border: '#d2d2d7',
-}
+export { DEFAULT_COLORS } from '../../auth/domain/emailPresentation'
+export type { EmailColors } from '../../auth/domain/emailPresentation'
 
 export type SocialPlatform =
   | 'facebook' | 'twitter' | 'instagram' | 'linkedin'
@@ -49,10 +28,11 @@ export const SOCIAL_ICONS: Record<SocialPlatform, string> = {
 }
 
 /** Helper to build base URL from environment */
-export function getBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_SERVER_URL || 'http://localhost:3000'
+export function getBaseUrl(base = 'https://example.com'): string {
+  if (new URL(base).protocol !== 'https:') throw new Error('auth-login: base URL requires HTTPS')
+  return base
 }
 
-export function getSenderEmail(): string {
-  return process.env.BREVO_SENDER_EMAIL || process.env.MAILGUN_SENDER_EMAIL || 'noreply@example.com'
+export function getSenderEmail(sender = 'noreply@example.com'): string {
+  return sender
 }

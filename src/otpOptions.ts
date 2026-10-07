@@ -1,3 +1,4 @@
+import type { EmailColors } from './auth/domain/emailPresentation'
 import type { PayloadRequest } from 'payload'
 
 export interface OtpOptions {
@@ -11,5 +12,5 @@ export interface OtpOptions {
   maxAttempts?: number
   accountLimit?: number
   originLimit?: number
-  email?: { from: string; locale: 'es' | 'en'; projectName?: string; logoUrl?: string; contactUrl?: string }
+  email?: { from: string; locale: 'es' | 'en'; projectName?: string; logoUrl?: string; contactUrl?: string; contactEmail?: string; domain?: string; colors?: Partial<EmailColors> }
 }

@@ -54,9 +54,11 @@
     "test:password:postgres": "AUTH_CONSUMER_PASSWORD=1 AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_BUNDLER=webpack node scripts/test-consumer.mjs",
     "test:oauth:sqlite": "AUTH_CONSUMER_OAUTH=1 AUTH_CONSUMER_DB=sqlite AUTH_CONSUMER_BUNDLER=webpack node scripts/test-consumer.mjs",
     "test:oauth:postgres": "AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_OAUTH=1 AUTH_CONSUMER_DB=postgres AUTH_CONSUMER_BUNDLER=webpack node scripts/test-consumer.mjs",
-    "test:oauth:acceptance": "pnpm test:oauth:sqlite && pnpm test:oauth:postgres"
+    "test:oauth:acceptance": "pnpm test:oauth:sqlite && pnpm test:oauth:postgres",
+    "test:integration:acceptance": "AUTH_CONSUMER_ISSUE05=1 AUTH_CONSUMER_BUNDLER=webpack node scripts/test-consumer.mjs"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@eslint/eslintrc": "^3.2.0",
     "@heroui/react": "^3.2.2",
     "@heroui/styles": "^3.2.2",

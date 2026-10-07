@@ -19,7 +19,7 @@ export default [
   },
   {
     files: ['src/auth/domain/**/*.{ts,tsx}', 'src/config.ts'],
-    rules: { 'no-restricted-imports': ['error', { patterns: ['react', 'react/*', 'next', 'next/*', 'payload', 'payload/*', '**/components/**', '**/auth/server/**', '**/application/**'] }] },
+    rules: { 'no-restricted-properties': ['error', { object: 'process', property: 'env', message: 'Pass explicit configuration instead of reading environment in the domain.' }], 'no-restricted-imports': ['error', { patterns: ['react', 'react/*', 'next', 'next/*', 'payload', 'payload/*', '**/components/**', '**/auth/server/**', '**/application/**'] }] },
   },
   {
     files: ['src/exports/client.ts', 'src/auth/application/**/*.{ts,tsx}', 'src/components/**/*.{ts,tsx}'],

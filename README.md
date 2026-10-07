@@ -1,6 +1,12 @@
 # @main12/auth-login — hardened password/OTP/Google candidate
 
-This working branch contains **tickets 01–04**, a breaking base-auth/configuration change. It is not a claim that the complete hardening spec or the remaining tickets are finished, and is not ready for publication until the PR gates pass.
+This working branch contains **tickets 01–05 in progress**, a breaking base-auth/configuration change. It is not a claim that the complete hardening spec or the remaining tickets are finished, and is not ready for publication until the PR gates pass.
+
+## Integration contracts and documentation authority
+
+Read [the local plugin contracts and migration guide](docs/plugin-contracts.md) for issue05 configuration, shared card/page/modal workflows, explicit ES/EN locale, email branding, HTTP result contracts and verification scope. Existing `docs/README.md`, `docs/CONTEXT.md` and copied AOP guides describe another repository: they are **nonnormative reference here** and were preserved, not silently migrated or overwritten.
+
+Issue05 automatic acceptance uses `pnpm test:integration:acceptance`; manual screen-reader evidence remains a separate gate. No automatic pass certifies the host application.
 
 ## Supported flow and explicit limits
 
@@ -30,6 +36,7 @@ export const authPlugin = authLoginPlugin({
   session: { maxAge: 7200 },
   modalLogin: true,
   style: 'tailwind',
+  locale: 'en',
   logo: '/brand.svg',
 })
 ```

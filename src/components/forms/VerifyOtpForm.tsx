@@ -2,7 +2,10 @@
 
 import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
 
+import { authErrorMessage } from '../ui/translations'
 import React from 'react'
+import { useAuthConfig } from '../AuthConfigContext'
+import { authRoute } from '../../auth/application/AuthFlowContext'
 import { AuthLoadingBoundary } from '../auth-card/AuthLoadingBoundary'
 import { useAuthSearchParams, AuthLink } from '../../auth/application/AuthFlowContext'
 import { Button, OtpInput } from '../ui/index'
@@ -16,28 +19,25 @@ export interface VerifyOtpFormProps extends AuthLocalizationProps {
 }
 
 function VerifyOtpFormContent({
-  loginUrl = '/login',
+  loginUrl,
   locale,
   messages,
   onPurposeChange,
 }: VerifyOtpFormProps) {
+  const config = useAuthConfig()
   const searchParams = useAuthSearchParams()
   const email = searchParams.get('email') || ''
-  const purpose = (searchParams.get('purpose') || 'login') as 'login' | 'signup' | 'password-reset'
+  const requestedPurpose = searchParams.get('purpose') || 'login'
+  const purpose = ['login', 'signup', 'password-reset', 'reauth'].includes(requestedPurpose) ? requestedPurpose as 'login' | 'signup' | 'password-reset' | 'reauth' : 'login'
   const redirectTo = searchParams.get('redirect') || '/'
 
   const { otp, error, isLoading, isResending, resendCooldown, setOtp, handleSubmit, handleResendCode } =
-    useVerifyOtpFlow({ email, purpose, redirectTo, context: searchParams.get('context') ?? '', retryAfter: Number(searchParams.get('retryAfter') ?? 0) })
+    useVerifyOtpFlow({ email, purpose, redirectTo, locale, context: searchParams.get('context') ?? '', retryAfter: Number(searchParams.get('retryAfter') ?? 0) })
   const translations = useAuthTranslations(locale, messages)
   const t = translations.verifyOtp
-  const errors = translations.errors
 
   // Helper to translate error keys
-  const getErrorMessage = (err: string | null): string | null => {
-    if (!err) return null
-    if (err in errors) return errors[err as keyof typeof errors]
-    return err
-  }
+  const getErrorMessage = (error: string | null) => authErrorMessage(error, translations)
 
   const isPasswordReset = purpose === 'password-reset'
 
@@ -46,18 +46,18 @@ function VerifyOtpFormContent({
     if (onPurposeChange) {
       const title = isPasswordReset ? t.passwordResetTitle : t.title
       const subtitle = isPasswordReset ? t.passwordResetSubtitle : t.subtitle
-      onPurposeChange(purpose, title, subtitle)
+      onPurposeChange(purpose === 'reauth' ? 'login' : purpose, title, subtitle)
     }
   }, [purpose, onPurposeChange, t, isPasswordReset])
 
-  if (!email) return null
+  if (!email || !/^[a-f0-9]{64}$/.test(searchParams.get('context') ?? '') || !['login', 'signup', 'password-reset', 'reauth'].includes(requestedPurpose)) return <div role="alert"><p>{t.incompleteLink}</p><AuthLink href={authRoute(config.authBasePath, purpose === 'signup' ? 'signup' : purpose === 'password-reset' ? 'forgot-password' : 'login', {}, redirectTo)}>{t.backToLogin}</AuthLink></div>
 
   return (
     <div className="flex flex-col items-center gap-4">
       <p className="text-gray-700 text-sm font-medium">{email}</p>
-      <OtpInput value={otp} onValueChange={setOtp} isDisabled={isLoading} autoFocus />
-      {error && <div className="w-full bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm animate-[fadeIn_0.2s_ease-out]">{getErrorMessage(error)}</div>}
-      <Button variant="primary" isLoading={isLoading} isDisabled={otp.length !== 6} onPress={handleSubmit}>{t.verify}</Button>
+      <OtpInput error={getErrorMessage(error)} locale={locale} value={otp} onValueChange={setOtp} isDisabled={isLoading} autoFocus />
+      {error && <div role="alert" className="w-full bg-red-50 text-red-700 border border-red-200 rounded-lg p-3 text-sm animate-[fadeIn_0.2s_ease-out]">{getErrorMessage(error)}</div>}
+      <Button variant="primary" isLoading={isLoading} isDisabled={!/^\d{6}$/.test(otp)} onPress={handleSubmit}>{t.verify}</Button>
       <div className="text-center">
         <p className="text-gray-600 text-sm mb-2">{t.noCodeReceived}</p>
         <button onClick={handleResendCode} disabled={isResending || resendCooldown > 0}
@@ -66,7 +66,7 @@ function VerifyOtpFormContent({
         </button>
       </div>
       <div className="text-center mt-2">
-        <AuthLink href={loginUrl} className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1 justify-center">
+        <AuthLink href={loginUrl ?? authRoute(config.authBasePath, 'login', {}, redirectTo)} className="text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1 justify-center">
           ← {t.backToLogin}
         </AuthLink>
       </div>

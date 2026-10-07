@@ -22,7 +22,7 @@ export function authLoginPlugin(options: AuthLoginPluginOptions | { enabled: fal
   if (!options || typeof options !== 'object' || Array.isArray(options)) throw new Error('auth-login: options must be an object')
   if (options.enabled === false) return Object.freeze(Object.assign(async (config: Config) => config, { publicConfig: null }))
   const publicConfig = resolveAuthConfig(options)
-  const otpOptions = options.otp ? Object.freeze({ ...options.otp, email: options.otp.email ? Object.freeze({ ...options.otp.email }) : undefined }) : undefined
+  const otpOptions = options.otp ? Object.freeze({ ...options.otp, email: options.otp.email ? Object.freeze({ ...options.otp.email, locale: publicConfig.locale ?? 'en', projectName: options.otp.email.projectName ?? publicConfig.projectName, logoUrl: options.otp.email.logoUrl ?? (publicConfig.logoUrl?.startsWith('https://') ? publicConfig.logoUrl : undefined), colors: options.otp.email.colors ? Object.freeze({ ...options.otp.email.colors }) : undefined }) : undefined }) : undefined
   const googleOptions = options.providers.google === false ? undefined : Object.freeze({ ...options.providers.google })
   createAdminPolicy(options.admin)
   const frozenAdmin = options.admin ? { ...options.admin, collections: options.admin.collections.map(resource => ({ ...resource, operations: [...resource.operations] })), globals: options.admin.globals?.map(resource => ({ ...resource, operations: [...resource.operations] })) } : undefined

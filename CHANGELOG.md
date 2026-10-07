@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased — issue05 candidate
+
+- Share forms/workflows across card/page/modal and Tailwind/HeroUI; mount a single responsive form tree.
+- Preserve configured route prefixes and safe local query/hash destinations across signup/recovery/login.
+- Validate scoped HTTP responses, retain stable error codes and eliminate critical `any` form contracts.
+- Add positional accessible OTP editing, recoverable malformed links and single-flight manual/automatic verification.
+- Make locale explicit with EN fallback; dispatch supported UI locale to escaped per-instance email rendering.
+- Harden all RSC email generator exports, validate HTTPS/contact/colors, remove OTP previews and implicit environment helpers.
+- Add sanitized correlated password/infrastructure events, concrete import checks and packed-browser axe acceptance.
+
+Breaking migrations and rollback limits: [plugin contracts](docs/plugin-contracts.md). This is a candidate, not a publication or completed manual accessibility certification.
+
 ## 2.2.1
 
 - Scope auth cards and HeroUI dialogs to the light theme so host dark mode does not mix dark surfaces with light-theme text.

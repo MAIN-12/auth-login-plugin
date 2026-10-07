@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { generatePayloadCookie, headersWithCors, loginOperation, refreshOperation, type Endpoint, type PayloadRequest } from 'payload'
 import type { PublicAuthConfig, OtpOptions } from '../config'
 import { AuthFailure, createPasswordLogin } from '../auth/domain/login'
@@ -39,9 +40,12 @@ export async function readJSON(req: PayloadRequest): Promise<unknown> {
     throw new AuthFailure('INVALID_INPUT', 400)
   } finally { reader.releaseLock() }
 }
-export function authFailureResponse(error: unknown, req: PayloadRequest): Response {
+export function authFailureResponse(error: unknown, req: PayloadRequest, requestId?: string): Response {
   const failure = error instanceof AuthFailure ? error : new AuthFailure('AUTH_FAILED', 401)
-  return Response.json({ success: false, code: failure.code }, { status: failure.status, headers: headersWithCors({ headers: new Headers(), req }) })
+  const correlation = requestId ?? randomUUID()
+  // Logger failures must not turn a safe denial into an uncaught transport failure.
+  try { if (!requestId) req.payload.logger?.info({ event: failure.code === 'AUTH_UNAVAILABLE' || !(error instanceof AuthFailure) ? 'auth.infrastructure.failed' : 'auth.request.rejected', correlation, code: failure.code }) } catch { /* Consumer logger availability does not grant access. */ }
+  return Response.json({ success: false, code: failure.code }, { status: failure.status, headers: headersWithCors({ headers: new Headers({ 'X-Auth-Request-ID': correlation }), req }) })
 }
 export function assertAllowedOrigin(req: PayloadRequest): void {
   const origin = req.headers.get('origin')
@@ -63,7 +67,11 @@ export function createPasswordLoginEndpoint(settings: PublicAuthConfig, path = `
       return Response.json({ success: true, user: result.user, exp: result.exp, capabilities: credentialCapabilities({ passwordAuthenticated: true, verified: result.user._verified }),
         ...(!collection.config.auth.removeTokenFromResponses ? { token: result.token } : {}),
       }, { headers: headersWithCors({ headers: new Headers({ 'Set-Cookie': cookie }), req }) })
-    } catch (error) { return authFailureResponse(error, req) }
+    } catch (error) {
+      const response = authFailureResponse(error, req)
+      try { req.payload.logger?.info({ event: 'auth.login.rejected', correlation: response.headers.get('X-Auth-Request-ID') }) } catch { /* Fail closed even with an unavailable consumer logger. */ }
+      return response
+    }
   } }
 }
 export function createAuthEndpoints(settings: PublicAuthConfig, otpOptions?: OtpOptions, assertPublicAccount?: (req: PayloadRequest) => Promise<void>): Endpoint[] {
@@ -115,7 +123,7 @@ function createOtpEndpoints(settings: PublicAuthConfig, options?: OtpOptions, as
         quotaIdentity: proofQuotaIdentity,
         session: (account, email) => { const binding = decodeProofBinding(account); if (binding.accountID === null) throw new AuthFailure('AUTH_FAILED', 401); return createOtpSession(req, binding.accountID, settings.collection, email, binding.version, { method: 'otp' }, assertOriginalAdminDenied) },
         deliver: async ({ email, code }) => {
-          const mail = otpEmail(code, options.email)
+          const mail = otpEmail(code, requestEmailSettings(req, options))
           await req.payload.sendEmail({ to: email, ...(options.email ? { from: options.email.from } : {}), ...mail })
         },
         event: (event, correlation) => req.payload.logger.info({ event: `auth.otp.${event}`, correlation }),
@@ -131,4 +139,10 @@ function createOtpEndpoints(settings: PublicAuthConfig, options?: OtpOptions, as
       return Response.json({ success: true, user: result.user, exp: result.exp, ...(!collection.config.auth.removeTokenFromResponses ? { token: result.token } : {}) }, { headers: headersWithCors({ headers: new Headers({ 'Set-Cookie': cookie }), req }) })
     } catch (error) { return authFailureResponse(error, req) }
   } }))
+}
+
+/** Browser locale is explicit; unsupported values use the configured per-instance fallback. */
+export function requestEmailSettings(req: PayloadRequest, options: OtpOptions) {
+  const locale = req.headers.get('accept-language')
+  return { ...options.email!, locale: locale === 'es' || locale === 'en' ? locale : options.email!.locale }
 }

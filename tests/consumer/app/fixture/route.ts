@@ -2,7 +2,7 @@
 import { createPayloadRequest, getPayload } from 'payload'
 import { config, capturedLogs, fixture, inbox } from '../auth-config'
 export async function GET(request: Request) {
-  if (process.env.AUTH_CONSUMER_OTP !== '1' && process.env.AUTH_CONSUMER_PASSWORD !== '1' && process.env.AUTH_CONSUMER_OAUTH !== '1') return new Response(null, { status: 404 })
+  if (process.env.AUTH_CONSUMER_OTP !== '1' && process.env.AUTH_CONSUMER_PASSWORD !== '1' && process.env.AUTH_CONSUMER_OAUTH !== '1' && process.env.AUTH_CONSUMER_ISSUE05 !== '1') return new Response(null, { status: 404 })
   const email = new URL(request.url).searchParams.get('email')
   if (email) {
     const payload = await getPayload({ config })
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   return Response.json({ requestOrigin: new URL(request.url).origin, requestHost: request.headers.get('host'), inbox, logs: capturedLogs, now: fixture.now, loginBarrier: fixture.loginBarrier, hooks: fixture.hooks })
 }
 export async function POST(request: Request) {
-  if (process.env.AUTH_CONSUMER_OTP !== '1' && process.env.AUTH_CONSUMER_PASSWORD !== '1' && process.env.AUTH_CONSUMER_OAUTH !== '1') return new Response(null, { status: 404 })
+  if (process.env.AUTH_CONSUMER_OTP !== '1' && process.env.AUTH_CONSUMER_PASSWORD !== '1' && process.env.AUTH_CONSUMER_OAUTH !== '1' && process.env.AUTH_CONSUMER_ISSUE05 !== '1') return new Response(null, { status: 404 })
   const body = await request.json()
   if (typeof body.armLogin === 'string' && process.env.AUTH_CONSUMER_PASSWORD === '1') {
     const payload = await getPayload({ config })

@@ -1,13 +1,15 @@
 'use client'
 
+import { safeAuthRedirect } from '../../auth/domain/redirect'
 import { useAuthConfig } from '../AuthConfigContext'
 import { useAllowSignup } from '../AuthSignupConfig'
 
 import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
 
+import { authErrorMessage } from '../ui/translations'
 import React from 'react'
 import { AuthLoadingBoundary } from '../auth-card/AuthLoadingBoundary'
-import { useAuthSearchParams, AuthLink } from '../../auth/application/AuthFlowContext'
+import { useAuthSearchParams, AuthLink, authRoute } from '../../auth/application/AuthFlowContext'
 import { Button, Input, Divider } from '../ui/index'
 import { useLoginFlow } from '../../auth/application/hooks/useLoginFlow'
 import type { AuthLocalizationProps } from '../auth-presentation/types'
@@ -34,24 +36,20 @@ function LoginFormContent({
   const allowSignup = useAllowSignup()
   const searchParams = useAuthSearchParams()
   const resolvedRedirect = searchParams.get('redirect') || redirectTo
+  const signupDestination = new URL(safeAuthRedirect(signupUrl, `${config.authBasePath}/signup`), 'https://auth.invalid')
+  if (safeAuthRedirect(resolvedRedirect) !== '/') signupDestination.searchParams.set('redirect', safeAuthRedirect(resolvedRedirect))
+  const signupHref = signupDestination.pathname + signupDestination.search + signupDestination.hash
   const translations = useAuthTranslations(locale, messages)
   const t = translations.login
-  const errors = translations.errors
 
   // Helper to translate error keys
-  const getErrorMessage = (err: string | null): string | null => {
-    if (!err) return null
-    // Check if it's a known error key
-    if (err in errors) return errors[err as keyof typeof errors]
-    // Return as-is if it's already a message
-    return err
-  }
+  const getErrorMessage = (error: string | null) => authErrorMessage(error, translations)
 
   const {
     step, email, password, error, isLoading, isSendingOtp,
     setEmail, setPassword,
     handleEmailSubmit, handlePasswordSubmit, handleSendOtp, handleEditEmail, handleGoogleLogin,
-  } = useLoginFlow({ redirectTo: resolvedRedirect, onPasswordLogin })
+  } = useLoginFlow({ redirectTo: resolvedRedirect, onPasswordLogin, locale })
 
   // Notify parent of step changes for dynamic title/subtitle
   React.useEffect(() => {
@@ -79,14 +77,14 @@ function LoginFormContent({
             </>
           )}
           {(config.passwordLogin || config.otpLogin) && <form onSubmit={handleEmailSubmit} className="space-y-4">
-            {error && <div className="bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm">{getErrorMessage(error)}</div>}
-            <Input type="email" label={t.emailLabel} value={email} onValueChange={setEmail} isRequired variant="secondary" />
+            {error && <div role="alert" className="bg-red-50 text-red-700 border border-red-200 rounded-lg p-3 text-sm">{getErrorMessage(error)}</div>}
+            <Input type="email" error={getErrorMessage(error)} label={t.emailLabel} value={email} onValueChange={setEmail} isRequired variant="secondary" />
             <Button type="submit" variant="primary" isLoading={isLoading}>{t.continue}</Button>
           </form>}
           {allowSignup && config.passwordLogin && signupUrl && (
             <p className="text-center text-gray-600 text-sm mt-6">
               {t.noAccount}{' '}
-              <AuthLink href={signupUrl} className="text-gray-900 font-medium hover:underline">{t.signUpLink}</AuthLink>
+              <AuthLink href={signupHref} className="text-gray-900 font-medium hover:underline">{t.signUpLink}</AuthLink>
             </p>
           )}
         </div>
@@ -100,10 +98,10 @@ function LoginFormContent({
             <button type="button" onClick={handleEditEmail} className="text-gray-600 text-sm font-medium hover:text-gray-900">{t.edit}</button>
           </div>
           <form onSubmit={handlePasswordSubmit} className="space-y-4">
-            {error && <div className="bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm">{getErrorMessage(error)}</div>}
-            <Input type="password" label={t.passwordLabel} value={password} onValueChange={setPassword} isRequired autoFocus variant="secondary" />
+            {error && <div role="alert" className="bg-red-50 text-red-700 border border-red-200 rounded-lg p-3 text-sm">{getErrorMessage(error)}</div>}
+            <Input type="password" error={getErrorMessage(error)} label={t.passwordLabel} value={password} onValueChange={setPassword} isRequired autoFocus variant="secondary" />
             {config.recovery && <div className="text-left">
-              <AuthLink href="/forgot-password" className="text-sm text-gray-700 hover:text-gray-900 hover:underline">{t.forgotPassword}</AuthLink>
+              <AuthLink href={authRoute(config.authBasePath, 'forgot-password', {}, resolvedRedirect)} className="text-sm text-gray-700 hover:text-gray-900 hover:underline">{t.forgotPassword}</AuthLink>
             </div>}
             <Button type="submit" variant="primary" isLoading={isLoading}>{t.continue}</Button>
           </form>
@@ -118,7 +116,7 @@ function LoginFormContent({
             <span className="text-gray-900 text-sm">{email}</span>
             <button type="button" onClick={handleEditEmail} className="text-gray-600 text-sm font-medium hover:text-gray-900">{t.edit}</button>
           </div>
-          {error && <div className="bg-red-50 text-red-600 border border-red-200 rounded-lg p-3 text-sm mb-4">{getErrorMessage(error)}</div>}
+          {error && <div role="alert" className="bg-red-50 text-red-700 border border-red-200 rounded-lg p-3 text-sm mb-4">{getErrorMessage(error)}</div>}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
             <div className="flex gap-3">
               <span className="text-blue-500 text-lg">✉</span>

@@ -1,5 +1,6 @@
 'use client'
 
+import { safeAuthRedirect } from '../domain/redirect'
 import React, { createContext, useCallback, useContext, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
@@ -19,8 +20,8 @@ export function useAuthNavigation() {
     else router.push(url)
   }, [flow, router])
   const complete = useCallback(async (redirectTo: string) => {
-    if (flow) await flow.complete(redirectTo)
-    else window.location.href = redirectTo
+    if (flow) await flow.complete(safeAuthRedirect(redirectTo))
+    else window.location.href = safeAuthRedirect(redirectTo)
   }, [flow])
   return useMemo(() => ({ push, complete }), [push, complete])
 }
@@ -39,4 +40,12 @@ export function AuthLink({ onClick, ...props }: React.AnchorHTMLAttributes<HTMLA
     event.preventDefault()
     flow.push(props.href)
   }} />
+}
+
+/** Routes are derived once from the configured mount; destination stays opaque and local-safe. */
+export function authRoute(base: string, slug: string, params: Record<string, string | number | undefined> = {}, destination?: string): string {
+  const query = new URLSearchParams()
+  for (const [key, value] of Object.entries(params)) if (value !== undefined) query.set(key, String(value))
+  if (destination !== undefined && safeAuthRedirect(destination) !== '/') query.set('redirect', safeAuthRedirect(destination))
+  return `${base.replace(/\/$/, '')}/${slug}${query.size ? `?${query}` : ''}`
 }

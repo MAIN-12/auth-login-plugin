@@ -14,12 +14,11 @@ export interface FormPropsContext {
   setDynamicSubtitle: (subtitle: string | undefined) => void
 }
 
-export interface FormConfig {
-  translationKey: keyof UiTranslations
-  getProps: (ctx: FormPropsContext) => Record<string, any>
-}
-
-export const FORM_CONFIGS: Record<AuthFormSlug, FormConfig> = {
+import type { LoginFormProps, SignupFormProps, ForgotPasswordFormProps, VerifyOtpFormProps, SetPasswordFormProps } from '../forms'
+type FormProps = { login: LoginFormProps; signup: SignupFormProps; 'forgot-password': ForgotPasswordFormProps; 'verify-otp': VerifyOtpFormProps; 'set-password': SetPasswordFormProps }
+export type FormConfig = { translationKey: keyof UiTranslations; getProps: (ctx: FormPropsContext) => FormProps[AuthFormSlug] }
+type FormConfigs = { [K in AuthFormSlug]: { translationKey: keyof UiTranslations; getProps: (ctx: FormPropsContext) => FormProps[K] } }
+export const FORM_CONFIGS: FormConfigs = {
   'login': {
     translationKey: 'login',
     getProps: (ctx) => ({

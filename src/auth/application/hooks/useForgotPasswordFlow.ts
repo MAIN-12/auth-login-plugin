@@ -1,14 +1,14 @@
 'use client'
 
 import { useState, useCallback } from 'react'
-import { useAuthSearchParams, useAuthNavigation } from '../AuthFlowContext'
+import { useAuthSearchParams, useAuthNavigation, authRoute } from '../AuthFlowContext'
 import { createAuthService } from '../services/authService'
 import { useAuthConfig } from '../../../components/AuthConfigContext'
 
 /**
  * Forgot password flow: enter email → check exists → send OTP → redirect to verify-otp.
  */
-export function useForgotPasswordFlow() {
+export function useForgotPasswordFlow(locale?: string) {
   const router = useAuthNavigation()
   const config = useAuthConfig()
   const params = useAuthSearchParams()
@@ -25,11 +25,9 @@ export function useForgotPasswordFlow() {
       setError(null)
 
       try {
-        const data = await createAuthService(config).sendOwnership(email, 'recovery')
+        const data = await createAuthService(config, locale).sendOwnership(email, 'recovery')
         if (data.success) {
-          router.push(
-            `${config.authBasePath}/verify-otp?email=${encodeURIComponent(email.trim())}&purpose=password-reset&context=${encodeURIComponent(data.context ?? '')}&retryAfter=${data.retryAfter ?? 0}`,
-          )
+          router.push(authRoute(config.authBasePath, 'verify-otp', { email: email.trim(), purpose: 'password-reset', context: data.context, retryAfter: data.retryAfter }, params.get('redirect') ?? '/'))
         } else {
           setError(data.message || 'error')
         }
@@ -39,7 +37,7 @@ export function useForgotPasswordFlow() {
         setIsLoading(false)
       }
     },
-    [email, router, config],
+    [email, router, config, params, locale],
   )
 
   return { email, error, isLoading, setEmail, handleSubmit }

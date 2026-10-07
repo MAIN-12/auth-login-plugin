@@ -18,9 +18,9 @@ export const AUTH_FORMS = {
   'forgot-password': ForgotPasswordForm,
   'verify-otp': VerifyOtpForm,
   'set-password': SetPasswordForm,
-} as const satisfies Record<AuthFormSlug, React.ComponentType<any>>
+} as const
 
-export function getFormBySlug(slug: string | string[] | undefined): React.ComponentType<any> {
+export function getFormBySlug(slug: string | string[] | undefined) {
   const normalizedSlug = Array.isArray(slug) ? slug[0] : slug
-  return AUTH_FORMS[normalizedSlug as AuthFormSlug] ?? LoginForm
+  return normalizedSlug && Object.hasOwn(AUTH_FORMS, normalizedSlug) ? AUTH_FORMS[normalizedSlug as AuthFormSlug] : LoginForm
 }

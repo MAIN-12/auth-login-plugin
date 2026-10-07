@@ -3,7 +3,7 @@ import type { AuthStyle } from '../../config'
 import type { DeepPartial, UiTranslations } from '../ui/translations'
 
 export interface AuthLocalizationProps {
-  /** Shared UI language. Falls back to request/browser detection. */
+  /** Shared UI language. Falls back to the explicit per-instance locale, then English. */
   locale?: string
   /** Partial dictionaries; more specific values override individual keys. */
   messages?: Record<string, DeepPartial<UiTranslations>>
