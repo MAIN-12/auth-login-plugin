@@ -26,7 +26,6 @@ export default async function SplitLoginDemo() {
             removeBorder
             redirectTo="/admin"
             basePath="/auth"
-
           />
         </div>
       </div>
