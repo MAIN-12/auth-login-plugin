@@ -50,7 +50,7 @@
     "typecheck": "tsc --noEmit && pnpm typecheck:scripts",
     "typecheck:scripts": "tsc --project scripts/tsconfig.json",
     "test:unit": "vitest run",
-    "test:consumer": "tsx scripts/test-consumer.ts",
+    "test:consumer": "tsx scripts/test-package-consumer.ts",
     "test:otp:acceptance": "AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_BUNDLER=webpack tsx scripts/test-consumer.ts",
     "test:password:acceptance": "pnpm test:password:sqlite && pnpm test:password:postgres",
     "test:password:sqlite": "AUTH_CONSUMER_PASSWORD=1 AUTH_CONSUMER_DB=sqlite AUTH_CONSUMER_BUNDLER=webpack tsx scripts/test-consumer.ts",
@@ -63,7 +63,8 @@
     "prepare": "lefthook install",
     "hooks:install": "lefthook install",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:consumer:integration": "tsx scripts/test-consumer.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",

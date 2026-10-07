@@ -265,12 +265,18 @@ pnpm exec playwright install chromium
 pnpm test:otp:acceptance          # packed PostgreSQL/two-process/browser OTP acceptance
 pnpm test:oauth:sqlite            # packed controlled-OIDC Chromium + native API acceptance
 pnpm test:oauth:postgres          # same behavior against PostgreSQL/two processes
-pnpm test:consumer                # packs, installs a fresh Next consumer, real browser + SQLite
+pnpm test:consumer                # external package install, exports and types; no app/browser
+pnpm test:consumer:integration    # minimal Next/Payload host, real login/logout + SQLite
 AUTH_CONSUMER_DB=sqlite pnpm test:migration:acceptance
 AUTH_CONSUMER_DB=postgres pnpm test:migration:acceptance
 ```
 
-The consumer harness cleans its own temporary directory. It is not a mock auth server. See the candidate traceability for exact runtime/adapter outcomes. Human screen-reader/real-device checks and remote CI execution remain separate pending gates; unit mocks are not evidence for those claims. TypeScript lint uses an explicitly TS6-compatible parser instead of an unrelated vendor repository's formatting config. Existing non-critical `any`/dormant UI warnings are reported, not hidden.
+`test:consumer` generates a temporary package manifest and TypeScript imports check;
+it does not maintain another app fixture. `test:consumer:integration` and the specialized
+acceptance commands share the single Next/Payload fixture in `tests/consumer`, with
+scenario-specific behavior selected by environment flags, not overlays. Both runners
+clean their temporary directories. The integration
+host is not a mock auth server. See the candidate traceability for exact runtime/adapter outcomes. Human screen-reader/real-device checks and remote CI execution remain separate pending gates; unit mocks are not evidence for those claims. TypeScript lint uses an explicitly TS6-compatible parser instead of an unrelated vendor repository's formatting config. Existing non-critical `any`/dormant UI warnings are reported, not hidden.
 
 **Concurrent SQLite host requirement:** configure `sqliteAdapter({ wal: true, busyTimeout: 1000, ... })` on every instance. The demonstrated two-process setup uses WAL plus a 1,000 ms native read busy timeout; default DELETE journal/zero timeout can fail native authentication/logout during overlapping OTP writes. The plugin does not silently change the host journal mode or retry authentication hooks. Local file/WAL requires a filesystem that supports SQLite shared-memory/locking; multi-host network filesystems are not established support.
 
@@ -281,4 +287,4 @@ development dependency. Use the package commands (for example,
 `pnpm build:fix-esm-imports` and `pnpm test:consumer`) or
 `pnpm exec tsx scripts/<name>.ts`. `pnpm typecheck` also checks these scripts
 with their strict, no-emit configuration; they are not emitted into `dist/`.
-The existing browser acceptance helpers remain JavaScript.
+The browser acceptance helpers in `tests/*-browser.ts` use the same TypeScript tooling.

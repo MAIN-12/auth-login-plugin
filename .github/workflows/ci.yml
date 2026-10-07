@@ -45,14 +45,14 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test:unit
-      - run: pnpm build
-      - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:consumer
-      - run: AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_BUNDLER=webpack pnpm test:consumer
-      - run: AUTH_CONSUMER_PASSWORD=1 AUTH_CONSUMER_BUNDLER=webpack pnpm test:consumer
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:consumer:integration
+      - run: AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_BUNDLER=webpack pnpm test:consumer:integration
+      - run: AUTH_CONSUMER_PASSWORD=1 AUTH_CONSUMER_BUNDLER=webpack pnpm test:consumer:integration
         env:
           AUTH_CONSUMER_OTP: ${{ matrix.database == 'postgres' && '1' || '0' }}
-      - run: AUTH_CONSUMER_OAUTH=1 AUTH_CONSUMER_BUNDLER=webpack pnpm test:consumer
+      - run: AUTH_CONSUMER_OAUTH=1 AUTH_CONSUMER_BUNDLER=webpack pnpm test:consumer:integration
         env:
           AUTH_CONSUMER_OTP: ${{ matrix.database == 'postgres' && '1' || '0' }}
       - run: pnpm test:integration:acceptance

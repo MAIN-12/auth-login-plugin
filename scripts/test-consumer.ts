@@ -1,16 +1,6 @@
 import { createHash } from 'node:crypto'
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process'
-import {
-  cp,
-  mkdtemp,
-  readFile,
-  readdir,
-  rm,
-  writeFile,
-  mkdir,
-  access,
-  symlink,
-} from 'node:fs/promises'
+import { cp, mkdtemp, readFile, rm, writeFile, symlink } from 'node:fs/promises'
 import { createServer, type AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -24,6 +14,12 @@ import { verifyOauthAcceptance } from '../tests/oauth-browser.ts'
 import { createClient } from '@libsql/client'
 import { verifyMigrationAcceptance } from '../tests/migration-browser.ts'
 import { controlledOidcProvider } from './oauth-provider.ts'
+import {
+  buildConsumerPackage,
+  digestDirectory,
+  installConsumerPackage,
+  verifyNativePackage,
+} from './consumer-package.ts'
 const migration = process.env.AUTH_CONSUMER_ISSUE06 === '1'
 const integration = process.env.AUTH_CONSUMER_ISSUE05 === '1'
 const password = process.env.AUTH_CONSUMER_PASSWORD === '1'
@@ -54,9 +50,10 @@ async function digestHarness() {
     'package.json',
     'pnpm-lock.yaml',
     'scripts/test-consumer.ts',
+    'scripts/consumer-package.ts',
+    'tests/browser-support.ts',
     'scripts/otp-postgres.ts',
     'scripts/oauth-provider.ts',
-    'tests/browser-support.ts',
     'tests/migration-browser.ts',
     'tests/integration-browser.ts',
     'tests/otp-browser.ts',
@@ -66,80 +63,26 @@ async function digestHarness() {
     hash.update(file).update(await readFile(join(root, file)))
   return hash.digest('hex')
 }
-async function digestDirectory(directory: string) {
-  const hash = createHash('sha256')
-  async function visit(path: string, relative = '') {
-    for (const entry of (await readdir(path, { withFileTypes: true })).sort((a, b) =>
-      a.name.localeCompare(b.name),
-    )) {
-      const name = `${relative}/${entry.name}`
-      if (entry.isDirectory()) await visit(join(path, entry.name), name)
-      else if (entry.isFile()) hash.update(name).update(await readFile(join(path, entry.name)))
-    }
-  }
-  await visit(directory)
-  return hash.digest('hex')
-}
+
 try {
   if (oauth || integration || migration) provider = await controlledOidcProvider()
   if (shared && process.env.AUTH_CONSUMER_DB !== 'sqlite') postgres = await temporaryPostgres()
-  await mkdir(join(root, 'dist'), { recursive: true })
-  await writeFile(join(root, 'dist', '__stale-consumer-test.js'), 'obsolete')
   const harnessHash = await digestHarness()
-  const sourceHash = await digestDirectory(join(root, 'src'))
-  execFileSync('pnpm', ['build'], { cwd: root, stdio: 'inherit' })
-  await assert.rejects(access(join(root, 'dist', '__stale-consumer-test.js')))
-  execFileSync('pnpm', ['pack', '--pack-destination', packageDir], { cwd: root, stdio: 'inherit' })
-  const tarballName = (await readdir(packageDir)).find((file) => file.endsWith('.tgz'))
-  assert.ok(tarballName, 'pnpm pack must produce a tarball')
-  const tarball = join(packageDir, tarballName)
-  const packedEntries = execFileSync('tar', ['-tzf', tarball], { encoding: 'utf8' }).split('\n')
-  assert.ok(
-    !packedEntries.some(
-      (entry) =>
-        entry.includes('__stale-consumer-test') || /^package\/(src|tests|dev)\//.test(entry),
-    ),
-    'tarball must exclude stale/source/test/development files',
-  )
-  const normativeDocs = ['package/docs/migration.md', 'package/docs/plugin-contracts.md']
-  for (const doc of normativeDocs)
-    assert.ok(packedEntries.includes(doc), `${doc} must ship with the package`)
-  assert.ok(
-    !packedEntries.some(
-      (entry) =>
-        entry.startsWith('package/docs/') && !entry.endsWith('/') && !normativeDocs.includes(entry),
-    ),
-    'tarball must exclude unrelated copied guides',
-  )
-  const packedManifest = JSON.parse(
-    execFileSync('tar', ['-xOf', tarball, 'package/package.json'], { encoding: 'utf8' }),
-  )
-  for (const [subpath, contract] of Object.entries(
-    packedManifest.exports as Record<string, Record<string, string>>,
-  )) {
-    for (const condition of ['import', 'types'])
-      assert.ok(
-        packedEntries.includes(`package/${contract[condition].replace(/^\.\//, '')}`),
-        `${subpath} ${condition} target must exist in packed package`,
-      )
-  }
-  assert.equal(
-    await digestDirectory(join(root, 'src')),
-    sourceHash,
-    'production source changed during build/pack; rerun at a frozen checkpoint',
-  )
+  const { tarball, sourceHash, packedSha256 } = await buildConsumerPackage(root, packageDir)
   const fixtureHash = await digestDirectory(join(root, 'tests/consumer'))
   await cp(join(root, 'tests/consumer'), app, { recursive: true })
   {
-    assert.equal(await digestDirectory(app), fixtureHash, 'fixture source changed while copying')
+    assert.equal(
+      await digestDirectory(join(root, 'tests/consumer')),
+      fixtureHash,
+      'fixture source changed while copying',
+    )
     console.log(
       JSON.stringify({
         sourceHash,
         fixtureHash,
         harnessHash,
-        packedSha256: createHash('sha256')
-          .update(await readFile(tarball))
-          .digest('hex'),
+        packedSha256,
         node: process.version,
         payload: '3.90.2',
         next: '16.3.6',
@@ -147,21 +90,8 @@ try {
       }),
     )
   }
-  const manifest = JSON.parse(await readFile(join(app, 'package.json'), 'utf8'))
-  manifest.dependencies['@main12/auth-login'] = `file:${tarball}`
-  await writeFile(join(app, 'package.json'), JSON.stringify(manifest, null, 2))
-  execFileSync('pnpm', ['install', '--ignore-scripts'], { cwd: app, stdio: 'inherit' })
-  // A bundler can hide broken native ESM exports (notably JSON import attributes).
-  // Probe the installed tarball before starting Next, under this matrix's Node runtime.
-  execFileSync(
-    process.execPath,
-    [
-      '--input-type=module',
-      '-e',
-      "import assert from 'node:assert/strict'; const pkg = await import('@main12/auth-login'); assert.equal(typeof pkg.authLoginPlugin, 'function'); assert.equal(typeof pkg.migrateAuthLogin, 'function'); console.log('Packed native ESM root and migration exports GREEN')",
-    ],
-    { cwd: app, stdio: 'inherit' },
-  )
+  const manifest = await installConsumerPackage(app, tarball)
+  verifyNativePackage(app)
   // Dist directories alone do not isolate Next's generated next-env.d.ts/tsconfig writes.
   // Each real process owns its app root; only immutable installed dependencies and storage are shared.
   if (shared && !integration) {
@@ -520,9 +450,7 @@ try {
             sourceHash,
             fixtureHash,
             harnessHash,
-            packedSha256: createHash('sha256')
-              .update(await readFile(tarball))
-              .digest('hex'),
+            packedSha256,
             node: process.version,
             declarations: 'passed',
             snapshot: 'unchanged',
