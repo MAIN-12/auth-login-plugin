@@ -1,9 +1,18 @@
 import assert from 'node:assert/strict'
-import AxeBuilder from '@axe-core/playwright'
+import type { BrowserContext, Page } from '@playwright/test'
+import {
+  requiredHeader,
+  messageCode,
+  type BrowserAcceptanceOptions,
+  type FixtureMessage,
+  type FixtureSnapshot,
+  type OidcProvider,
+} from './browser-support.ts'
+import { AxeBuilder } from '@axe-core/playwright'
 
 // Playwright's visible check includes opacity:0 SSR controls. Observe the actual
 // public card transition before interacting; do not sleep or alter auth outcomes.
-export async function waitForPublicPresentation(page, name) {
+export async function waitForPublicPresentation(page: Page, name: string) {
   // Explicit fixture hydration observation; not a promise that arbitrary lazy
   // descendant controls are ready, nor evidence of no-JavaScript support.
   if (await page.locator('[data-consumer-hydrated]').count()) {
@@ -35,20 +44,28 @@ export async function verifyIntegrationAcceptance({
   database,
   onPage,
   diagnostic = false,
-}) {
+}: Omit<BrowserAcceptanceOptions, 'origin2'> & { provider: OidcProvider; diagnostic?: boolean }) {
   const matrix = []
   const checks = []
-  const a11y = []
+  const a11y: {
+    name: string
+    violations: {
+      id: string
+      impact?: string | null
+      nodes: { target: (string | string[])[]; summary?: string | null }[]
+    }[]
+  }[] = []
   const originalPassword = 'actual-browser-test-password'
   const newPassword = 'consumer owns a distinctive long phrase'
-  const post = (path, body) =>
+  const post = (path: string, body: unknown) =>
     fetch(`${origin}/backend/access${path}`, {
       method: 'POST',
       headers: { origin, 'content-type': 'application/json' },
       body: JSON.stringify(body),
     })
-  const snapshot = async () => await (await fetch(`${origin}/fixture`)).json()
-  const control = async (body) =>
+  const snapshot = async (): Promise<FixtureSnapshot> =>
+    await (await fetch(`${origin}/fixture`)).json()
+  const control = async (body: unknown) =>
     assert.equal(
       (
         await fetch(`${origin}/fixture`, {
@@ -67,10 +84,10 @@ export async function verifyIntegrationAcceptance({
     now += 3600001
     await control({ now })
   }
-  const mail = async (email) =>
-    (await snapshot()).inbox.filter((message) => message.to === email).at(-1)
-  const code = (message) => String(message.html).match(/\b(\d{6})\b/)[1]
-  const translations = (locale) =>
+  const mail = async (email: string) =>
+    (await snapshot()).inbox.filter((message: FixtureMessage) => message.to === email).at(-1)
+  const code = messageCode
+  const translations = (locale: string) =>
     locale === 'es'
       ? {
           email: /^Correo/,
@@ -96,7 +113,7 @@ export async function verifyIntegrationAcceptance({
           invalid: 'Invalid email or password.',
           google: 'Continue with Google',
         }
-  const scan = async (page, name) => {
+  const scan = async (page: Page, name: string) => {
     await page.waitForTimeout(400) // measure the settled presentation, not transient reveal opacity
     const result = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
@@ -109,13 +126,13 @@ export async function verifyIntegrationAcceptance({
         nodes: item.nodes.map((node) => ({ target: node.target, summary: node.failureSummary })),
       })),
     })
-    assert.deepEqual(a11y.at(-1).violations, [], `axe ${name}`)
+    assert.deepEqual(a11y.at(-1)!.violations, [], `axe ${name}`)
   }
   const open = async (
-    surface,
-    style,
-    locale,
-    viewport,
+    surface: string,
+    style: string,
+    locale: string,
+    viewport: { width: number; height: number },
     form = 'login',
     redirect = '/landing?source=consumer#complete',
   ) => {
@@ -128,8 +145,8 @@ export async function verifyIntegrationAcceptance({
     onPage?.(page)
     page.setDefaultTimeout(20000)
     page.on('pageerror', (error) => console.log(`Issue05 browser pageerror: ${error.message}`))
-    const requests = []
-    const payloads = []
+    const requests: string[] = []
+    const payloads: { url: string; status: number; body: Record<string, unknown> }[] = []
     // Buffer an unchanged real HTTP response before a full-document navigation can
     // evict Chromium's response body. Forward request once; preserve all response
     // bytes/headers/status (including real Set-Cookie), never fabricate outcomes.
@@ -150,13 +167,13 @@ export async function verifyIntegrationAcceptance({
     await page.getByLabel(translations(locale).email).filter({ visible: true }).waitFor()
     return { context, page, requests, payloads, base, t: translations(locale) }
   }
-  const assertCookie = async (context) => {
+  const assertCookie = async (context: BrowserContext) => {
     const cookie = (await context.cookies()).find((item) => item.name === 'consumer-token')
     assert.ok(cookie?.httpOnly)
     assert.equal(cookie.sameSite, 'Lax')
     return cookie
   }
-  const assertPublic = async (page) => {
+  const assertPublic = async (page: Page) => {
     const secrets = [
       'consumer-only-private-secret-not-production',
       'consumer-only-otp-secret-not-production',
@@ -166,13 +183,15 @@ export async function verifyIntegrationAcceptance({
       await page.content(),
       ...(await Promise.all(
         (
-          await page.locator('script[src]').evaluateAll((nodes) => nodes.map((node) => node.src))
+          await page
+            .locator('script[src]')
+            .evaluateAll((nodes) => nodes.map((node) => (node as HTMLScriptElement).src))
         ).map(async (url) => await (await fetch(url)).text()),
       )),
     ])
       for (const secret of secrets) assert.ok(!text.includes(secret), `public leak ${secret}`)
   }
-  const enterCode = async (page, digits) => {
+  const enterCode = async (page: Page, digits: string) => {
     const inputs = page.locator('input[autocomplete="one-time-code"]')
     await inputs.first().waitFor()
     assert.equal(await inputs.count(), 6, 'both adapters expose six positional inputs')
@@ -275,7 +294,7 @@ export async function verifyIntegrationAcceptance({
             await page.locator('input[type="password"]').press('Enter')
             const success = await response
             assert.equal(success.status(), 200)
-            assert.equal('token' in payloads.at(-1).body, false)
+            assert.equal('token' in payloads.at(-1)!.body, false)
             await page.waitForURL(`${origin}/landing?source=consumer#complete`)
             await page.getByTestId('email').filter({ hasText: 'browser@example.com' }).waitFor()
             await assertCookie(context)
@@ -339,7 +358,7 @@ export async function verifyIntegrationAcceptance({
     await inputs.nth(4).fill('')
     assert.equal(await inputs.nth(1).inputValue(), '2')
     assert.equal(await inputs.nth(4).inputValue(), '')
-    const message = await mail(email)
+    const message = (await mail(email))!
     const digits = code(message)
     assert.ok(String(message.html).includes('Consumer &lt;Brand&gt;'))
     assert.ok(!String(message.html).includes('undefined'))
@@ -357,8 +376,8 @@ export async function verifyIntegrationAcceptance({
     if (preheader) assert.ok(!preheader.includes(digits), 'OTP not in preheader')
     // Hold the real verify request to overlap automatic completion with a manual keyboard submit.
     let verificationCount = 0
-    let release
-    const gate = new Promise((resolve) => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
       release = resolve
     })
     await page.route('**/backend/access/otp/verify', async (route) => {
@@ -390,7 +409,7 @@ export async function verifyIntegrationAcceptance({
     )
     const login = await post('/login', { email, password: newPassword })
     assert.equal(login.status, 200)
-    const previousCookie = login.headers.get('set-cookie').split(';')[0]
+    const previousCookie = requiredHeader(login, 'set-cookie').split(';')[0]
     // Restart recovery at the custom route; no account status lookup or previous cookie required.
     await page.goto(
       `${origin}${base}/${surface === 'modal' ? 'login' : 'forgot-password'}?redirect=${encodeURIComponent('/landing?source=recovery#complete')}`,
@@ -486,7 +505,7 @@ export async function verifyIntegrationAcceptance({
     await enterCode(page, digits)
     const response = await accepted
     assert.equal(response.status(), 200)
-    assert.equal('token' in payloads.at(-1).body, false)
+    assert.equal('token' in payloads.at(-1)!.body, false)
     await page.waitForURL(`${origin}/landing?source=consumer#complete`)
     await assertCookie(context)
     await context.close()
@@ -508,7 +527,7 @@ export async function verifyIntegrationAcceptance({
     otp: code(await mail('browser@example.com')),
   })
   assert.equal(adminOtp.status, 401)
-  assert.equal(adminOtp.headers.get('set-cookie'), null)
+  assert.equal(requiredHeader(adminOtp, 'set-cookie'), null)
   assert.deepEqual(await adminOtp.json(), { success: false, code: 'AUTH_FAILED' })
   checks.push(
     'real correct-code OTP denied for original Admin-eligible fixture account; ordinary verified account OTP succeeds',
@@ -520,9 +539,12 @@ export async function verifyIntegrationAcceptance({
     { redirect: 'manual' },
   )
   assert.equal(proxyResponse.status, 307)
-  assert.equal(new URL(proxyResponse.headers.get('location'), origin).pathname, '/members/login')
   assert.equal(
-    new URL(proxyResponse.headers.get('location'), origin).searchParams.get('redirect'),
+    new URL(requiredHeader(proxyResponse, 'location'), origin).pathname,
+    '/members/login',
+  )
+  assert.equal(
+    new URL(requiredHeader(proxyResponse, 'location'), origin).searchParams.get('redirect'),
     '/landing?proxy=1#complete',
   )
   const existingFailure = await post('/login', {
@@ -534,7 +556,7 @@ export async function verifyIntegrationAcceptance({
     password: 'incorrect-owner-password',
   })
   assert.equal(existingFailure.status, unknownFailure.status)
-  assert.match(existingFailure.headers.get('X-Auth-Request-ID'), /^[a-f0-9-]{36}$/)
+  assert.match(requiredHeader(existingFailure, 'X-Auth-Request-ID'), /^[a-f0-9-]{36}$/)
   assert.deepEqual(await existingFailure.json(), await unknownFailure.json())
   for (const unsafe of [
     '//attacker.invalid',
@@ -578,7 +600,7 @@ export async function verifyIntegrationAcceptance({
         const incompleteAlert = page.locator('main[data-consumer-hydrated]').getByRole('alert')
         await incompleteAlert.waitFor()
         assert.ok(
-          (await incompleteAlert.textContent()).includes(
+          (await incompleteAlert.textContent())!.includes(
             locale === 'es'
               ? 'Este enlace de verificación está incompleto.'
               : 'This verification link is incomplete.',
@@ -586,7 +608,7 @@ export async function verifyIntegrationAcceptance({
         )
         const next = page.getByRole('link', { name: /login|sesión/i })
         assert.ok(await next.count())
-        assert.match(await next.first().getAttribute('href'), /^\/members\/card\//)
+        assert.match((await next.first().getAttribute('href'))!, /^\/members\/card\//)
         await scan(page, `${style}/${locale}/incomplete-otp`)
         await context.close()
       }
@@ -620,7 +642,7 @@ export async function verifyIntegrationAcceptance({
     await waitForPublicPresentation(page, `${style}/individual/login`)
     const signup = page.getByRole('link', { name: /Sign up/i })
     await signup.waitFor()
-    const target = new URL(await signup.getAttribute('href'), origin)
+    const target = new URL((await signup.getAttribute('href'))!, origin)
     assert.equal(target.pathname, '/members/signup')
     assert.equal(target.searchParams.get('redirect'), '/landing?source=individual#complete')
     await signup.click()
@@ -642,7 +664,7 @@ export async function verifyIntegrationAcceptance({
     password: originalPassword,
   })
   assert.equal(previous.status, 200)
-  const previousCookie = previous.headers.get('set-cookie').split(';')[0]
+  const previousCookie = requiredHeader(previous, 'set-cookie').split(';')[0]
   await reauthContext.addCookies([
     {
       name: 'consumer-token',
@@ -697,7 +719,7 @@ export async function verifyIntegrationAcceptance({
   for (const digits of (await snapshot()).inbox.map(code))
     assert.ok(!new RegExp(`\\b${digits}\\b`).test(logs), 'logger excludes standalone OTP')
   assert.ok(
-    logs.includes(existingFailure.headers.get('X-Auth-Request-ID')),
+    logs.includes(requiredHeader(existingFailure, 'X-Auth-Request-ID')),
     'failure header links captured sanitized logger correlation',
   )
   assert.ok(

@@ -1,4 +1,12 @@
 import assert from 'node:assert/strict'
+import {
+  requiredHeader,
+  messageCode,
+  type BrowserAcceptanceOptions,
+  type FixtureMessage,
+  type FixtureSnapshot,
+  type OidcProvider,
+} from './browser-support.ts'
 import { request as httpRequest } from 'node:http'
 
 // Public packed exports/HTTP and Chromium; fixture endpoints only provision/control the disposable host.
@@ -10,55 +18,66 @@ export async function verifyMigrationAcceptance({
   maintenance,
   provider,
   onPage,
+}: BrowserAcceptanceOptions & {
+  provider: OidcProvider
+  maintenance: (action: 'cutoff' | 'rollback') => Promise<{
+    success: boolean
+    collection: string
+    legacyCodesDeleted: number
+    generation: string
+  }>
 }) {
-  const verified = []
-  const mark = (label) => {
+  const verified: string[] = []
+  const mark = (label: string) => {
     verified.push(label)
     console.log(`Migration ${database}: ${label}`)
   }
   const bases = [origin, origin2]
-  const post = (base, path, body, cookie) =>
+  const post = (base: string, path: string, body: unknown, cookie?: string) =>
     fetch(`${base}/backend/access/${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: base, ...(cookie ? { cookie } : {}) },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(60000),
     })
-  const success = async (response) => {
+  const success = async (response: Response) => {
     assert.equal(response.status, 200, await response.clone().text())
     return response.json()
   }
-  const limited = (response) =>
+  const limited = (response: Response) =>
     assert.equal(
-      response.headers.get('set-cookie'),
+      requiredHeader(response, 'set-cookie'),
       null,
       'ownership proof must not create an application session',
     )
-  const rejected = async (response) => {
+  const rejected = async (response: Response) => {
     assert.ok(response.status >= 400 && response.status < 500, await response.clone().text())
     limited(response)
   }
-  const messages = async (email) =>
+  const messages = async (email: string) =>
     (
       await Promise.all(
-        bases.map(async (base) => (await (await fetch(`${base}/fixture`)).json()).inbox),
+        bases.map(
+          async (base: string) =>
+            ((await (await fetch(`${base}/fixture`)).json()) as FixtureSnapshot).inbox,
+        ),
       )
     )
       .flat()
-      .filter((message) => message.to === email)
-  const code = (message) => String(message.html).match(/\b(\d{6})\b/)[1]
-  const send = async (email, purpose) => {
+      .filter((message: FixtureMessage) => message.to === email)
+  const code = messageCode
+  const send = async (email: string, purpose: string) => {
     const response = await post(origin, 'otp/send', { email, purpose })
     limited(response)
     const body = await success(response)
     return { email, purpose, context: body.context, otp: code((await messages(email)).at(-1)) }
   }
-  const login = async (email, password, base = origin) => {
+  const login = async (email: string, password: string, base = origin) => {
     const response = await post(base, 'login', { email, password })
     await success(response)
-    return response.headers.get('set-cookie').split(';')[0]
+    return requiredHeader(response, 'set-cookie').split(';')[0]
   }
-  const me = async (base, cookie) =>
+  const me = async (base: string, cookie: string) =>
     (
       await (
         await fetch(`${base}/backend/customers/me`, { headers: { origin: base, cookie } })
@@ -130,24 +149,24 @@ export async function verifyMigrationAcceptance({
   const beginGoogle = async () => {
     const response = await fetch(`${origin}/backend/access/oauth/google`, { redirect: 'manual' })
     assert.equal(response.status, 303, await response.clone().text())
-    const authorization = await fetch(response.headers.get('location'), { redirect: 'manual' })
+    const authorization = await fetch(requiredHeader(response, 'location'), { redirect: 'manual' })
     assert.equal(authorization.status, 302)
     return {
-      callback: authorization.headers.get('location'),
+      callback: requiredHeader(authorization, 'location'),
       cookie: response.headers
         .getSetCookie()
         .map((value) => value.split(';')[0])
         .join('; '),
     }
   }
-  const finishGoogle = (flow, base = origin) =>
-    new Promise((resolve, reject) => {
+  const finishGoogle = (flow: { callback: string; cookie: string }, base = origin) =>
+    new Promise<Response>((resolve, reject) => {
       const url = new URL(flow.callback)
       const request = httpRequest(
         `${base}${url.pathname}${url.search}`,
         { headers: { host: url.host, cookie: flow.cookie } },
         (incoming) => {
-          const chunks = []
+          const chunks: Buffer[] = []
           incoming.on('data', (data) => chunks.push(data))
           incoming.on('end', () => {
             const headers = new Headers()
@@ -168,14 +187,14 @@ export async function verifyMigrationAcceptance({
     assert.equal(response.status, 303, await response.clone().text())
     const cookie = response.headers
       .getSetCookie()
-      .find((value) => value.startsWith('consumer-token='))
+      .find((value) => value.startsWith('consumer-token='))!
       .split(';')[0]
     return me(origin2, cookie)
   }
   const googleAccount = await googleLogin()
   assert.equal(googleAccount.email, 'google-public@example.com')
   const pendingGoogle = await beginGoogle()
-  const assertGoogleRejected = async (flow) => {
+  const assertGoogleRejected = async (flow: { callback: string; cookie: string }) => {
     const exchanges = provider.exchanges.length
     for (const base of bases) {
       const response = await finishGoogle(flow, base)
@@ -200,8 +219,8 @@ export async function verifyMigrationAcceptance({
     }),
   })
   await success(unrelatedLogin)
-  const unrelatedCookie = unrelatedLogin.headers.get('set-cookie').split(';')[0]
-  const unrelatedMe = async (base) =>
+  const unrelatedCookie = requiredHeader(unrelatedLogin, 'set-cookie').split(';')[0]
+  const unrelatedMe = async (base: string) =>
     (
       await (
         await fetch(`${base}/backend/outsiders/me`, {

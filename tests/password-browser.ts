@@ -1,24 +1,38 @@
 import assert from 'node:assert/strict'
+import {
+  requiredHeader,
+  messageCode,
+  type BrowserAcceptanceOptions,
+  type FixtureMessage,
+  type FixtureSnapshot,
+  type FixtureUser,
+} from './browser-support.ts'
 
 // Packed consumer, two independent Payload processes, native HTTP and Chromium. No auth/storage mocks.
-export async function verifyPasswordAcceptance({ browser, origin, origin2, database, onPage }) {
+export async function verifyPasswordAcceptance({
+  browser,
+  origin,
+  origin2,
+  database,
+  onPage,
+}: BrowserAcceptanceOptions) {
   const bases = [origin, origin2]
-  const verified = []
-  const mark = (label) => {
+  const verified: string[] = []
+  const mark = (label: string) => {
     verified.push(label)
     console.log(`Password acceptance ${database}: ${label}`)
   }
   const originalPassword = 'actual-browser-test-password'
   const ownerPassword = 'owner chooses a lengthy phrase'
   const nextPassword = 'replacement phrase chosen by owner'
-  const post = (base, path, body, cookie) =>
+  const post = (base: string, path: string, body: unknown, cookie?: string) =>
     fetch(`${base}/backend${path}`, {
       method: 'POST',
       signal: AbortSignal.timeout(60000),
       headers: { 'content-type': 'application/json', origin: base, ...(cookie ? { cookie } : {}) },
       body: JSON.stringify(body),
     })
-  const control = async (body) => {
+  const control = async (body: unknown) => {
     for (const base of bases)
       assert.equal(
         (
@@ -31,52 +45,56 @@ export async function verifyPasswordAcceptance({ browser, origin, origin2, datab
         200,
       )
   }
-  const snapshot = async () =>
+  const snapshot = async (): Promise<FixtureMessage[]> =>
     (
       await Promise.all(
-        bases.map(async (base) => (await (await fetch(`${base}/fixture`)).json()).inbox),
+        bases.map(
+          async (base: string) =>
+            ((await (await fetch(`${base}/fixture`)).json()) as FixtureSnapshot).inbox,
+        ),
       )
     )
       .flat()
-      .sort((a, b) => new Date(a.date) - new Date(b.date))
-  const messages = async (email) => (await snapshot()).filter((message) => message.to === email)
-  const code = (message) => String(message.html).match(/\b(\d{6})\b/)[1]
-  const users = async (email) =>
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  const messages = async (email: string) =>
+    (await snapshot()).filter((message: FixtureMessage) => message.to === email)
+  const code = messageCode
+  const users = async (email: string): Promise<FixtureUser[]> =>
     (await (await fetch(`${origin}/fixture?email=${encodeURIComponent(email)}`)).json()).users
   let now = (await (await fetch(`${origin}/fixture`)).json()).now
-  const tick = async (ms) => {
+  const tick = async (ms: number) => {
     now += ms
     await control({ now })
   }
-  const success = async (response) => {
+  const success = async (response: Response) => {
     assert.equal(response.status, 200, await response.clone().text())
     return response.json()
   }
-  const noSession = (response) =>
+  const noSession = (response: Response) =>
     assert.equal(
-      response.headers.get('set-cookie'),
+      requiredHeader(response, 'set-cookie'),
       null,
       'limited proof must never issue an application cookie',
     )
-  const rejected = async (response) => {
+  const rejected = async (response: Response) => {
     assert.ok(
       response.status >= 400 && response.status < 500,
       `${response.status}: ${await response.clone().text()}`,
     )
     noSession(response)
   }
-  const me = async (cookie) =>
+  const me = async (cookie: string) =>
     (
       await (
         await fetch(`${origin2}/backend/customers/me`, { headers: { origin: origin2, cookie } })
       ).json()
     ).user
-  const login = async (email, password, base = origin) => {
+  const login = async (email: string, password: string, base = origin) => {
     const response = await post(base, '/access/login', { email, password })
     await success(response)
-    return response.headers.get('set-cookie').split(';')[0]
+    return requiredHeader(response, 'set-cookie').split(';')[0]
   }
-  const request = async (email, purpose, context, base = origin) => {
+  const request = async (email: string, purpose: string, context?: string, base = origin) => {
     const response = await post(base, '/access/otp/send', {
       email,
       purpose,
@@ -87,7 +105,7 @@ export async function verifyPasswordAcceptance({ browser, origin, origin2, datab
     assert.equal(body.code, 'OTP_REQUEST_ACCEPTED')
     return body.context
   }
-  const permit = async (email, purpose, base = origin) => {
+  const permit = async (email: string, purpose: string, base = origin) => {
     await tick(1001)
     const context = await request(email, purpose, undefined, base)
     const response = await post(base === origin ? origin2 : origin, '/access/otp/verify', {
@@ -288,7 +306,7 @@ export async function verifyPasswordAcceptance({ browser, origin, origin2, datab
   await success(confirmed)
   assert.equal(await me(revokeCookie), null)
   if (native.status === 200)
-    assert.equal(await me(native.headers.get('set-cookie').split(';')[0]), null)
+    assert.equal(await me(requiredHeader(native, 'set-cookie').split(';')[0]), null)
   else assert.equal(native.status, 401)
   await login(revokeEmail, nextPassword)
   const pendingEmail = 'pending-password@example.com'
@@ -427,8 +445,9 @@ export async function verifyPasswordAcceptance({ browser, origin, origin2, datab
     current,
   )
   await success(changed)
-  const rotated = changed.headers.get('set-cookie').split(';')[0]
-  const claims = (value) => JSON.parse(Buffer.from(value.split('=')[1].split('.')[1], 'base64url'))
+  const rotated = requiredHeader(changed, 'set-cookie').split(';')[0]
+  const claims = (value: string) =>
+    JSON.parse(Buffer.from(value.split('=')[1].split('.')[1], 'base64url').toString('utf8'))
   assert.notEqual(claims(current).sid, claims(rotated).sid)
   assert.ok(claims(rotated).exp <= claims(current).exp)
   assert.equal((await me(rotated)).email, changeEmail)
@@ -551,7 +570,7 @@ export async function verifyPasswordAcceptance({ browser, origin, origin2, datab
       otp: code((await messages(passwordless)).at(-1)),
     })
     await success(otpLogin)
-    const otpCookie = otpLogin.headers.get('set-cookie').split(';')[0]
+    const otpCookie = requiredHeader(otpLogin, 'set-cookie').split(';')[0]
     await context.addCookies([
       {
         name: 'consumer-token',
@@ -623,7 +642,7 @@ export async function verifyPasswordAcceptance({ browser, origin, origin2, datab
       })
       .waitFor()
     if (purpose === 'signup') assert.equal((await users(expiredEmail)).length, 0)
-    else assert.equal((await me(preservedCookie)).email, expiredEmail)
+    else assert.equal((await me(preservedCookie!)).email, expiredEmail)
     await requestAndVerify()
     await expiryPage.getByLabel(/^New password/i).fill(nextPassword)
     await expiryPage.getByLabel(/^Confirm password/i).fill(nextPassword)
@@ -637,7 +656,7 @@ export async function verifyPasswordAcceptance({ browser, origin, origin2, datab
       0,
     )
     await login(expiredEmail, nextPassword)
-    if (preservedCookie) assert.equal(await me(preservedCookie), null)
+    if (preservedCookie) assert.equal(await me(preservedCookie!), null)
     await expiryContext.close()
   }
   mark(

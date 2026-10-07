@@ -1,4 +1,11 @@
 import assert from 'node:assert/strict'
+import {
+  requiredHeader,
+  messageCode,
+  type BrowserAcceptanceOptions,
+  type FixtureMessage,
+  type FixtureSnapshot,
+} from './browser-support.ts'
 
 // Approved public HTTP / packed-browser seams, real Payload + shared PostgreSQL.
 export async function verifyOtpAcceptance({
@@ -8,10 +15,14 @@ export async function verifyOtpAcceptance({
   postgresVersion,
   outage,
   database = postgresVersion,
+}: Omit<BrowserAcceptanceOptions, 'database'> & {
+  database?: string
+  postgresVersion?: string
+  outage: <T>(work: () => Promise<T>) => Promise<T>
 }) {
   const origins = [origin, origin2]
-  const verified = []
-  const post = (base, path, body, cookie, headers = {}) =>
+  const verified: string[] = []
+  const post = (base: string, path: string, body: unknown, cookie?: string, headers = {}) =>
     fetch(`${base}/backend${path}`, {
       method: 'POST',
       headers: {
@@ -22,18 +33,22 @@ export async function verifyOtpAcceptance({
       },
       body: JSON.stringify(body),
     })
-  const inbox = async () =>
+  const inbox = async (): Promise<FixtureMessage[]> =>
     (
       await Promise.all(
-        origins.map(async (base) => (await (await fetch(`${base}/fixture`)).json()).inbox),
+        origins.map(
+          async (base: string) =>
+            ((await (await fetch(`${base}/fixture`)).json()) as FixtureSnapshot).inbox,
+        ),
       )
     )
       .flat()
       .sort((left, right) => new Date(left.date).getTime() - new Date(right.date).getTime())
-  const codeFrom = (message) => String(message.html).match(/\b(\d{6})\b/)[1]
-  const forAccount = async (email) => (await inbox()).filter((message) => message.to === email)
+  const codeFrom = messageCode
+  const forAccount = async (email: string) =>
+    (await inbox()).filter((message: FixtureMessage) => message.to === email)
   let now = (await (await fetch(`${origin}/fixture`)).json()).now
-  const tick = async (milliseconds) => {
+  const tick = async (milliseconds: number) => {
     now += milliseconds
     await Promise.all(
       origins.map((base) =>
@@ -45,7 +60,12 @@ export async function verifyOtpAcceptance({
       ),
     )
   }
-  const send = async (email, context, base = origin, headers) => {
+  const send = async (
+    email: string,
+    context?: string,
+    base = origin,
+    headers: Record<string, string> = {},
+  ) => {
     const response = await post(
       base,
       '/access/otp/send',
@@ -59,18 +79,18 @@ export async function verifyOtpAcceptance({
     assert.match(body.context, /^[a-f0-9]{64}$/)
     return body
   }
-  const verify = (email, context, otp, base = origin) =>
+  const verify = (email: string, context: string, otp: string, base = origin) =>
     post(base, '/access/otp/verify', { email, purpose: 'login', context, otp })
-  const assertRejected = async (response) => {
+  const assertRejected = async (response: Response) => {
     assert.equal(response.status, 401, await response.clone().text())
-    assert.equal(response.headers.get('set-cookie'), null)
+    assert.equal(requiredHeader(response, 'set-cookie'), null)
     assert.deepEqual(await response.json(), { success: false, code: 'AUTH_FAILED' })
   }
   const email = 'browser@example.com'
   const password = 'actual-browser-test-password'
   const oldLogin = await post(origin, '/access/login', { email, password })
   assert.equal(oldLogin.status, 200)
-  const oldCookie = oldLogin.headers.get('set-cookie').split(';')[0]
+  const oldCookie = requiredHeader(oldLogin, 'set-cookie').split(';')[0]
   await tick(0)
   const challenge = await send(email)
   const message = (await forAccount(email))[0]
@@ -82,7 +102,7 @@ export async function verifyOtpAcceptance({
   assert.equal(identity.user.email, email)
   assert.equal('token' in identity, false)
   assert.match(
-    login.headers.get('set-cookie'),
+    requiredHeader(login, 'set-cookie'),
     /^consumer-token=.+;.*HttpOnly(=true)?; SameSite=Lax/,
   )
   const oldIdentity = await fetch(`${origin2}/backend/customers/me`, {
@@ -114,7 +134,7 @@ export async function verifyOtpAcceptance({
   )
   assert.deepEqual(outcomes.map((response) => response.status).sort(), [200, 401])
   for (const response of outcomes.filter((response) => response.status !== 200))
-    assert.equal(response.headers.get('set-cookie'), null)
+    assert.equal(requiredHeader(response, 'set-cookie'), null)
   verified.push('shared-DB concurrent issuance and single-use consume')
 
   // Three incorrect attempts across independent servers exhaust the original challenge.
@@ -123,7 +143,7 @@ export async function verifyOtpAcceptance({
   const attemptCode = codeFrom((await forAccount(attemptsEmail)).at(-1))
   const wrongCode = attemptCode === '000000' ? '999999' : '000000'
   await Promise.all(
-    [origin, origin2, origin].map(async (base) =>
+    [origin, origin2, origin].map(async (base: string) =>
       assertRejected(await verify(attemptsEmail, attemptChallenge.context, wrongCode, base)),
     ),
   )
@@ -144,7 +164,7 @@ export async function verifyOtpAcceptance({
     otp: ttlCode,
   })
   assert.equal(wrongPurpose.status, 400)
-  assert.equal(wrongPurpose.headers.get('set-cookie'), null)
+  assert.equal(requiredHeader(wrongPurpose, 'set-cookie'), null)
   await tick(299000)
   await send(ttlEmail, ttlChallenge.context, origin2)
   assert.equal(codeFrom((await forAccount(ttlEmail)).at(-1)), ttlCode)
@@ -197,7 +217,7 @@ export async function verifyOtpAcceptance({
     const raceAccount = `${nativeAction}-race@example.com`
     const initial = await post(origin, '/access/login', { email: raceAccount, password })
     assert.equal(initial.status, 200)
-    const existingCookie = initial.headers.get('set-cookie').split(';')[0]
+    const existingCookie = requiredHeader(initial, 'set-cookie').split(';')[0]
     const issued = await send(raceAccount)
     const issuedCode = codeFrom((await forAccount(raceAccount)).at(-1))
     const nativeRequest =
@@ -218,8 +238,8 @@ export async function verifyOtpAcceptance({
       [200, 200],
       `overlap ${nativeAction}: ${await native.clone().text()} / ${await otpLogin.clone().text()}`,
     )
-    const otpCookie = otpLogin.headers.get('set-cookie').split(';')[0]
-    const me = async (cookie) =>
+    const otpCookie = requiredHeader(otpLogin, 'set-cookie').split(';')[0]
+    const me = async (cookie: string) =>
       (
         await (
           await fetch(`${origin2}/backend/customers/me`, { headers: { origin: origin2, cookie } })
@@ -229,7 +249,10 @@ export async function verifyOtpAcceptance({
     if (nativeAction === 'logout') assert.equal(await me(existingCookie), null)
     else {
       assert.equal((await me(existingCookie)).email, raceAccount)
-      assert.equal((await me(native.headers.get('set-cookie').split(';')[0])).email, raceAccount)
+      assert.equal(
+        (await me(requiredHeader(native, 'set-cookie').split(';')[0])).email,
+        raceAccount,
+      )
     }
   }
   verified.push(
@@ -276,7 +299,7 @@ export async function verifyOtpAcceptance({
   await tick(3600001)
   const context = await browser.newContext()
   const page = await context.newPage()
-  const requests = []
+  const requests: string[] = []
   page.on('request', (request) => requests.push(request.url()))
   await page.goto(origin)
   await page.getByRole('button', { name: 'Open login' }).click()
@@ -316,13 +339,17 @@ export async function verifyOtpAcceptance({
   const cookie = (await context.cookies()).find((cookie) => cookie.name === 'consumer-token')
   assert.ok(cookie?.httpOnly)
   assert.equal(cookie.sameSite, 'Lax')
-  const jwtExp = JSON.parse(Buffer.from(cookie.value.split('.')[1], 'base64url')).exp
+  const jwtExp = JSON.parse(
+    Buffer.from(cookie.value.split('.')[1], 'base64url').toString('utf8'),
+  ).exp
   const responseHeaders = await browserResult.allHeaders()
   const responseCookie = responseHeaders['set-cookie'] ?? ''
   const responseToken = responseCookie.match(/(?:^|\n)consumer-token=([^;]+)/)?.[1]
   assert.ok(responseToken, 'successful OTP response must set the native session cookie')
   assert.ok(cookie.value === responseToken, 'stored cookie must match this verification response')
-  const responseExp = JSON.parse(Buffer.from(responseToken.split('.')[1], 'base64url')).exp
+  const responseExp = JSON.parse(
+    Buffer.from(responseToken.split('.')[1], 'base64url').toString('utf8'),
+  ).exp
   assert.equal(jwtExp, responseExp, 'stored cookie must belong to this verification response')
   const wireExpires = Date.parse(responseCookie.match(/Expires=([^;]+)/i)?.[1] ?? '') / 1000
   const responseDate = Date.parse(responseHeaders.date ?? '') / 1000
@@ -337,7 +364,7 @@ export async function verifyOtpAcceptance({
   assert.ok(!requests.some((url) => url.includes('check-email')))
   for (const source of await page
     .locator('script[src]')
-    .evaluateAll((nodes) => nodes.map((node) => node.src))) {
+    .evaluateAll((nodes) => nodes.map((node) => (node as HTMLScriptElement).src))) {
     const javascript = await (await fetch(source)).text()
     for (const secret of [
       'consumer-only-private-secret-not-production',
@@ -358,13 +385,16 @@ export async function verifyOtpAcceptance({
   await outage(async () => {
     const unavailable = await verify(email, challenge.context, code, origin2)
     assert.equal(unavailable.status, 503, await unavailable.clone().text())
-    assert.equal(unavailable.headers.get('set-cookie'), null)
+    assert.equal(requiredHeader(unavailable, 'set-cookie'), null)
     assert.deepEqual(await unavailable.json(), { success: false, code: 'AUTH_UNAVAILABLE' })
   })
   verified.push(`${database} security-storage outage fails closed without cookie`)
   const logs = (
     await Promise.all(
-      origins.map(async (base) => (await (await fetch(`${base}/fixture`)).json()).logs),
+      origins.map(
+        async (base: string) =>
+          ((await (await fetch(`${base}/fixture`)).json()) as FixtureSnapshot).logs,
+      ),
     )
   ).flat()
   const serializedLogs = logs.join('')

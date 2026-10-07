@@ -17,12 +17,12 @@ import { join, resolve } from 'node:path'
 import assert from 'node:assert/strict'
 import { chromium, type Browser, type Page } from '@playwright/test'
 import { temporaryPostgres, freePort } from './otp-postgres.ts'
-import { verifyPasswordAcceptance } from '../tests/password-browser.mjs'
-import { verifyOtpAcceptance } from '../tests/otp-browser.mjs'
-import { verifyIntegrationAcceptance } from '../tests/integration-browser.mjs'
-import { verifyOauthAcceptance } from '../tests/oauth-browser.mjs'
+import { verifyPasswordAcceptance } from '../tests/password-browser.ts'
+import { verifyOtpAcceptance } from '../tests/otp-browser.ts'
+import { verifyIntegrationAcceptance } from '../tests/integration-browser.ts'
+import { verifyOauthAcceptance } from '../tests/oauth-browser.ts'
 import { createClient } from '@libsql/client'
-import { verifyMigrationAcceptance } from '../tests/migration-browser.mjs'
+import { verifyMigrationAcceptance } from '../tests/migration-browser.ts'
 import { controlledOidcProvider } from './oauth-provider.ts'
 const migration = process.env.AUTH_CONSUMER_ISSUE06 === '1'
 const integration = process.env.AUTH_CONSUMER_ISSUE05 === '1'
@@ -56,11 +56,12 @@ async function digestHarness() {
     'scripts/test-consumer.ts',
     'scripts/otp-postgres.ts',
     'scripts/oauth-provider.ts',
-    'tests/migration-browser.mjs',
-    'tests/integration-browser.mjs',
-    'tests/otp-browser.mjs',
-    'tests/password-browser.mjs',
-    'tests/oauth-browser.mjs',
+    'tests/browser-support.ts',
+    'tests/migration-browser.ts',
+    'tests/integration-browser.ts',
+    'tests/otp-browser.ts',
+    'tests/password-browser.ts',
+    'tests/oauth-browser.ts',
   ])
     hash.update(file).update(await readFile(join(root, file)))
   return hash.digest('hex')
@@ -343,7 +344,7 @@ try {
         }
         throw new Error(`Restart timed out: ${logs}`)
       }
-      const maintenance = async (phase: 'cutoff' | 'restore') => {
+      const maintenance = async (phase: 'cutoff' | 'rollback') => {
         await stop(server)
         await stop(secondary)
         if (phase === 'cutoff') {
@@ -407,7 +408,7 @@ try {
         origin,
         origin2,
         maintenance,
-        provider,
+        provider: provider!,
         database: postgres?.version ?? 'SQLite real',
         onPage: (page: Page) => {
           diagnosticPage = page
@@ -433,7 +434,7 @@ try {
         browser,
         origin,
         origin2,
-        provider,
+        provider: provider!,
         database: postgres?.version ?? 'SQLite real',
         onPage: (page: Page) => {
           diagnosticPage = page
@@ -486,7 +487,7 @@ try {
     const acceptance = await verifyIntegrationAcceptance({
       browser,
       origin,
-      provider,
+      provider: provider!,
       diagnostic,
       database: postgres?.version ?? 'SQLite real',
       onPage: (page: Page) => {

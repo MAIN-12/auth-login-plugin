@@ -5,12 +5,10 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "allowImportingTsExtensions": true,
-    "allowJs": true,
-    "checkJs": false,
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["./**/*.ts"]
+  "include": ["./**/*.ts", "../tests/*-browser.ts", "../tests/browser-support.ts"]
 }

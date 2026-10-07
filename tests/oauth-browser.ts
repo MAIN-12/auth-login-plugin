@@ -1,4 +1,12 @@
 import assert from 'node:assert/strict'
+import {
+  requiredHeader,
+  type BrowserAcceptanceOptions,
+  type FixtureMessage,
+  type FixtureSnapshot,
+  type FixtureUser,
+  type OidcProvider,
+} from './browser-support.ts'
 import { request as httpRequest } from 'node:http'
 
 // Public native HTTP/Chromium seams of the packed consumer; no auth/storage mocks.
@@ -9,7 +17,7 @@ export async function verifyOauthAcceptance({
   provider,
   database,
   onPage,
-}) {
+}: BrowserAcceptanceOptions & { provider: OidcProvider }) {
   for (const base of [origin, origin2])
     assert.equal(
       (await fetch(`${base}/backend/customers/me`, { signal: AbortSignal.timeout(180000) })).status,
@@ -53,39 +61,40 @@ export async function verifyOauthAcceptance({
     })
   ).json()
   assert.equal(me.user.email, 'google-public@example.com')
-  assert.ok(provider.exchanges.at(-1).hasVerifier)
+  assert.ok(provider.exchanges.at(-1)!.hasVerifier)
   assert.ok((await (await fetch(`${origin}/fixture`)).json()).hooks.includes('afterLogin:google'))
   console.log(
     `OAuth acceptance ${database}: Chromium legitimate PKCE signed callback, preserved query/hash, native cross-process session GREEN`,
   )
   const bases = [origin, origin2]
   const verified = ['Chromium legitimate signed callback and native session']
-  const mark = (label) => {
+  const mark = (label: string) => {
     verified.push(label)
     console.log(`OAuth acceptance ${database}: ${label}`)
   }
-  const post = (base, path, body, cookie) =>
+  const post = (base: string, path: string, body: unknown, cookie?: string) =>
     fetch(`${base}${path}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json', origin: base, ...(cookie ? { cookie } : {}) },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(120000),
     })
-  const control = async (body) => {
+  const control = async (body: unknown) => {
     for (const base of bases) assert.equal((await post(base, '/fixture', body)).status, 200)
   }
-  const users = async (email) =>
+  const users = async (email: string): Promise<FixtureUser[]> =>
     (await (await fetch(`${origin}/fixture?email=${encodeURIComponent(email)}`)).json()).users
-  const appCookie = (response) =>
+  const appCookie = (response: Response) =>
     response.headers
       .getSetCookie()
       .find((value) => value.startsWith('consumer-token='))
       ?.split(';')[0]
-  const rejectionIDs = new Map()
+  const rejectionIDs = new Map<string, 'callback' | 'generic'>()
   // Node HTTP's wrapped Response has no .url; retain its actual requested route
   // separately without changing the received body/status/headers or logging secrets.
-  const responseURLs = new WeakMap()
-  const rejected = async (response) => {
+  const responseURLs = new WeakMap<Response, string>()
+  const rejected = async (response: Response | { callback: string; bound: string }) => {
+    assert.ok(response instanceof Response, 'expected rejected HTTP response')
     assert.ok(
       [400, 401, 403].includes(response.status),
       `${response.status}: ${await response.clone().text()}`,
@@ -97,11 +106,11 @@ export async function verifyOauthAcceptance({
         requestId,
         /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/,
       )
-      const route = new URL(response.url || responseURLs.get(response)).pathname
+      const route = new URL(response.url || responseURLs.get(response)!).pathname
       rejectionIDs.set(requestId, route.endsWith('/oauth/google/callback') ? 'callback' : 'generic')
     }
   }
-  const currentUser = async (value) =>
+  const currentUser = async (value: string) =>
     (
       await (
         await fetch(`${origin2}/backend/customers/me`, {
@@ -109,7 +118,7 @@ export async function verifyOauthAcceptance({
         })
       ).json()
     ).user
-  const begin = async (base = origin, returnTo = '/', nativeCookie) => {
+  const begin = async (base = origin, returnTo = '/', nativeCookie?: string) => {
     const start = await fetch(
       `${base}/backend/access/oauth/google?returnTo=${encodeURIComponent(returnTo)}`,
       {
@@ -122,20 +131,27 @@ export async function verifyOauthAcceptance({
       .getSetCookie()
       .map((value) => value.split(';')[0])
       .join('; ')
-    const authorization = await fetch(start.headers.get('location'), { redirect: 'manual' })
+    const authorization = await fetch(requiredHeader(start, 'location'), { redirect: 'manual' })
     assert.equal(authorization.status, 302)
-    return { callback: authorization.headers.get('location'), bound }
+    return { callback: requiredHeader(authorization, 'location'), bound }
   }
-  const finish = (flow, base = origin, bound = flow.bound, extra = {}) => {
+  const finish = (
+    flow: Response | { callback: string; bound: string },
+    base = origin,
+    bound?: string,
+    extra = {},
+  ) => {
+    assert.ok(!(flow instanceof Response), 'expected accepted OAuth flow')
+    bound ??= flow.bound
     const url = new URL(flow.callback)
     // Two independent Next processes sit behind one configured public callback host.
     // Undici fetch ignores Host overrides; Node HTTP sends the literal public Host.
-    return new Promise((resolve, reject) => {
+    return new Promise<Response>((resolve, reject) => {
       const request = httpRequest(
         `${base}${url.pathname}${url.search}`,
         { headers: { host: url.host, cookie: bound, ...extra } },
         (incoming) => {
-          const chunks = []
+          const chunks: Buffer[] = []
           incoming.on('data', (chunk) => chunks.push(chunk))
           incoming.on('end', () => {
             const headers = new Headers()
@@ -158,7 +174,7 @@ export async function verifyOauthAcceptance({
     })
   }
   let now = Date.now()
-  const tick = async (ms) => {
+  const tick = async (ms: number) => {
     now += ms
     await control({ now })
   }
@@ -189,18 +205,18 @@ export async function verifyOauthAcceptance({
   await rejected(await finish(correlation, origin, correlation.bound, { host: 'attacker.invalid' }))
   const correlated = await finish(correlation, origin2)
   assert.equal(correlated.status, 303, await correlated.clone().text())
-  assert.equal((await currentUser(appCookie(correlated))).id, initialUser.id)
+  assert.equal((await currentUser(appCookie(correlated)!)).id, initialUser.id)
   await rejected(await finish(correlation, origin))
   const concurrent = await begin()
   const consumed = await Promise.all(bases.map((base) => finish(concurrent, base)))
   assert.deepEqual(consumed.map((result) => result.status).sort(), [303, 401])
-  assert.equal(consumed.filter((result) => appCookie(result)).length, 1)
+  assert.equal(consumed.filter((result) => appCookie(result)!).length, 1)
   provider.configure({ sub: 'cross-browser-new', email: 'cross-browser-new@example.com' })
   const browserBound = await begin()
   const otherBrowser = await browser.newContext()
   const otherPage = await otherBrowser.newPage()
   onPage?.(otherPage)
-  assert.equal((await otherPage.goto(browserBound.callback)).status(), 401)
+  assert.equal((await otherPage.goto(browserBound.callback))!.status(), 401)
   assert.equal(
     (await otherBrowser.cookies()).some((cookie) => cookie.name === 'consumer-token'),
     false,
@@ -247,8 +263,8 @@ export async function verifyOauthAcceptance({
   provider.configure({ sub: 'google-public-1', email: 'changed-provider-email@example.com' })
   const existing = await finish(await begin(origin2), origin2)
   assert.equal(existing.status, 303)
-  assert.equal((await currentUser(appCookie(existing))).id, initialUser.id)
-  assert.equal((await currentUser(appCookie(existing))).email, 'google-public@example.com')
+  assert.equal((await currentUser(appCookie(existing)!)).id, initialUser.id)
+  assert.equal((await currentUser(appCookie(existing)!)).email, 'google-public@example.com')
   assert.equal((await users('changed-provider-email@example.com')).length, 0)
   mark(
     'signed nonce/issuer/audience/signature/expiry and code failures burn state without provisioning; email collision never links; closed signup accepts existing stable subject only',
@@ -262,18 +278,18 @@ export async function verifyOauthAcceptance({
   ]) {
     const returned = await finish(await begin(origin, returnTo))
     assert.equal(returned.status, 303)
-    assert.equal(returned.headers.get('location'), '/')
+    assert.equal(requiredHeader(returned, 'location'), '/')
   }
   mark(
     'external/protocol-relative/encoded return targets fall back locally; allowed query/hash preserved',
   )
-  const login = async (email, password = 'actual-browser-test-password', base = origin) => {
+  const login = async (email: string, password = 'actual-browser-test-password', base = origin) => {
     const response = await post(base, '/backend/access/login', { email, password })
     assert.equal(response.status, 200, await response.clone().text())
     assert.equal('token' in (await response.clone().json()), false)
-    return appCookie(response)
+    return appCookie(response)!
   }
-  const reauth = async (value) => {
+  const reauth = async (value: string) => {
     const response = await post(
       origin,
       '/backend/access/reauthenticate',
@@ -284,7 +300,7 @@ export async function verifyOauthAcceptance({
     assert.equal(appCookie(response), undefined)
     return (await response.json()).permit
   }
-  const link = async (value, permit, confirm = true) => {
+  const link = async (value: string, permit: string, confirm = true) => {
     const response = await post(
       origin,
       '/backend/access/oauth/google/link',
@@ -295,7 +311,7 @@ export async function verifyOauthAcceptance({
     const authorization = await fetch((await response.json()).url, { redirect: 'manual' })
     assert.equal(authorization.status, 302)
     return {
-      callback: authorization.headers.get('location'),
+      callback: requiredHeader(authorization, 'location'),
       bound: `${value}; ${response.headers
         .getSetCookie()
         .map((header) => header.split(';')[0])
@@ -318,7 +334,7 @@ export async function verifyOauthAcceptance({
   await rejected(await finish(conflict, origin2))
   assert.equal((await currentUser(local)).email, 'mail@example.com')
   const conflictLogin = await finish(await begin())
-  assert.equal((await currentUser(appCookie(conflictLogin))).id, initialUser.id)
+  assert.equal((await currentUser(appCookie(conflictLogin)!)).id, initialUser.id)
   provider.configure({ sub: 'revoked-link', email: 'mail@example.com' })
   const revokedLink = await link(localOther, await reauth(localOther))
   assert.equal((await post(origin2, '/backend/customers/logout', {}, localOther)).status, 200)
@@ -339,7 +355,10 @@ export async function verifyOauthAcceptance({
   )
   assert.deepEqual(competingResults.map((result) => result.status).sort(), [303, 401])
   const winner = competingResults.findIndex((result) => result.status === 303)
-  assert.equal((await currentUser(appCookie(await finish(await begin())))).id, competingIDs[winner])
+  assert.equal(
+    (await currentUser(appCookie(await finish(await begin()))!)).id,
+    competingIDs[winner],
+  )
   mark(
     'concurrent independent-process same-subject linking accepts one owner and denies the other; authoritative subsequent login selects the winner',
   )
@@ -371,13 +390,13 @@ export async function verifyOauthAcceptance({
   assert.equal(linkedCallback.status(), 303)
   await localPage.waitForURL(`${origin}/google-methods?linked=1#confirmed`)
   assert.equal(
-    (await localBrowser.cookies()).find((cookie) => cookie.name === 'consumer-token').value,
+    (await localBrowser.cookies()).find((cookie) => cookie.name === 'consumer-token')!.value,
     local.split('=')[1],
     'linking does not issue another native session',
   )
   const linkedLogin = await finish(await begin(origin2), origin2)
   assert.equal(linkedLogin.status, 303)
-  assert.equal((await currentUser(appCookie(linkedLogin))).email, 'mail@example.com')
+  assert.equal((await currentUser(appCookie(linkedLogin)!)).email, 'mail@example.com')
   provider.configure({ sub: 'conflicting-second-subject', email: 'mail@example.com' })
   await rejected(await finish(await link(local, await reauth(local))))
   await localBrowser.close()
@@ -421,7 +440,7 @@ export async function verifyOauthAcceptance({
   await googlePage.getByTestId('google-method-status').filter({ hasText: 'verified' }).waitFor()
   if (!popup.isClosed()) await popup.waitForEvent('close')
   assert.equal(
-    (await googleContext.cookies()).find((cookie) => cookie.name === 'consumer-token').value,
+    (await googleContext.cookies()).find((cookie) => cookie.name === 'consumer-token')!.value,
     cookie.value,
   )
   const newPassword = 'owner adds a memorable passphrase'
@@ -443,21 +462,21 @@ export async function verifyOauthAcceptance({
   )
   provider.configure({ sub: 'google-public-1', email: 'google-public@example.com', amr: ['pwd'] })
   const publicResponse = await finish(await begin())
-  const publicCookie = appCookie(publicResponse)
+  const publicCookie = appCookie(publicResponse)!
   assert.equal(publicResponse.status, 303)
   await control({ adminEligible: true })
-  const protectedGet = (value) =>
+  const protectedGet = (value?: string) =>
     fetch(`${origin2}/backend/administrative-records`, {
       headers: { origin: origin2, ...(value ? { cookie: value } : {}) },
     })
-  const graphql = (value) =>
+  const graphql = (value?: string) =>
     post(
       origin2,
       '/backend/graphql',
       { query: 'query { AdministrativeRecords { docs { id name } } }' },
       value,
     )
-  const deniedGraphql = async (value) => {
+  const deniedGraphql = async (value?: string) => {
     const response = await graphql(value)
     const result = await response.json()
     assert.ok(result.errors?.length, JSON.stringify(result))
@@ -488,7 +507,7 @@ export async function verifyOauthAcceptance({
     'customer',
     'consumer field policy prevents public role updates',
   )
-  const access = async (value) => {
+  const access = async (value: string) => {
     const response = await fetch(`${origin}/backend/access`, { headers: { origin, cookie: value } })
     assert.equal(response.status, 200)
     return Boolean((await response.json()).canAccessAdmin)
@@ -571,8 +590,8 @@ export async function verifyOauthAcceptance({
     const proof = await response.json()
     const inbox = (await (await fetch(`${origin}/fixture`)).json()).inbox
     const digits = String(
-      inbox.filter((message) => message.to === 'browser@example.com').at(-1).html,
-    ).match(/\b(\d{6})\b/)[1]
+      inbox.filter((message: FixtureMessage) => message.to === 'browser@example.com').at(-1).html,
+    ).match(/\b(\d{6})\b/)![1]
     await rejected(
       await post(origin2, '/backend/access/otp/verify', {
         email: 'browser@example.com',
@@ -589,8 +608,9 @@ export async function verifyOauthAcceptance({
     const publicProof = await publicRequest.json()
     const publicInbox = (await (await fetch(`${origin}/fixture`)).json()).inbox
     const publicDigits = String(
-      publicInbox.filter((message) => message.to === 'mail@example.com').at(-1).html,
-    ).match(/\b(\d{6})\b/)[1]
+      publicInbox.filter((message: FixtureMessage) => message.to === 'mail@example.com').at(-1)
+        .html,
+    ).match(/\b(\d{6})\b/)![1]
     const publicOtp = await post(origin2, '/backend/access/otp/verify', {
       email: 'mail@example.com',
       purpose: 'login',
@@ -598,7 +618,7 @@ export async function verifyOauthAcceptance({
       otp: publicDigits,
     })
     assert.equal(publicOtp.status, 200, await publicOtp.clone().text())
-    const publicOtpCookie = appCookie(publicOtp)
+    const publicOtpCookie = appCookie(publicOtp)!
     assert.equal((await currentUser(publicOtpCookie)).email, 'mail@example.com')
     assert.equal(await access(publicOtpCookie), false)
     await rejected(await protectedGet(publicOtpCookie))
@@ -614,8 +634,8 @@ export async function verifyOauthAcceptance({
   await control({ injectPublicAdmin: false, maskPublicAdminRole: false, adminEligible: true })
   const ordinary = await finish(await begin())
   assert.equal(ordinary.status, 303)
-  assert.equal((await currentUser(appCookie(ordinary))).role, 'customer')
-  assert.equal(await access(appCookie(ordinary)), false)
+  assert.equal((await currentUser(appCookie(ordinary)!)).role, 'customer')
+  assert.equal(await access(appCookie(ordinary)!), false)
   mark(
     'original Admin eligibility rejects public provisioning and rolls account back even when composed policy masks eligibility; same identity later provisions ordinary customer only',
   )
@@ -628,7 +648,7 @@ export async function verifyOauthAcceptance({
     303,
     'native login applies field read pipeline, not collection CRUD read gate',
   )
-  const restrictedCookie = appCookie(restricted)
+  const restrictedCookie = appCookie(restricted)!
   assert.equal((await currentUser(restrictedCookie)).role, undefined)
   await control({ denyAccountRead: true })
   await rejected(
@@ -646,19 +666,20 @@ export async function verifyOauthAcceptance({
   const fixtureState = await (await fetch(`${origin}/fixture`)).json()
   assert.ok(fixtureState.hooks.includes('afterLogin:google'))
   assert.ok(fixtureState.hooks.includes('afterRead'))
-  const claims = (value) => JSON.parse(Buffer.from(value.split('=')[1].split('.')[1], 'base64url'))
+  const claims = (value: string) =>
+    JSON.parse(Buffer.from(value.split('=')[1].split('.')[1], 'base64url').toString('utf8'))
   const initial = claims(publicCookie)
   const session = (await users('google-public@example.com'))[0].sessions.find(
-    (session) => session.id === initial.sid,
+    (session: FixtureUser['sessions'][number]) => session.id === initial.sid,
   )
   const refreshed = await post(origin2, '/backend/customers/refresh-token', {}, publicCookie)
   assert.equal(refreshed.status, 200, await refreshed.clone().text())
-  const refreshedCookie = appCookie(refreshed)
+  const refreshedCookie = appCookie(refreshed)!
   const refreshedClaims = claims(refreshedCookie)
   assert.equal(refreshedClaims.sid, initial.sid)
   assert.equal(refreshedClaims.authLoginMethod, 'google')
   assert.deepEqual(refreshedClaims.authAmr, ['pwd'])
-  assert.ok(refreshedClaims.exp <= Math.floor(new Date(session.createdAt).getTime() / 1000) + 600)
+  assert.ok(refreshedClaims.exp <= Math.floor(new Date(session!.createdAt).getTime() / 1000) + 600)
   assert.equal('token' in (await refreshed.json()), false)
   assert.equal(
     (
@@ -688,7 +709,7 @@ export async function verifyOauthAcceptance({
   await control({ sessionLifetime: 1 })
   const shortResponse = await finish(await begin())
   assert.equal(shortResponse.status, 303)
-  const shortCookie = appCookie(shortResponse)
+  const shortCookie = appCookie(shortResponse)!
   assert.ok(claims(shortCookie).exp <= claims(shortCookie).iat + 1)
   await control({ sessionLifetime: 600 })
   await new Promise((resolve) => setTimeout(resolve, 1500))
@@ -700,9 +721,9 @@ export async function verifyOauthAcceptance({
       { redirect: 'manual', headers: { cookie: value } },
     )
     assert.equal(canonical.status, 307)
-    assert.equal(new URL(canonical.headers.get('location'), origin).pathname, '/auth/login')
+    assert.equal(new URL(requiredHeader(canonical, 'location'), origin).pathname, '/auth/login')
     assert.equal(
-      new URL(canonical.headers.get('location'), origin).searchParams.get('returnTo'),
+      new URL(requiredHeader(canonical, 'location'), origin).searchParams.get('returnTo'),
       '/checkout?item=1#payment',
     )
     const route = await fetch(
@@ -714,7 +735,7 @@ export async function verifyOauthAcceptance({
   }
   for (const source of await page
     .locator('script[src]')
-    .evaluateAll((nodes) => nodes.map((node) => node.src))) {
+    .evaluateAll((nodes) => nodes.map((node) => (node as HTMLScriptElement).src))) {
     const javascript = await (await fetch(source)).text()
     for (const secret of [
       'consumer-google-secret-private',
@@ -725,7 +746,10 @@ export async function verifyOauthAcceptance({
   }
   const logChunks = (
     await Promise.all(
-      bases.map(async (base) => (await (await fetch(`${base}/fixture`)).json()).logs),
+      bases.map(
+        async (base: string) =>
+          ((await (await fetch(`${base}/fixture`)).json()) as FixtureSnapshot).logs,
+      ),
     )
   ).flat()
   const logs = logChunks.join('')
