@@ -338,4 +338,5 @@ export async function verifyPasswordAcceptance({ browser, origin, origin2, datab
   mark('Chromium mounted signup/recovery grant expiry returns to same-purpose fresh proof and completes without early mutation')
   mark('Chromium packed registration: email proof before password, owner-selected credentials; recovery confirmation/revocation without automatic login; voluntary reauth/change/session rotation')
   console.log(JSON.stringify({ passed: true, database, instances: 2, browser: 'Chromium', verified }, null, 2))
+  return { passed: true, database, browser: 'Chromium', instances: 2, verified }
 }

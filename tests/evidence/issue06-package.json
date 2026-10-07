@@ -1,0 +1,12 @@
+{
+  "runtimeCandidate": "c8dcac5ab18ff96acf049a964c443d5a433c131a",
+  "runtimePackedSha256": "bcea231a80d22b9a52fd063b772ead089a53025e273246cfdde17c3478fee089",
+  "deliveryPackedSha256": "19c0fad2a35425beefe7f95759d1325051a94da06c02eaf0048b51eb1a425dc1",
+  "checks": {
+    "exportsAndDeclarations": "passed",
+    "normativeDocsPresent": "passed",
+    "sourceTestsDevAndStaleDistExcluded": "passed",
+    "packedDistMatchesFinalBuiltDist": "passed"
+  },
+  "scope": "Docs/evidence-only delivery follow-up. No runtime rerun on this differently documented tarball; production/fixture/harness/manifests/lockfile unchanged from executed candidate. Not published."
+}

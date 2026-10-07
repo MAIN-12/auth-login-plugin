@@ -60,3 +60,6 @@ export function authLoginPlugin(options: AuthLoginPluginOptions | { enabled: fal
 export { isOtpSessionRequest } from './auth/server/otpSession'
 
 export { getAuthenticationEvidence } from './auth/server/adminPolicy'
+
+/** Offline, account-preserving maintenance cutoff; never exposed through HTTP. */
+export { migrateAuthLogin, type AuthLoginMigrationOptions } from './auth/server/migration'

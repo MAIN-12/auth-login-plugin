@@ -14,7 +14,7 @@ export function createSessionPolicy(collection: string, lifetime: number, passwo
     if (operation === 'create' || operation === 'update') {
       const writeArgs = args as { data?: unknown; overrideAccess?: boolean }
       const data = writeArgs.data
-      const mutatesCredentials = data !== null && typeof data === 'object' && ['password', 'confirmPassword', 'hash', 'salt'].some(key => Object.prototype.hasOwnProperty.call(data, key))
+      const mutatesCredentials = data !== null && typeof data === 'object' && ['password', 'confirmPassword', 'hash', 'salt', '_verified', '_verificationToken'].some(key => Object.prototype.hasOwnProperty.call(data, key))
       // Server-only credential provisioning is deliberately explicit. A REST/GraphQL
       // request remains untrusted even when a host forwards it to privileged Local API.
       const privilegedProvisioning = req.payloadAPI === 'local' && writeArgs.overrideAccess === true && req.context.authLoginCredentialProvisioning === true

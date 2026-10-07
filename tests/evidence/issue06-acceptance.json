@@ -1,0 +1,311 @@
+{
+  "runtimeCandidate": "c8dcac5ab18ff96acf049a964c443d5a433c131a",
+  "runtimeTree": "60ce1b81817d1bd07e5f7c4c83d0fe2142bcbf7c",
+  "baseline": "6f785199788a7c4fbdaf6295232cb3f21dc189aa",
+  "candidateScope": "Full frozen runtime checkpoint; later delivery changes are docs/evidence only, not relabeled as whole-tree execution.",
+  "hashes": {
+    "sourceHash": "f9833a914fa8758ca6c3a3758dc8e76e7a5add8e2b1a68a55d88eb9887656908",
+    "fixtureHash": "235889a71d28fb480cf94d52c89fca3b1a5457bf3054096220bfaf80eda76228",
+    "harnessHash": "ab9e18dda05dd090c37015c4a73eeca2a3edf2e9134b5924f2794851b55f7040",
+    "packedSha256": "bcea231a80d22b9a52fd063b772ead089a53025e273246cfdde17c3478fee089"
+  },
+  "versions": {
+    "node": [
+      "22.23.2",
+      "24.21.0"
+    ],
+    "pnpm": "10.19.0",
+    "payload": "3.90.2",
+    "next": "16.3.6",
+    "react": "19.2.6",
+    "chromium": "145.0.7632.6",
+    "postgresql": "17.8 (Homebrew)",
+    "sqlite": "real libsql file database; shared-process scopes assert WAL and busyTimeout1000; plain baseline does not preflight PRAGMAs"
+  },
+  "freshInstallAndChecks": {
+    "eachRuntime": "pnpm install --frozen-lockfile from absent node_modules; pnpm typecheck; pnpm lint; all exit0",
+    "root": [
+      {
+        "command": "pnpm typecheck",
+        "node": "22.23.2",
+        "exitCode": 0,
+        "logSha256": "0f1fb92a4be60da17e94a58e64a7bb6d9ea939590c61c6422003e7b634ab5e8e"
+      },
+      {
+        "command": "pnpm lint",
+        "node": "22.23.2",
+        "exitCode": 0,
+        "logSha256": "c377b30358569cb8d1c5bc0826900051cc83f96f0e998184e5b647a3476ce41a"
+      },
+      {
+        "command": "pnpm build",
+        "node": "22.23.2",
+        "exitCode": 0,
+        "logSha256": "b0ced3fc4f3292e187b9fd2a495acdbaf40711023a563e9539a50b3613ee4251"
+      },
+      {
+        "command": "pnpm test:unit",
+        "node": "22.23.2",
+        "exitCode": 0,
+        "logSha256": "310a26f64575ac5f8649d3a50e0110352b4aa5490d1eaf0b9430700036c41dd1",
+        "passedTests": 197,
+        "passedFiles": 26
+      }
+    ]
+  },
+  "runs": [
+    {
+      "node": "v22.23.2",
+      "flow": "otp",
+      "adapter": "postgres",
+      "command": "env AUTH_CONSUMER_DB=postgres AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node22-otp-postgres.json",
+      "receiptSha256": "a3ce85a915617ce0345fc99ef42a795898ef3f9101dd882200d77ef42db1ca99",
+      "logSha256": "4713ba8b9400918ee8c64f3ddb8a6c562c35c0393354368de2638e6ddfbf4c0e",
+      "fullScope": true
+    },
+    {
+      "node": "v22.23.2",
+      "flow": "migration",
+      "adapter": "sqlite",
+      "command": "env AUTH_CONSUMER_DB=sqlite AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_ISSUE06=1 AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node22-migration-sqlite.json",
+      "receiptSha256": "2d18b506d62051ae5e36233564faf19911c3259ba6f38a60a73b75876b76bb16",
+      "logSha256": "05ecef75b3a78a8dc35eae30ee4c8f29282f1c1a05511c539e48fb531db2aa6c",
+      "fullScope": true
+    },
+    {
+      "node": "v22.23.2",
+      "flow": "migration",
+      "adapter": "postgres",
+      "command": "env AUTH_CONSUMER_DB=postgres AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_ISSUE06=1 AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node22-migration-postgres.json",
+      "receiptSha256": "1c615c01dcd4b59f235743c99e5a358c3ed9dbf5b13ccbc09312a3d3ccd07d3e",
+      "logSha256": "582a7dd8caf5198b4c7d57b2eb422c57f170108ace645020098a1ea765bef96a",
+      "fullScope": true
+    },
+    {
+      "node": "v22.23.2",
+      "flow": "otp",
+      "adapter": "sqlite",
+      "command": "env AUTH_CONSUMER_DB=sqlite AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node22-otp-sqlite.json",
+      "receiptSha256": "16e97a85fb4527a3aba0eba1bdd5b0dc799228acc2abaea824fd4716396ce24f",
+      "logSha256": "0ab3ac7e66c4ca78def4934497e8ddd08e7e9f493db7cbd63cabcbad7b88ab92",
+      "fullScope": true
+    },
+    {
+      "node": "v22.23.2",
+      "flow": "password",
+      "adapter": "sqlite",
+      "command": "env AUTH_CONSUMER_DB=sqlite AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_PASSWORD=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node22-password-sqlite.json",
+      "receiptSha256": "146f4982bcae0abfce8c0bd2efd06eedc13e40a235d9c14952153f0f723f992f",
+      "logSha256": "38cecbb62109b758f4962060a0b8c0d727ba23c772bef50247c10f9425dbeec9",
+      "fullScope": true
+    },
+    {
+      "node": "v22.23.2",
+      "flow": "password",
+      "adapter": "postgres",
+      "command": "env AUTH_CONSUMER_DB=postgres AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_PASSWORD=1 AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node22-password-postgres.json",
+      "receiptSha256": "5f82427527724103b2b0817eda8367fd6f645397caf6a65f4182925b2fe0e1ad",
+      "logSha256": "57cfa74bec83176f417be2ad5db10ccd1898539846711874c864a5aa0ece7165",
+      "fullScope": true
+    },
+    {
+      "node": "v22.23.2",
+      "flow": "oauth",
+      "adapter": "sqlite",
+      "command": "env AUTH_CONSUMER_DB=sqlite AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_OAUTH=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node22-oauth-sqlite.json",
+      "receiptSha256": "5e54ac61f5a58de6664100ad5c9c21d9f7e249ce6737138166f4b69ec345a0e2",
+      "logSha256": "501f54688780c71968ebbb0634b82f6dd2ea1fe42e17147b6a4f7d9044d0c722",
+      "fullScope": true
+    },
+    {
+      "node": "v22.23.2",
+      "flow": "oauth",
+      "adapter": "postgres",
+      "command": "env AUTH_CONSUMER_DB=postgres AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_OAUTH=1 AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node22-oauth-postgres.json",
+      "receiptSha256": "d8c018dcccfc97747e1c8a1adeaa25d4e7f437bcf0b2ce88ef6b0aaed3fcbdc0",
+      "logSha256": "891dbad7fdac50e6204c9f0e6728866d8a200938ac8f7ba12ca146b07e94b679",
+      "fullScope": true
+    },
+    {
+      "node": "v22.23.2",
+      "flow": "integration",
+      "adapter": "sqlite",
+      "command": "env AUTH_CONSUMER_DB=sqlite AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_ISSUE05=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node22-integration-sqlite.json",
+      "receiptSha256": "812b22da788bb73d779d5729683ac67d74187e297ab496ea18a6c30113d7008d",
+      "logSha256": "0a8fccf4df1364eb063fb9928611b20e28d1a05ce78d41161d1fa2a710484abe",
+      "fullScope": true
+    },
+    {
+      "node": "v22.23.2",
+      "flow": "integration",
+      "adapter": "postgres",
+      "command": "env AUTH_CONSUMER_DB=postgres AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_ISSUE05=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node22-integration-postgres.json",
+      "receiptSha256": "6b5d2680139c15ba5e2e80247efcc13060dd746375f21836e3c57d53d33fda6c",
+      "logSha256": "551b36ecc7347cb134f4dd22f40bfa1660beaf29c24fc02c36b3ae126b66ef20",
+      "fullScope": true
+    },
+    {
+      "node": "v22.23.2",
+      "flow": "plain",
+      "adapter": "sqlite",
+      "command": "env  AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node22-plain-sqlite.json",
+      "receiptSha256": "feb56cf4a10f4115dc9a0bf308282bbe9a97f3279e8f25b0d9060ca060a29e2d",
+      "logSha256": "cb3f27d6895f5713dfe5ecdd478db1f69bb28a1671e371333c4fae9c876a3766",
+      "fullScope": true
+    },
+    {
+      "node": "v24.21.0",
+      "flow": "otp",
+      "adapter": "postgres",
+      "command": "env AUTH_CONSUMER_DB=postgres AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node24-otp-postgres.json",
+      "receiptSha256": "7d37a3d112512d5829fba2e579055b02a11c7856c13a60b09fd15e1591fb931b",
+      "logSha256": "ba83eb27253e2743aaea0001c7c59885cf9a8cae2110c9faeee6067f7f23ccf4",
+      "fullScope": true
+    },
+    {
+      "node": "v24.21.0",
+      "flow": "migration",
+      "adapter": "sqlite",
+      "command": "env AUTH_CONSUMER_DB=sqlite AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_ISSUE06=1 AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node24-migration-sqlite.json",
+      "receiptSha256": "0a42513fe7cb14ea8430bdad4e9d04d79f49d709716b424455bf327ea5b484fc",
+      "logSha256": "19cdcfbb879de962c65a9d8cb5e87d67b30c9c765bf609065fd693670c19edae",
+      "fullScope": true
+    },
+    {
+      "node": "v24.21.0",
+      "flow": "migration",
+      "adapter": "postgres",
+      "command": "env AUTH_CONSUMER_DB=postgres AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_ISSUE06=1 AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node24-migration-postgres.json",
+      "receiptSha256": "836280dc76ff0625b427cc9844d4a3ea213eb66f79fb3ddabfb727bad455da0c",
+      "logSha256": "2be553cfecb4d4aa9a54ae34ff7be42d7c081d3c732c99006097dbf9e03c026c",
+      "fullScope": true
+    },
+    {
+      "node": "v24.21.0",
+      "flow": "otp",
+      "adapter": "sqlite",
+      "command": "env AUTH_CONSUMER_DB=sqlite AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node24-otp-sqlite.json",
+      "receiptSha256": "c83695e5f67288431b9ad252ef1faf17fec2bfaaa84ca06ae50b2f5664e88398",
+      "logSha256": "5026fa04d1540e2d3c98cc3e3f1808d288dff2072d245fb725b5873df09779f6",
+      "fullScope": true
+    },
+    {
+      "node": "v24.21.0",
+      "flow": "password",
+      "adapter": "sqlite",
+      "command": "env AUTH_CONSUMER_DB=sqlite AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_PASSWORD=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node24-password-sqlite.json",
+      "receiptSha256": "c057c4fc33a13d8d459314c815f1eb78f5bb307cf654f9c2e6afcf4bcefd88a3",
+      "logSha256": "58d0fd9f3cc0ada47faa7386048e6dd20f63f137ef995a452b1040634bde88af",
+      "fullScope": true
+    },
+    {
+      "node": "v24.21.0",
+      "flow": "password",
+      "adapter": "postgres",
+      "command": "env AUTH_CONSUMER_DB=postgres AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_PASSWORD=1 AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node24-password-postgres.json",
+      "receiptSha256": "17d3936b0597c4a06d001a7a7476478a32304645abb0faefa51970e90725657b",
+      "logSha256": "255a1161b6f019ef2906d9b6c1742d01fd40ff37ff19feee011428761076b789",
+      "fullScope": true
+    },
+    {
+      "node": "v24.21.0",
+      "flow": "oauth",
+      "adapter": "sqlite",
+      "command": "env AUTH_CONSUMER_DB=sqlite AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_OAUTH=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node24-oauth-sqlite.json",
+      "receiptSha256": "051b77241cd2314554c6848cc93e41aad0af5ee97a4b60ab856ff38fdcb41bf9",
+      "logSha256": "cf4b119d22690ffbd384233e0d00d1b33ee195222cb3a32ecdea595fa171bcc0",
+      "fullScope": true
+    },
+    {
+      "node": "v24.21.0",
+      "flow": "oauth",
+      "adapter": "postgres",
+      "command": "env AUTH_CONSUMER_DB=postgres AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_OAUTH=1 AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node24-oauth-postgres.json",
+      "receiptSha256": "3053fd2301762fe779cfad569fde57af29ca230642bb74586438e8d4b2be7fb2",
+      "logSha256": "9e1481fa0c32212aa44be5fd65724c0d0d5c5b9477def9fcb0c1bba7b6526cc9",
+      "fullScope": true
+    },
+    {
+      "node": "v24.21.0",
+      "flow": "integration",
+      "adapter": "sqlite",
+      "command": "env AUTH_CONSUMER_DB=sqlite AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_ISSUE05=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node24-integration-sqlite.json",
+      "receiptSha256": "96adb7e23ea314ca33d5f8c0442469c229381d8a2dc74045cff50a56ff6837e4",
+      "logSha256": "11048e1977ff192274e9aeb9b0d5d0e1e89df6c4311f1812d16353888dd956e4",
+      "fullScope": true
+    },
+    {
+      "node": "v24.21.0",
+      "flow": "integration",
+      "adapter": "postgres",
+      "command": "env AUTH_CONSUMER_DB=postgres AUTH_CONSUMER_BUNDLER=webpack AUTH_CONSUMER_ISSUE05=1 AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node24-integration-postgres.json",
+      "receiptSha256": "16b37e3fce5b13ca405df83879190dd7de0b7f5442d4b16dd9a95741eb413c11",
+      "logSha256": "dde9820b014f0bb95d2f37b469bf082e7d3b7350d343ed180355092b1ce8d23b",
+      "fullScope": true
+    },
+    {
+      "node": "v24.21.0",
+      "flow": "plain",
+      "adapter": "sqlite",
+      "command": "env  AUTH_CONSUMER_EVIDENCE_PATH=<receipt> node scripts/test-consumer.mjs",
+      "result": "passed",
+      "receipt": "issue06-acceptance/node24-plain-sqlite.json",
+      "receiptSha256": "6fa837b887797f0502578e9a415b3026050c0efa7173fb2f2a8892a016a41a5a",
+      "logSha256": "11a0f7f0bad191f023610e2d2943ca01ca49db7889663748042718aa172b8ef1",
+      "fullScope": true
+    }
+  ],
+  "manualOrExternalPending": [
+    "human screen-reader matrix",
+    "real mobile device assessment",
+    "full manual zoom/contrast/target checks",
+    "complete signup/recovery/login-OTP human variant matrix",
+    "live Google configuration/consent/callback",
+    "remote GitHub Actions",
+    "actual consumer deployment/cutover and operator backups"
+  ],
+  "priorAttempts": "issue06-attempts.json",
+  "claim": "Local package acceptance, not publication, rollout approval, or host security/accessibility certification."
+}

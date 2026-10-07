@@ -7,9 +7,9 @@ export interface GoogleCorrelation { state: string; nonce: string; verifier: str
 /** OAuth application owner: order, browser binding, lifetime and irreversible consumption.
  * Provider transport, durable storage, account policy and native sessions are explicit boundaries.
  */
-export function createGoogleFlow<T>(dependencies: { store: OtpStore; now?: () => number; authorize: (correlation: GoogleCorrelation) => Promise<string>; exchange: (url: string, correlation: GoogleCorrelation) => Promise<GoogleIdentity>; finish: (identity: GoogleIdentity, correlation: GoogleCorrelation) => Promise<T> }) {
+export function createGoogleFlow<T>(dependencies: { store: OtpStore; namespace?: string; now?: () => number; authorize: (correlation: GoogleCorrelation) => Promise<string>; exchange: (url: string, correlation: GoogleCorrelation) => Promise<GoogleIdentity>; finish: (identity: GoogleIdentity, correlation: GoogleCorrelation) => Promise<T> }) {
   const now = dependencies.now ?? Date.now
-  const key = (state: string) => `google:${createHash('sha256').update(state).digest('hex')}`
+  const key = (state: string) => `google:${createHash('sha256').update(dependencies.namespace ? JSON.stringify([dependencies.namespace, state]) : state).digest('hex')}`
   const random = () => randomBytes(32).toString('base64url')
   return {
     async start(input: { browser: string; returnTo?: string; purpose?: GoogleCorrelation['purpose']; permit?: string; popup?: boolean; principal?: GoogleCorrelation['principal'] }) {

@@ -1,3 +1,4 @@
+import { readCutoverGeneration } from './cutoverGeneration'
 import type { PayloadRequest } from 'payload'
 import type { PublicAuthConfig } from '../../config'
 import { createGoogleFlow, type GoogleCorrelation } from '../application/googleFlow'
@@ -10,8 +11,9 @@ import { AuthFailure } from '../domain/login'
 /** Native-integrated application adapter: verified callback capability remains closure-local.
  * Framework-free correlation/account policy calls this explicitly Payload-bound workflow.
  */
-export function createGoogleAuthentication(req: PayloadRequest, settings: PublicAuthConfig, provider: ReturnType<typeof createGoogleProvider>, redirectURI: string, now: () => number, assertPublicAccount?: (req: PayloadRequest) => Promise<void>) {
-  const flow = createGoogleFlow({ store: createPayloadOtpStore(req), now, ...provider,
+export async function createGoogleAuthentication(req: PayloadRequest, settings: PublicAuthConfig, provider: ReturnType<typeof createGoogleProvider>, redirectURI: string, now: () => number, assertPublicAccount?: (req: PayloadRequest) => Promise<void>) {
+  const generation = await readCutoverGeneration(req, settings.collection)
+  const flow = createGoogleFlow({ store: createPayloadOtpStore(req), namespace: generation ? JSON.stringify([settings.collection, generation]) : undefined, now, ...provider,
     finish: async (identity, correlation) => {
       if (correlation.purpose !== 'login') {
         // Reached only after durable browser correlation consumption and verified OIDC signature.
@@ -36,7 +38,7 @@ export function createGoogleAuthentication(req: PayloadRequest, settings: Public
       if (!record) throw new AuthFailure('AUTH_FAILED', 401)
       principal = { id: req.user.id, sid: String(req.user._sid), version: credentialVersion(req.payload.secret, record), email: String(record.email) }
       if (input.permit) {
-        const permit = methodPermits(req, settings, now).readPermit('reauth', input.permit)
+        const permit = (await methodPermits(req, settings, now)).readPermit('reauth', input.permit)
         if (permit.account !== principal.id || permit.sid !== principal.sid || permit.version !== principal.version || permit.email !== principal.email) throw new AuthFailure('AUTH_FAILED', 401)
       }
     }

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
 // Approved public HTTP / packed-browser seams, real Payload + shared PostgreSQL.
-export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVersion, outage }) {
+export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVersion, outage, database = postgresVersion }) {
   const origins = [origin, origin2]
   const verified = []
   const post = (base, path, body, cookie, headers = {}) => fetch(`${base}/backend${path}`, { method: 'POST', headers: { 'content-type': 'application/json', origin: base, ...(cookie ? { cookie } : {}), ...headers }, body: JSON.stringify(body) })
@@ -190,9 +190,11 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
   await page.getByRole('button', { name: 'Resend Code', exact: true }).click()
   assert.equal((await resend).status(), 200)
   assert.equal(codeFrom((await forAccount(email)).at(-1)), browserCode)
+  const verifyStartedAt = Date.now()
   const browserVerify = page.waitForResponse(response => response.url().endsWith('/access/otp/verify'))
+    .then(response => ({ response, receivedAt: Date.now() }))
   for (let i = 0; i < 6; i++) await inputs.nth(i).fill(browserCode[i])
-  const browserResult = await browserVerify
+  const { response: browserResult, receivedAt: verifyReceivedAt } = await browserVerify
   assert.equal(browserResult.status(), 200, await browserResult.text())
   assert.equal('token' in await browserResult.json(), false)
   await page.getByTestId('email').filter({ hasText: email }).waitFor()
@@ -201,7 +203,23 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
   assert.ok(cookie?.httpOnly)
   assert.equal(cookie.sameSite, 'Lax')
   const jwtExp = JSON.parse(Buffer.from(cookie.value.split('.')[1], 'base64url')).exp
-  assert.ok(cookie.expires <= jwtExp + 1)
+  const responseHeaders = await browserResult.allHeaders()
+  const responseCookie = responseHeaders['set-cookie'] ?? ''
+  const responseToken = responseCookie.match(/(?:^|\n)consumer-token=([^;]+)/)?.[1]
+  assert.ok(responseToken, 'successful OTP response must set the native session cookie')
+  assert.ok(cookie.value === responseToken, 'stored cookie must match this verification response')
+  const responseExp = JSON.parse(Buffer.from(responseToken.split('.')[1], 'base64url')).exp
+  assert.equal(jwtExp, responseExp, 'stored cookie must belong to this verification response')
+  const wireExpires = Date.parse(responseCookie.match(/Expires=([^;]+)/i)?.[1] ?? '') / 1000
+  const responseDate = Date.parse(responseHeaders.date ?? '') / 1000
+  assert.ok(Number.isFinite(wireExpires) && Number.isFinite(responseDate))
+  assert.ok(wireExpires <= responseExp, 'server cookie must not outlive its signed JWT')
+  // Chromium adjusts Expires by client receipt time minus the whole-second HTTP Date:
+  // https://chromium.googlesource.com/chromium/src/+/2b7a08671c5e3ce4cf50b42e8a33cd5abda96c89/net/cookies/canonical_cookie.cc
+  // Bound that adjustment by the observed receive window, allowing only 2ms timestamp quantization.
+  const adjustedStart = wireExpires + verifyStartedAt / 1000 - responseDate
+  const adjustedEnd = wireExpires + verifyReceivedAt / 1000 - responseDate
+  assert.ok(cookie.expires >= adjustedStart - 0.002 && cookie.expires <= adjustedEnd + 0.002)
   assert.ok(!requests.some(url => url.includes('check-email')))
   for (const source of await page.locator('script[src]').evaluateAll(nodes => nodes.map(node => node.src))) {
     const javascript = await (await fetch(source)).text()
@@ -219,7 +237,7 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
     assert.equal(unavailable.headers.get('set-cookie'), null)
     assert.deepEqual(await unavailable.json(), { success: false, code: 'AUTH_UNAVAILABLE' })
   })
-  verified.push('real PostgreSQL outage fails closed without cookie')
+  verified.push(`${database} security-storage outage fails closed without cookie`)
   const logs = (await Promise.all(origins.map(async base => (await (await fetch(`${base}/fixture`)).json()).logs))).flat()
   const serializedLogs = logs.join('')
   for (const sensitive of [cookie.value, password]) assert.ok(!serializedLogs.includes(sensitive), 'logger must not contain authentication secrets')
@@ -230,5 +248,6 @@ export async function verifyOtpAcceptance({ browser, origin, origin2, postgresVe
   assert.ok(events.some(event => event.event === 'auth.otp.unavailable'))
   for (const event of events) assert.match(event.correlation, /^[a-f0-9]{64}$/)
   verified.push('captured native logger and OTP events contain correlation only, no credentials/codes/token/SQL')
-  console.log(JSON.stringify({ passed: true, postgres: postgresVersion, browser: 'Chromium', instances: 2, verified }, null, 2))
+  console.log(JSON.stringify({ passed: true, database, browser: 'Chromium', instances: 2, verified }, null, 2))
+  return { passed: true, database, browser: 'Chromium', instances: 2, verified }
 }

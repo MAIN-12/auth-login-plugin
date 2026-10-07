@@ -391,4 +391,5 @@ export async function verifyOauthAcceptance({ browser, origin, origin2, provider
   mark('native hooks/read access and custom cookies honored; refresh retains Google evidence and absolute cap, strict CSRF/wrong prefix rejected; logout revokes and short native expiry cannot refresh; invalid cookies do not block basePath login; client bundles/logs omit private secrets')
   console.log(JSON.stringify({ passed: true, database, instances: 2, browser: 'Chromium', provider: 'controlled OIDC, not live Google', verified }, null, 2))
   await context.close()
+  return { passed: true, database, browser: 'Chromium', instances: 2, verified }
 }

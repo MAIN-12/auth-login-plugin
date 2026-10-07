@@ -1,4 +1,5 @@
-import { randomUUID } from 'node:crypto'
+import { readCutoverGeneration } from '../auth/server/cutoverGeneration'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { generatePayloadCookie, headersWithCors, loginOperation, refreshOperation, type Endpoint, type PayloadRequest } from 'payload'
 import type { PublicAuthConfig, OtpOptions } from '../config'
 import { AuthFailure, createPasswordLogin } from '../auth/domain/login'
@@ -107,15 +108,21 @@ export function createRefreshEndpoint(settings: PublicAuthConfig): Endpoint {
 
 function createOtpEndpoints(settings: PublicAuthConfig, options?: OtpOptions, assertOriginalAdminDenied?: (req: PayloadRequest) => Promise<void>): Endpoint[] {
   return ['send', 'verify'].map(action => ({ path: `${settings.authEndpointPrefix}/otp/${action}`, method: 'post', handler: async req => {
-    if (!settings.otpLogin && !settings.allowSignup && !settings.recovery) return authFailureResponse(new AuthFailure('METHOD_DISABLED', 403), req)
+    if (!options) return authFailureResponse(new AuthFailure('METHOD_DISABLED', 403), req)
     let purpose: { input: unknown; purpose: unknown }
     try { const input = parseAuthInterface(action === 'send' ? otpSendSchema : otpVerifySchema, await readJSON(req)); purpose = { input, purpose: input.purpose } } catch (error) { return authFailureResponse(error, req) }
-    if (purpose.input && purpose.purpose !== 'login') return createOwnershipOtpEndpoint(settings, options, action, purpose.input).handler(req)
+    if (purpose.input && purpose.purpose !== 'login') return createOwnershipOtpEndpoint(settings, options, action, purpose.input, assertOriginalAdminDenied).handler(req)
     if (!settings.otpLogin || !options) return authFailureResponse(new AuthFailure('METHOD_DISABLED', 403), req)
     try {
       assertAllowedOrigin(req)
       const input = purpose.input
-      const flow = createOtpFlow({ ...options, collection: settings.collection, store: createPayloadOtpStore(req),
+      let challengeGeneration: string
+      try { challengeGeneration = await readCutoverGeneration(req, settings.collection) }
+      catch (error) {
+        try { req.payload.logger.info({ event: 'auth.otp.unavailable', correlation: randomBytes(32).toString('hex') }) } catch { /* Logging cannot change the fail-closed response. */ }
+        throw error
+      }
+      const flow = createOtpFlow({ ...options, collection: settings.collection, challengeGeneration, store: createPayloadOtpStore(req),
         findAccount: async email => {
           const account = await req.payload.db.findOne({ collection: settings.collection, req, where: { email: { equals: email } } })
           return account ? encodeProofBinding({ accountID: account.id, version: credentialVersion(req.payload.secret, account) }) : null

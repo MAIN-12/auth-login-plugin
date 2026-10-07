@@ -9,9 +9,10 @@ export interface OtpStore {
   transaction<T>(keys: string[], work: (state: OtpStateAccess) => Promise<T>): Promise<T>
 }
 export interface OtpDependencies<T> {
-  purpose?: 'login' | 'signup' | 'recovery' | 'reauth'
+  purpose?: 'login' | 'signup' | 'recovery' | 'reauth' | 'verify-email'
   secret: string
   collection: string
+  challengeGeneration?: string
   store: OtpStore
   now?: () => number
   random?: () => string
@@ -27,7 +28,7 @@ export interface OtpDependencies<T> {
   accountLimit?: number
   originLimit?: number
 }
-interface Input { email: string; purpose: 'login' | 'signup' | 'recovery' | 'reauth'; context?: string; otp?: string }
+interface Input { email: string; purpose: 'login' | 'signup' | 'recovery' | 'reauth' | 'verify-email'; context?: string; otp?: string }
 function parse(input: unknown, verify: boolean, purpose: string): Input {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new AuthFailure('INVALID_INPUT', 400)
   const data = input as Record<string, unknown>
@@ -49,7 +50,7 @@ export function createOtpFlow<T>(dependencies: OtpDependencies<T>) {
   const originLimit = dependencies.originLimit ?? 50
   for (const value of [cooldown, ttl, attempts, accountLimit, originLimit]) if (!Number.isSafeInteger(value) || value < 1) throw new Error('auth-login: invalid OTP limit')
   const keyed = (value: string) => createHmac('sha256', dependencies.secret).update(value).digest('hex')
-  const accountKeyFor = (email: string) => keyed(JSON.stringify(['account', dependencies.collection, purpose, email]))
+  const accountKeyFor = (email: string) => keyed(JSON.stringify(['account', dependencies.collection, purpose, email, ...(dependencies.challengeGeneration ? [dependencies.challengeGeneration] : [])]))
   const bindingFor = (key: string, context: string, account: unknown) => JSON.stringify([dependencies.collection, key, context, purpose, account])
   const cipherKey = Buffer.from(keyed('otp-encryption-v1'), 'hex')
   const seal = (code: string, binding: string) => {

@@ -8,7 +8,7 @@ import { useAuthConfig } from '../../../components/AuthConfigContext'
 
 export interface UseVerifyOtpFlowOptions {
   email: string
-  purpose: 'login' | 'signup' | 'password-reset' | 'reauth'
+  purpose: 'login' | 'signup' | 'password-reset' | 'reauth' | 'verify-email'
   locale?: string
   redirectTo?: string
   context: string
@@ -43,6 +43,11 @@ export function useVerifyOtpFlow({ email, purpose, context, retryAfter = 0, redi
     setIsLoading(true)
     setError(null)
     try {
+      if (purpose === 'verify-email') {
+        await createAuthService(pluginConfig, locale).verifyEmail(email, otp, context)
+        router.push(authRoute(pluginConfig.authBasePath, 'login', {}, redirectTo))
+        return
+      }
       if (purpose !== 'login') {
         const proof = await createAuthService(pluginConfig, locale).verifyOwnership(email, purpose === 'password-reset' ? 'recovery' : purpose, otp, context)
         storePasswordProof(pluginConfig, { ...proof, purpose: purpose === 'password-reset' ? 'recovery' : purpose })

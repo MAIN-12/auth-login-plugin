@@ -92,3 +92,26 @@ export async function passwordReauthentication(req: PayloadRequest, collection: 
     })
   } finally { reauthenticationRequests.delete(req); req.user = original }
 }
+
+/** Email proof establishes only verification; no password, permit or session is issued.
+ * The already-consumed challenge is burnt if hooks/policy/native commit fail.
+ */
+export async function commitEmailVerification(req: PayloadRequest, collection: string, proof: import('../application/ownershipVerification').OwnershipProof, assertPublicAccount?: (req: PayloadRequest) => Promise<void>) {
+  const original = req.user
+  try {
+    return await credentialTransaction(req, collection, proof.email, async () => {
+      const record = await req.payload.db.findOne<User>({ collection, req, where: { email: { equals: proof.email } } })
+      if (proof.purpose !== 'verify-email' || !record || record.id !== proof.account || record.deletedAt || record._verified === true || credentialVersion(req.payload.secret, record) !== proof.version) throw new AuthFailure('AUTH_FAILED', 401)
+      req.user = { ...record, collection } as User
+      // Email-only proof never changes administrative eligibility.
+      if (!assertPublicAccount) throw new AuthFailure('AUTH_FAILED', 401)
+      await assertPublicAccount(req)
+      await req.payload.update({ collection, id: record.id, req, overrideAccess: true, data: { _verified: true } })
+      const fresh = await req.payload.db.findOne<User>({ collection, req, where: { id: { equals: record.id } } })
+      if (!fresh || fresh.email !== record.email || fresh._verified !== true || fresh.hash !== record.hash || fresh.salt !== record.salt || JSON.stringify(fresh.sessions ?? []) !== JSON.stringify(record.sessions ?? [])) throw new AuthFailure('AUTH_FAILED', 401)
+      req.user = { ...fresh, collection } as User
+      await assertPublicAccount(req)
+      return { success: true as const }
+    })
+  } finally { req.user = original }
+}

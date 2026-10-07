@@ -28,7 +28,7 @@ function VerifyOtpFormContent({
   const searchParams = useAuthSearchParams()
   const email = searchParams.get('email') || ''
   const requestedPurpose = searchParams.get('purpose') || 'login'
-  const purpose = ['login', 'signup', 'password-reset', 'reauth'].includes(requestedPurpose) ? requestedPurpose as 'login' | 'signup' | 'password-reset' | 'reauth' : 'login'
+  const purpose = ['login', 'signup', 'password-reset', 'reauth', 'verify-email'].includes(requestedPurpose) ? requestedPurpose as 'login' | 'signup' | 'password-reset' | 'reauth' | 'verify-email' : 'login'
   const redirectTo = searchParams.get('redirect') || '/'
 
   const { otp, error, isLoading, isResending, resendCooldown, setOtp, handleSubmit, handleResendCode } =
@@ -46,11 +46,11 @@ function VerifyOtpFormContent({
     if (onPurposeChange) {
       const title = isPasswordReset ? t.passwordResetTitle : t.title
       const subtitle = isPasswordReset ? t.passwordResetSubtitle : t.subtitle
-      onPurposeChange(purpose === 'reauth' ? 'login' : purpose, title, subtitle)
+      onPurposeChange(purpose === 'reauth' || purpose === 'verify-email' ? 'login' : purpose, title, subtitle)
     }
   }, [purpose, onPurposeChange, t, isPasswordReset])
 
-  if (!email || !/^[a-f0-9]{64}$/.test(searchParams.get('context') ?? '') || !['login', 'signup', 'password-reset', 'reauth'].includes(requestedPurpose)) return <div role="alert"><p>{t.incompleteLink}</p><AuthLink href={authRoute(config.authBasePath, purpose === 'signup' ? 'signup' : purpose === 'password-reset' ? 'forgot-password' : 'login', {}, redirectTo)}>{t.backToLogin}</AuthLink></div>
+  if (!email || !/^[a-f0-9]{64}$/.test(searchParams.get('context') ?? '') || !['login', 'signup', 'password-reset', 'reauth', 'verify-email'].includes(requestedPurpose)) return <div role="alert"><p>{t.incompleteLink}</p><AuthLink href={authRoute(config.authBasePath, purpose === 'signup' ? 'signup' : purpose === 'password-reset' ? 'forgot-password' : 'login', {}, redirectTo)}>{t.backToLogin}</AuthLink></div>
 
   return (
     <div className="flex flex-col items-center gap-4">

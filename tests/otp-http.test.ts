@@ -186,3 +186,35 @@ it('crafted public update metadata cannot mutate credentials or resurrect a logg
   expect(resurrection.status).toBe(403)
   expect((await (await request(1, '/customers/me', undefined, cookie)).json()).user).toBeNull()
 })
+
+it('logs sanitized OTP unavailability when real generation storage fails before the flow starts', async () => {
+  const payload = instances[0].payload
+  const db = payload.db as unknown as { drizzle: unknown; execute: (args: { db: unknown; raw: string }) => Promise<unknown> }
+  const events: unknown[] = []
+  const originalInfo = payload.logger.info
+  let loggerFails = false
+  payload.logger.info = ((event: unknown) => { events.push(event); if (loggerFails) throw new Error('private logger failure') }) as typeof originalInfo
+  await db.execute({ db: db.drizzle, raw: 'CREATE TABLE IF NOT EXISTS auth_login_cutovers (collection TEXT PRIMARY KEY, generation TEXT NOT NULL)' })
+  await db.execute({ db: db.drizzle, raw: 'ALTER TABLE auth_login_cutovers RENAME TO fixture_preserved_cutovers' })
+  await db.execute({ db: db.drizzle, raw: 'CREATE VIEW auth_login_cutovers AS SELECT generation FROM fixture_missing_storage' })
+  try {
+    for (const action of ['send', 'verify']) {
+      const response = await request(0, `/access/otp/${action}`, { email: 'user@example.com', purpose: 'login', ...(action === 'verify' ? { context: 'a'.repeat(64), otp: '123456' } : {}) })
+      expect(response.status).toBe(503)
+      expect(await response.json()).toEqual({ success: false, code: 'AUTH_UNAVAILABLE' })
+      expect(response.headers.get('set-cookie')).toBeNull()
+    }
+    const unavailable = events.filter(event => (event as { event?: string }).event === 'auth.otp.unavailable')
+    expect(unavailable).toHaveLength(2)
+    for (const event of unavailable) expect(event).toEqual({ event: 'auth.otp.unavailable', correlation: expect.stringMatching(/^[a-f0-9]{64}$/) })
+    expect(new Set(unavailable.map(event => (event as { correlation: string }).correlation)).size).toBe(2)
+    loggerFails = true
+    const response = await request(0, '/access/otp/send', { email: 'user@example.com', purpose: 'login' })
+    expect(response.status).toBe(503)
+    expect(response.headers.get('set-cookie')).toBeNull()
+  } finally {
+    payload.logger.info = originalInfo
+    await db.execute({ db: db.drizzle, raw: 'DROP VIEW auth_login_cutovers' })
+    await db.execute({ db: db.drizzle, raw: 'ALTER TABLE fixture_preserved_cutovers RENAME TO auth_login_cutovers' })
+  }
+})

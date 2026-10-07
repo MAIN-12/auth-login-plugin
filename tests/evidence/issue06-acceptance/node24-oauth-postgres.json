@@ -1,0 +1,27 @@
+{
+  "passed": true,
+  "database": "postgres (PostgreSQL) 17.8 (Homebrew)",
+  "browser": "Chromium",
+  "instances": 2,
+  "verified": [
+    "Chromium legitimate signed callback and native session",
+    "missing/tampered/cross-browser/replayed/expired state and wrong public Host reject; same correlation crosses processes and exactly one race wins",
+    "signed nonce/issuer/audience/signature/expiry and code failures burn state without provisioning; email collision never links; closed signup accepts existing stable subject only",
+    "external/protocol-relative/encoded return targets fall back locally; allowed query/hash preserved",
+    "concurrent independent-process same-subject linking accepts one owner and denies the other; authoritative subsequent login selects the winner",
+    "explicit linking requires recent five-minute proof and exact SID; conflicts preserve owner and revoked SID cannot link after authorization",
+    "Chromium public linkGoogle action performs explicit password proof, real cross-site provider callback and preserves existing session; account identity cannot be overwritten",
+    "Chromium Google-only popup reauthentication rejects missing auth_time, accepts signed fresh evidence via exact-origin opener, then explicit password addition rotates/revokes old SID",
+    "public sessions cannot Admin or protected REST CRUD/GraphQL/Local API; eligible verified administrator succeeds; existing read denial, unmet/unavailable policy and missing Local evidence fail closed; explicit trusted maintenance preserved",
+    "native OTP proof alone cannot issue an administrator application session even when consumer policy would otherwise allow the role",
+    "original Admin eligibility rejects public provisioning and rolls account back even when composed policy masks eligibility; same identity later provisions ordinary customer only",
+    "native hooks/read access and custom cookies honored; refresh retains Google evidence and absolute cap, strict CSRF/wrong prefix rejected; logout revokes and short native expiry cannot refresh; invalid cookies do not block basePath login; client bundles/logs omit private secrets"
+  ],
+  "sourceHash": "f9833a914fa8758ca6c3a3758dc8e76e7a5add8e2b1a68a55d88eb9887656908",
+  "fixtureHash": "235889a71d28fb480cf94d52c89fca3b1a5457bf3054096220bfaf80eda76228",
+  "harnessHash": "ab9e18dda05dd090c37015c4a73eeca2a3edf2e9134b5924f2794851b55f7040",
+  "packedSha256": "bcea231a80d22b9a52fd063b772ead089a53025e273246cfdde17c3478fee089",
+  "node": "v24.21.0",
+  "declarations": "passed",
+  "snapshot": "unchanged"
+}

@@ -1,0 +1,87 @@
+{
+  "purpose": "Historical failed/partial attempts and diagnostic controls; never final candidate acceptance. Raw debug/server logs are not committed and must be redacted before sharing.",
+  "attempts": [
+    {
+      "candidate": "fefcc83fb050ec8b39b70e1093c02ee6177608a9",
+      "name": "Initial matrix",
+      "outcome": "Node22 migrations passed; OTP SQLite cookie-normalization assertion failed. Node24 migrations and OTP SQLite passed; OTP PostgreSQL outage returned401 instead of503."
+    },
+    {
+      "candidate": "9e1738d60f762461fd1bee30c930365177b67406",
+      "name": "CI-only correction",
+      "outcome": "Conditional PG password/OAuth OTP flags and signed PG17 client install; not a full runtime execution."
+    },
+    {
+      "candidate": "42b81602e8a3e0f478e4f1e004ae9b090734a8a3",
+      "name": "FINAL2",
+      "outcome": "Both stopped first migration: Node24 Next HTML404 storage preflight; Node22 Next500 E328 Manifest file is empty after backup restore. Zero final runtime receipts."
+    },
+    {
+      "candidate": "9ff5654797172e89100b2e6d31c63b999cc48a3b",
+      "name": "FINAL3",
+      "outcome": "Node22 migration SQLite passed; wrapper intentionally stopped at boundary before other10. Node24 not started. Separate autogeneration-disabled control repeat failed E328 despite95 observations without generated Payload files; knobs are not the manifest fix."
+    },
+    {
+      "candidate": "900eccbd5ab9dfb087f595ba907d003ae0595b65",
+      "name": "FINAL4",
+      "outcome": "Both runtimes migration SQLite/PostgreSQL and OTP SQLite passed, then OTP PostgreSQL503 correct but required auth.otp.unavailable event missing; seven remaining jobs per runtime unrun. No runtime approval."
+    }
+  ],
+  "diagnostics": {
+    "cookie": {
+      "realSamples": 40,
+      "oldPredicateFailures": 1,
+      "wireExpiryMinusJwtExpiryAllSamples": 0,
+      "replacementReplayPassed": 40,
+      "negativeControls": [
+        "server overshoot",
+        "stale JWT expiry",
+        "outside measured receipt window"
+      ],
+      "source": "Chromium canonical_cookie.cc clock-skew normalization"
+    },
+    "sqliteLogoutOtp": {
+      "defaultControl": "logout500/OTP200; native database is locked",
+      "earlier400NoUser": "retained, not identically reproduced",
+      "walTrueBusyTimeout1000": {
+        "runs": 35,
+        "failures": 0,
+        "nativeErrors": 0
+      },
+      "authenticationRetryAdded": false
+    },
+    "nextApplicationRoots": {
+      "sharedRootControl": "Next overwrites the same next-env.d.ts from .next/dev to .next-secondary/dev references, followed by actual E328/login500 in unchanged full migration",
+      "isolatedRootControlsPassed": 2,
+      "sharedDatabase": "same absolute SQLite URL",
+      "relaxedAssertionsOrAuthRetries": false,
+      "standaloneNode24Html404Cause": "not independently proven"
+    },
+    "generationReadLogging": {
+      "realSqlitePublicHttpRed": "send503, verify503, no cookies; unavailable events expected2 actual0",
+      "green": "send/verify sanitized unavailable events plus throwing logger retains503; focused18 tests pass"
+    }
+  },
+  "localDiagnosticDigests": [
+    {
+      "localPath": "/tmp/issue06-cookieprobe/minimal-samples.json",
+      "sha256": "505ec0545411e328b58d8118bb7add033c21440f8522b8e31da2c11f77526726",
+      "contentCommitted": false
+    },
+    {
+      "localPath": "/tmp/issue06-logout-probe/failure-samples-red.json",
+      "sha256": "2a27350b8ad732301886d3ffef8e7079c9745d0e60cebccf8969777be17ebf64",
+      "contentCommitted": false
+    },
+    {
+      "localPath": "/tmp/issue06-logout-probe/samples.json",
+      "sha256": "c942577e7139e7cb5a0a3ed1a4111e0c1c8714c067df9a1cdc2ba7a459882a01",
+      "contentCommitted": false
+    },
+    {
+      "localPath": "/tmp/issue06-generation-log-red.log",
+      "sha256": "aeb7b7d1e33c288bbc02207504a9ea690f943739f5adef0099cbc22761aba15f",
+      "contentCommitted": false
+    }
+  ]
+}

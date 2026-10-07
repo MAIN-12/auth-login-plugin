@@ -25,7 +25,7 @@ export function createGoogleEndpoints(settings: PublicAuthConfig, options?: Goog
       const url = new URL(req.url!)
       const input = purpose === 'link' ? parseAuthInterface(linkSchema, await readJSON(req)) : parseAuthInterface(purpose === 'reauth' ? reauthSchema : startSchema, Object.fromEntries(url.searchParams))
       const browser = randomBytes(32).toString('base64url')
-      const result = await flow(req).start({ browser, returnTo: input.returnTo, purpose, popup: purpose === 'reauth' && 'mode' in input && input.mode === 'popup', ...('permit' in input && typeof input.permit === 'string' ? { permit: input.permit } : {}) })
+      const result = await (await flow(req)).start({ browser, returnTo: input.returnTo, purpose, popup: purpose === 'reauth' && 'mode' in input && input.mode === 'popup', ...('permit' in input && typeof input.permit === 'string' ? { permit: input.permit } : {}) })
       if (purpose === 'link') return Response.json({ url: result.url }, { headers: headersWithCors({ headers: new Headers({ 'Set-Cookie': cookie(result.state, browser), 'Cache-Control': 'no-store' }), req }) })
       return new Response(null, { status: 303, headers: headersWithCors({ headers: new Headers({ Location: result.url, 'Set-Cookie': cookie(result.state, browser), 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' }), req }) })
     } catch (error) { return authFailureResponse(error, req) }
@@ -42,7 +42,7 @@ export function createGoogleEndpoints(settings: PublicAuthConfig, options?: Goog
       if (req.headers.get('host') !== expected.host || url.pathname !== expected.pathname) throw new AuthFailure('AUTH_FAILED', 401)
       const callbackURL = new URL(url.pathname + url.search, expected.origin)
       state = url.searchParams.get('state') ?? ''
-      const result = await flow(req).callback(state, parseCookies(req.headers).get(cookieName(state)) ?? '', callbackURL.href)
+      const result = await (await flow(req)).callback(state, parseCookies(req.headers).get(cookieName(state)) ?? '', callbackURL.href)
       const headers = headersWithCors({ headers: new Headers({ 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' }), req })
       headers.append('Set-Cookie', cookie(state, '', true))
       if ('token' in result.result && 'exp' in result.result) {
