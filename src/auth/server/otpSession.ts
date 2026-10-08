@@ -1,6 +1,9 @@
 import { observeNativeRehash, holdReauthenticationTransaction } from './reauthenticationEvidence'
 import { observeCredentialWrite } from './credentialIntent'
-import { setAuthenticationEvidence, type AuthenticationEvidence } from './adminPolicy'
+import {
+  setAuthenticationEvidence,
+  type AuthenticationEvidence,
+} from '../infrastructure/payload/adminPolicy'
 import { randomUUID } from 'node:crypto'
 import { createClient, type Config as SQLiteConfig } from '@libsql/client'
 import { drizzle } from 'drizzle-orm/libsql'

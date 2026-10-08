@@ -1,8 +1,8 @@
 import { sql } from 'drizzle-orm'
 import { createHmac } from 'node:crypto'
 import type { PayloadRequest } from 'payload'
-import { AuthFailure } from '../domain/login'
-import type { PasswordPermit } from '../domain/passwordLifecycle'
+import { AuthFailure } from '../contracts/errors'
+import type { PasswordPermit } from '../domain/passwordPermit'
 import type { DrizzleDatabase } from './otpSession'
 
 export async function initializeMethodPermitLedger(req: PayloadRequest) {

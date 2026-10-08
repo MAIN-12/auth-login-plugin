@@ -6,9 +6,13 @@ import { useAuthThemeClasses } from '../ui/theme'
 import { authErrorMessage } from '../ui/translations'
 import React from 'react'
 import { useAuthConfig } from '../AuthConfigContext'
-import { AuthLink, useAuthSearchParams, authRoute } from '../../auth/application/AuthFlowContext'
+import {
+  AuthLink,
+  useAuthSearchParams,
+  authRoute,
+} from '../../auth/interface/react/AuthFlowContext'
 import { Button, Input } from '../ui/index'
-import { useSetPasswordFlow } from '../../auth/application/hooks/useSetPasswordFlow'
+import { useSetPasswordFlow } from '../../auth/interface/react/hooks/useSetPasswordFlow'
 import type { AuthLocalizationProps } from '../auth-presentation/types'
 
 export interface SetPasswordFormProps extends AuthLocalizationProps {

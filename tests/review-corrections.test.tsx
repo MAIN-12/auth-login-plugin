@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import * as client from '../src/exports/client'
 import { publicConfig } from './auth-test-config'
 import { AuthConfigProvider } from '../src/components/AuthConfigContext'
-import { AuthFlowContext } from '../src/auth/application/AuthFlowContext'
+import { AuthFlowContext } from '../src/auth/interface/react/AuthFlowContext'
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
@@ -353,7 +353,7 @@ it('native modal cycles Tab at enabled visible edges while preserving normal key
   expect(document.activeElement).toBe(trigger)
   trigger.remove()
 })
-import { storePasswordProof } from '../src/auth/application/services/passwordProof'
+import { storePasswordProof } from '../src/auth/interface/client/passwordProof'
 it('password visibility has a comfortable target and localized keyboard toggle for both fields', async () => {
   storePasswordProof(publicConfig, {
     purpose: 'recovery',

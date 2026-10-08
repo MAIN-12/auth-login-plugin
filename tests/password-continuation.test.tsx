@@ -3,12 +3,9 @@ import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { beforeEach, afterEach, expect, it, vi } from 'vitest'
 import { AuthConfigProvider } from '../src/components/AuthConfigContext'
-import { AuthFlowContext } from '../src/auth/application/AuthFlowContext'
+import { AuthFlowContext } from '../src/auth/interface/react/AuthFlowContext'
 import { SetPasswordForm } from '../src/components/forms/SetPasswordForm'
-import {
-  storePasswordProof,
-  readPasswordProof,
-} from '../src/auth/application/services/passwordProof'
+import { storePasswordProof, readPasswordProof } from '../src/auth/interface/client/passwordProof'
 import { publicConfig } from './auth-test-config'
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),

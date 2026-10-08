@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { AuthRequestError } from './authRequestError'
 import { safeAuthRedirect } from '../../domain/redirect'
-import type { PublicAuthConfig } from '../../../config'
+import type { PublicAuthConfig } from '../../contracts/publicConfig'
 import type { ClientPasswordProof } from './passwordProof'
 
 export function createGoogleActions(

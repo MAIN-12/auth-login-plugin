@@ -3,27 +3,12 @@ import type { GoogleOptions } from './googleOptions'
 import type { AdminOptions } from './adminOptions'
 import type { OtpOptions } from './otpOptions'
 export type { OtpOptions } from './otpOptions'
-export type AuthStyle = 'tailwind' | 'hero-ui'
-
-/** Only this explicit, immutable value crosses server/client boundaries. */
-export interface PublicAuthConfig {
-  readonly collection: string
-  readonly apiPrefix: string
-  readonly authEndpointPrefix: string
-  readonly authBasePath: string
-  readonly locale?: 'es' | 'en'
-  readonly style: AuthStyle
-  readonly logoUrl?: string
-  readonly projectName?: string
-  readonly passwordLogin: boolean
-  readonly otpLogin: boolean
-  readonly googleOAuthEnabled: boolean
-  readonly allowSignup: boolean
-  readonly recovery: boolean
-  readonly modalLogin: boolean
-  readonly routeRedirects: boolean
-}
-export type SerializableAuthConfig = PublicAuthConfig
+import type { PublicAuthConfig, AuthStyle } from './auth/contracts/publicConfig'
+export type {
+  PublicAuthConfig,
+  SerializableAuthConfig,
+  AuthStyle,
+} from './auth/contracts/publicConfig'
 
 export interface AuthLoginPluginOptions {
   enabled?: boolean

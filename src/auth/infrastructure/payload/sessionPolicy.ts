@@ -10,7 +10,9 @@ import {
 } from 'payload'
 import { decodeJwt, decodeProtectedHeader, jwtVerify, SignJWT } from 'jose'
 import { parseCookies } from 'payload/shared'
-import { parsePasswordCredentials } from '../../domain/login'
+import { AuthOperationFailure } from '../../domain/errors'
+import { AuthFailure, authStatus } from '../../contracts/errors'
+import { parsePasswordCredentials } from '../../domain/passwordLoginRules'
 
 interface Session {
   id: string
@@ -75,7 +77,13 @@ export function createSessionPolicy(
       if (!passwordEnabled) throw new APIError('METHOD_DISABLED', 403)
       // Guard Local API/GraphQL as well as custom HTTP. Hooks cannot manufacture another method.
       const loginArgs = args as Parameters<typeof import('payload').loginOperation>[0]
-      loginArgs.data = parsePasswordCredentials(loginArgs.data)
+      try {
+        loginArgs.data = parsePasswordCredentials(loginArgs.data)
+      } catch (error) {
+        if (error instanceof AuthOperationFailure)
+          throw new AuthFailure(error.code, authStatus[error.code])
+        throw error
+      }
     }
     if (operation !== 'refresh') return args
     clearSessionPolicyRequest(req)

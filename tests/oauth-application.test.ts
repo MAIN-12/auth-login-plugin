@@ -1,6 +1,9 @@
+import { createGoogleCorrelationCrypto } from '../src/auth/infrastructure/crypto/googleCorrelationCrypto'
+import { createGoogleCorrelations } from '../src/auth/infrastructure/payload/googleCorrelations'
+const crypto = createGoogleCorrelationCrypto()
 import { expect, it } from 'vitest'
-import { createGoogleFlow } from '../src/auth/application/googleFlow'
-import type { OtpStore } from '../src/auth/domain/otp'
+import { createGoogleFlow } from '../src/auth/application/use-cases/googleFlow'
+import type { OtpStore } from '../src/auth/infrastructure/payload/otpLedger'
 const records = new Map<string, Record<string, unknown>>()
 const store: OtpStore = {
   transaction: async (_keys, work) =>
@@ -14,10 +17,18 @@ const store: OtpStore = {
 it('burns callback correlation once and never accepts another browser', async () => {
   let calls = 0
   const flow = createGoogleFlow({
-    store,
+    enabled: true,
+    crypto,
+    correlations: createGoogleCorrelations(store, crypto.key),
+    authorizeStart: async () => undefined,
+    readPermit: async () => {
+      throw new Error('unused')
+    },
     now: () => 1000,
-    authorize: async () => 'https://accounts.google.com/authorize',
-    exchange: async () => ({ sub: 'stable', email: 'a@example.com', emailVerified: true }),
+    provider: {
+      authorize: async () => 'https://accounts.google.com/authorize',
+      exchange: async () => ({ sub: 'stable', email: 'a@example.com', emailVerified: true }),
+    },
     finish: async () => {
       calls++
       return 'session'
@@ -25,14 +36,21 @@ it('burns callback correlation once and never accepts another browser', async ()
   })
   const start = await flow.start({ browser: 'browser-one', returnTo: '/dashboard?q=1#ok' })
   await expect(
-    flow.callback(start.state, 'browser-two', 'https://app.test/callback'),
+    flow.callback({ state: start.state, browser: 'browser-two', url: 'https://app.test/callback' }),
   ).rejects.toThrow('AUTH_FAILED')
-  expect(await flow.callback(start.state, 'browser-one', 'https://app.test/callback')).toEqual({
+  expect(
+    await flow.callback({
+      state: start.state,
+      browser: 'browser-one',
+      url: 'https://app.test/callback',
+    }),
+  ).toEqual({
+    purpose: 'login',
     result: 'session',
     returnTo: '/dashboard?q=1#ok',
   })
   await expect(
-    flow.callback(start.state, 'browser-one', 'https://app.test/callback'),
+    flow.callback({ state: start.state, browser: 'browser-one', url: 'https://app.test/callback' }),
   ).rejects.toThrow('AUTH_FAILED')
   expect(calls).toBe(1)
 })
@@ -40,11 +58,19 @@ it('expires correlation after ten minutes and burns provider failures without ac
   let now = 1000
   let calls = 0
   const flow = createGoogleFlow({
-    store,
+    enabled: true,
+    crypto,
+    correlations: createGoogleCorrelations(store, crypto.key),
+    authorizeStart: async () => undefined,
+    readPermit: async () => {
+      throw new Error('unused')
+    },
     now: () => now,
-    authorize: async () => 'https://accounts.google.com/authorize',
-    exchange: async () => {
-      throw new Error('provider rejected')
+    provider: {
+      authorize: async () => 'https://accounts.google.com/authorize',
+      exchange: async () => {
+        throw new Error('provider rejected')
+      },
     },
     finish: async () => {
       calls++
@@ -54,18 +80,18 @@ it('expires correlation after ten minutes and burns provider failures without ac
   const expired = await flow.start({ browser: 'browser' })
   now = 601000
   await expect(
-    flow.callback(expired.state, 'browser', 'https://app.test/callback'),
+    flow.callback({ state: expired.state, browser: 'browser', url: 'https://app.test/callback' }),
   ).rejects.toThrow('AUTH_FAILED')
   const failed = await flow.start({ browser: 'browser' })
-  await expect(flow.callback(failed.state, 'browser', 'https://app.test/callback')).rejects.toThrow(
-    'provider rejected',
-  )
-  await expect(flow.callback(failed.state, 'browser', 'https://app.test/callback')).rejects.toThrow(
-    'AUTH_FAILED',
-  )
+  await expect(
+    flow.callback({ state: failed.state, browser: 'browser', url: 'https://app.test/callback' }),
+  ).rejects.toThrow('provider rejected')
+  await expect(
+    flow.callback({ state: failed.state, browser: 'browser', url: 'https://app.test/callback' }),
+  ).rejects.toThrow('AUTH_FAILED')
   expect(calls).toBe(0)
 })
-import { authorizeGoogleAccount } from '../src/auth/application/googleAccountPolicy'
+import { authorizeGoogleAccount } from '../src/auth/domain/googleAccountPolicy'
 it('a matching verified Google email never authorizes a local account without explicit linking', () => {
   expect(() =>
     authorizeGoogleAccount({

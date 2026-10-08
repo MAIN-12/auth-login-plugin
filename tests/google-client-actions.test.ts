@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { createAuthService } from '../src/auth/application/services/authService'
+import { createAuthService } from '../src/auth/interface/client/authService'
 import { publicConfig } from './auth-test-config'
 afterEach(() => vi.unstubAllGlobals())
 it('explicit Google linking submits only a confirmed permit and navigates the server-issued authorization URL', async () => {

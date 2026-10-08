@@ -1,7 +1,7 @@
 'use client'
 
 import { AuthConfigContext } from '../AuthConfigContext'
-import type { PublicAuthConfig } from '../../config'
+import type { PublicAuthConfig } from '../../auth/contracts/publicConfig'
 import React, { createContext, useContext, useMemo } from 'react'
 import { getUiTranslations } from '../ui/translations'
 import { getClientPresentationDefaults } from './clientDefaults'

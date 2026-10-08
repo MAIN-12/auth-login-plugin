@@ -1,5 +1,5 @@
-import type { GoogleCorrelation, GoogleIdentity } from '../../domain/google'
-export type { GoogleCorrelation, GoogleIdentity } from '../../domain/google'
+import type { GooglePrincipal, GoogleIdentity } from '../../domain/google'
+export type { GoogleIdentity } from '../../domain/google'
 export interface GoogleProvider {
   authorize(correlation: GoogleCorrelation): Promise<string>
   exchange(url: string, correlation: GoogleCorrelation): Promise<GoogleIdentity>
@@ -19,4 +19,17 @@ export interface GoogleCallback {
   state: string
   browser: string
   url: string
+}
+
+export interface GoogleCorrelation {
+  state: string
+  nonce: string
+  verifier: string
+  browser: string
+  returnTo: string
+  expiresAt: number
+  purpose: 'login' | 'link' | 'reauth'
+  permit?: string
+  popup?: boolean
+  principal?: GooglePrincipal
 }

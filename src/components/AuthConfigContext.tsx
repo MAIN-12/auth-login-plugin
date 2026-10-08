@@ -6,7 +6,7 @@ import {
   matchesAuthTransport,
   type AuthServiceScope,
 } from '../auth/interface/react/AuthServiceContext'
-import type { PublicAuthConfig } from '../config'
+import type { PublicAuthConfig } from '../auth/contracts/publicConfig'
 
 export const AuthConfigContext = createContext<PublicAuthConfig | null>(null)
 export function AuthConfigProvider({

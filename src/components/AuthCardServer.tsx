@@ -3,7 +3,7 @@ import {
   type AuthCardWithSlugProps,
   type AuthCardWithChildrenProps,
 } from './AuthCard'
-import type { PublicAuthConfig } from '../config'
+import type { PublicAuthConfig } from '../auth/contracts/publicConfig'
 import { AuthConfigProvider } from './AuthConfigContext'
 import { AuthSignupConfig } from './AuthSignupConfig'
 import { AuthPresentationDefaults } from './auth-presentation/AuthPresentationContext'

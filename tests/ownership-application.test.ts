@@ -1,12 +1,15 @@
-import { expect, it } from 'vitest'
+import { createOtpCodec } from '../src/auth/infrastructure/crypto/otpCodec'
+import { createOtpLedger } from '../src/auth/infrastructure/payload/otpLedger'
 import {
-  createOwnershipVerification,
-  type OwnershipAccount,
-} from '../src/auth/application/ownershipVerification'
-import type { OtpStore } from '../src/auth/domain/otp'
+  mapOwnershipAccount,
+  type LegacyOwnershipAccount,
+} from '../src/auth/server/ownershipAccount'
+import { expect, it } from 'vitest'
+import { createOwnershipVerification } from '../src/auth/application/use-cases/ownershipVerification'
+import type { OtpStore } from '../src/auth/infrastructure/payload/otpLedger'
 function fixture(
   purpose: 'signup' | 'recovery' | 'reauth',
-  account: OwnershipAccount | null,
+  account: LegacyOwnershipAccount | null,
   principal: { id: number; sid: string } | null = null,
 ) {
   const rows = new Map<string, Record<string, unknown>>()
@@ -23,12 +26,13 @@ function fixture(
   const flow = createOwnershipVerification({
     collection: 'customers',
     purpose,
-    secret: 's'.repeat(32),
-    store,
+    codec: createOtpCodec('s'.repeat(32)),
+    ledger: createOtpLedger(store),
+    now: Date.now,
     random: () => '123456',
     context: () => 'a'.repeat(64),
-    findOwnershipAccount: async () => account,
-    credentialVersion: () => 'native-proof-version',
+    findOwnershipAccount: async () =>
+      account ? mapOwnershipAccount(account, 'native-proof-version') : null,
     principal,
     deliver: async ({ code }) => {
       mail.push(code)

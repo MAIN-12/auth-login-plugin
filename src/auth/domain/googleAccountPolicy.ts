@@ -1,5 +1,5 @@
 import { AuthOperationFailure } from './errors'
-import type { GoogleIdentity, GoogleCorrelation } from './google'
+import type { GoogleIdentity, GooglePrincipal } from './google'
 import type { PasswordPermit } from './passwordPermit'
 interface Account {
   id: string | number
@@ -35,7 +35,7 @@ export function authorizeGoogleAccount(input: {
 
 /** Selected native evidence is re-read under locks; decoding alone is never permission. */
 export function authorizeGooglePrincipal(input: {
-  principal: GoogleCorrelation['principal']
+  principal: GooglePrincipal | undefined
   current: {
     id: string | number
     sid: string
@@ -61,7 +61,7 @@ export function authorizeGooglePrincipal(input: {
     throw new AuthOperationFailure('AUTH_FAILED')
 }
 export function authorizeGoogleLink(
-  principal: NonNullable<GoogleCorrelation['principal']>,
+  principal: GooglePrincipal,
   permit: PasswordPermit,
   linkedID?: string | number,
 ) {
@@ -77,7 +77,7 @@ export function authorizeGoogleLink(
     throw new AuthOperationFailure('AUTH_FAILED')
 }
 export function authorizeGoogleReauthentication(
-  principal: NonNullable<GoogleCorrelation['principal']>,
+  principal: GooglePrincipal,
   linkedID: string | number | undefined,
   identity: GoogleIdentity,
   now: number,

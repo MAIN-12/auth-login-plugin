@@ -1,6 +1,9 @@
 import { expect, it } from 'vitest'
 import type { PayloadRequest } from 'payload'
-import { createAdminPolicy, setAuthenticationEvidence } from '../src/auth/server/adminPolicy'
+import {
+  createAdminPolicy,
+  setAuthenticationEvidence,
+} from '../src/auth/infrastructure/payload/adminPolicy'
 
 it.each(['false', 'throw'] as const)(
   'original Admin %s denies every composed administrative operation independently of explicit authorization',

@@ -1,6 +1,6 @@
 'use client'
 import { createContext, useContext, useMemo } from 'react'
-import type { PublicAuthConfig } from '../../../config'
+import type { PublicAuthConfig } from '../../contracts/publicConfig'
 import { createAuthService } from '../client/authService'
 import { useAuthConfig } from '../../../components/AuthConfigContext'
 

@@ -1,6 +1,6 @@
 # Separar la política de autenticación de Payload, HTTP y React
 
-**Estado: adaptación aprobada para las tareas 01–05 en sus chats dedicados por instrucción explícita del usuario (2026-10-08); tarea 06 aún pendiente.** Esta especificación adapta
+**Estado: adaptación aprobada para las tareas 01–06 en sus chats dedicados por instrucción explícita del usuario (2026-10-08).** Esta especificación adapta
 Clean Architecture al plugin `@main12/auth-login`, tomando como evidencia el código
 `5bd52e1`. Define propietarios de política, contratos y una migración incremental;
 no afirma que las capas propuestas ya existan ni autoriza una reescritura.
@@ -40,8 +40,7 @@ Los contratos de seguridad existentes permanecen vigentes.
 
 Los términos **DEBE**, **NO DEBE** y **DEBERÍA** son obligaciones propuestas:
 DEBE/NO DEBE son criterios de aceptación; DEBERÍA admite excepción documentada
-con razón, alcance, responsable y test. Son criterios aprobados para los slices 01–05 en sus chats dedicados;
-la tarea 06 continúa pendiente de su propio chat.
+con razón, alcance, responsable y test. Son criterios aprobados para los slices 01–06 en sus chats dedicados.
 
 ### 2.2 Incluido y excluido
 
@@ -616,41 +615,41 @@ refactorización no ejecuta cutover, producción, commit o push por sí misma.
 
 ### 11.4 Checklist de conformidad final
 
-- [ ] Aprobación y autoridad documental plugin-specific registradas.
-- [ ] Todas las entradas de §4 tienen owner y están caracterizadas.
-- [ ] Ningún workflow o HTTP status vive en dominio.
-- [ ] Application no conoce Payload/SQL/HTTP/React/Node crypto.
-- [ ] Repositories devuelven evidencia seleccionada, no documentos/secretos.
-- [ ] Ports operacionales conservan native auth y unidad de commit.
-- [ ] Same req, locks, stale checks, consumption y finally conservados.
-- [ ] Endpoints no poseen política ni ensamblan concrete stores.
-- [ ] Cliente tiene un solo owner HTTP; hooks/context fuera de application.
-- [ ] Composition aislada por plugin/request; disabled completamente inert.
-- [ ] Native hooks/guards/admin y cutover no crean bypasses paralelos.
-- [ ] API/wire/schema/proof/exports conservados; shims transicionales retirados.
-- [ ] SC-01–20 cubiertos por unit tests/doubles con límites explícitos.
-- [ ] Grafo enforced; gates unit/static verdes; sin Chromium ni E2E.
-- [ ] Docs describen estado implementado real, no árbol objetivo por adelantado.
+- [x] Aprobación y autoridad documental plugin-specific registradas.
+- [x] Todas las entradas de §4 tienen owner y están caracterizadas.
+- [x] Ningún workflow o HTTP status vive en dominio.
+- [x] Application no conoce Payload/SQL/HTTP/React/Node crypto.
+- [x] Repositories devuelven evidencia seleccionada, no documentos/secretos.
+- [x] Ports operacionales conservan native auth y unidad de commit.
+- [x] Same req, locks, stale checks, consumption y finally conservados.
+- [x] Endpoints no poseen política ni ensamblan concrete stores.
+- [x] Cliente tiene un solo owner HTTP; hooks/context fuera de application.
+- [x] Composition aislada por plugin/request; disabled completamente inert.
+- [x] Native hooks/guards/admin y cutover no crean bypasses paralelos.
+- [x] API/wire/schema/proof/exports conservados; shims transicionales retirados.
+- [x] SC-01–20 cubiertos por unit tests/doubles con límites explícitos.
+- [x] Grafo enforced; gates unit/static verdes; sin Chromium ni E2E.
+- [x] Docs describen estado implementado real, no árbol objetivo por adelantado.
 
-## Próxima decisión
+## Cierre de implementación
 
-Aprobar esta adaptación y empezar S0/S1; no adoptar la frontera de collection ni los
-tipos AOP del consumidor. Separar política **sin dividir los commits nativos** es la
+Las tareas 01–06 se implementaron de forma secuencial y autorizada. La evidencia
+final e inventario se encuentran en [auth-clean-closure.md](auth-clean-closure.md).
+No se adoptaron la frontera de collection ni los tipos AOP del consumidor. Separar política **sin dividir los commits nativos** es la
 restricción central: los folders son una consecuencia, no la prueba de Clean.
 
 ### Evidencia incremental auth-clean 05 (2026-10-08)
 
-| Escenario | Evidencia del slice | Límite |
-| --- | --- | --- |
-| SC-14 | `session-capabilities.test.ts`: principal exacto, ningún selector/body, cambio async, null explícito/unknown y zero secrets | Repository usa double de DB |
-| SC-15 | `session-native.test.ts`: deadline absoluto, revocación/expiry/malformed, provisioning de tres condiciones; fixtures HTTP/email identity existentes conservados | Sin nueva suite DB/runtime cookies |
-| SC-16 | `admin-policy.test.ts`: original deny/throw y decisión única, recurso async throw, flags/OTP y principal cambiado | No certifica política de un host real |
-| SC-18 | `session-client.test.ts` y `auth-provider.test.tsx`: malformed, nullable principal, in-flight compartido, retry, stale logout; continuaciones OTP/password previas conservadas | fetch doubles / happy-dom |
-| SC-19 | Providers hermanos y transport scopes por instancia/locale; repository/refresh ligados a req/principal/collection | No singleton de fetch/config |
-| SC-20 | Refresh receipt privado, single attempt y dispose success/async reject; `credential-transaction.test.ts` conserva req/bindings y cleanup native transaction | Coordinación DB existente, sin certificar locks multiproceso |
+| Escenario | Evidencia del slice                                                                                                                                                            | Límite                                                       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
+| SC-14     | `session-capabilities.test.ts`: principal exacto, ningún selector/body, cambio async, null explícito/unknown y zero secrets                                                    | Repository usa double de DB                                  |
+| SC-15     | `session-native.test.ts`: deadline absoluto, revocación/expiry/malformed, provisioning de tres condiciones; fixtures HTTP/email identity existentes conservados                | Sin nueva suite DB/runtime cookies                           |
+| SC-16     | `admin-policy.test.ts`: original deny/throw y decisión única, recurso async throw, flags/OTP y principal cambiado                                                              | No certifica política de un host real                        |
+| SC-18     | `session-client.test.ts` y `auth-provider.test.tsx`: malformed, nullable principal, in-flight compartido, retry, stale logout; continuaciones OTP/password previas conservadas | fetch doubles / happy-dom                                    |
+| SC-19     | Providers hermanos y transport scopes por instancia/locale; repository/refresh ligados a req/principal/collection                                                              | No singleton de fetch/config                                 |
+| SC-20     | Refresh receipt privado, single attempt y dispose success/async reject; `credential-transaction.test.ts` conserva req/bindings y cleanup native transaction                    | Coordinación DB existente, sin certificar locks multiproceso |
 
 Seams de capabilities/refresh separadas: application usa OwnCapabilities/NativeRefresh,
 HTTP adapta resultados y composition ensambla adapters. Bootstrap/hooks/guards/Admin
 son instalación/adaptación operacional Payload, no casos de uso. Logout conserva
-el endpoint nativo; no se introduce otro engine. Compatibility shims server y el
-reexport refresh se mantienen explícitos para inventario/eliminación en 06.
+el endpoint nativo; no se introduce otro engine. Los shims server y el reexport refresh se retiraron en 06 tras migrar los callers.

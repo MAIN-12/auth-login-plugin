@@ -1,5 +1,22 @@
 import { expect, it } from 'vitest'
-import { createOtpFlow, type OtpStore } from '../src/auth/domain/otp'
+import { createOtpProtocol } from '../src/auth/application/use-cases/otpProtocol'
+import type { OtpProtocolDependencies } from '../src/auth/application/ports/otp'
+import { createOtpCodec } from '../src/auth/infrastructure/crypto/otpCodec'
+import { createOtpLedger, type OtpStore } from '../src/auth/infrastructure/payload/otpLedger'
+function protocol<T>(
+  options: Omit<OtpProtocolDependencies<T>, 'codec' | 'ledger' | 'now'> & {
+    secret: string
+    store: OtpStore
+    now?: () => number
+  },
+) {
+  return createOtpProtocol({
+    ...options,
+    now: options.now ?? Date.now,
+    codec: createOtpCodec(options.secret),
+    ledger: createOtpLedger(options.store),
+  })
+}
 
 const fixture = () => {
   let now = 1_000_000
@@ -14,7 +31,7 @@ const fixture = () => {
       }),
   }
   const mail: string[] = []
-  const flow = createOtpFlow({
+  const flow = protocol({
     collection: 'customers',
     secret: 'a'.repeat(32),
     store,
@@ -107,7 +124,7 @@ it('storage failures deny access and failed delivery neither resets budgets nor 
   let failedStorage = false
   const events: string[] = []
   let deliveries = 0
-  const flow = createOtpFlow({
+  const flow = protocol({
     collection: 'customers',
     secret: 'z'.repeat(32),
     now: () => now,
@@ -183,7 +200,7 @@ it('an issued login proof cannot authorize a replacement account with the same e
       }),
   }
   let account = 'account-A'
-  const flow = createOtpFlow({
+  const flow = protocol({
     collection: 'customers',
     secret: 's'.repeat(32),
     store,
@@ -226,8 +243,8 @@ it('login proofs cannot cross target collections sharing email, store and secret
     session: async (id) => ({ id }),
     event: () => {},
   }
-  const customers = createOtpFlow({ ...options, collection: 'customers' })
-  const employees = createOtpFlow({ ...options, collection: 'employees' })
+  const customers = protocol({ ...options, collection: 'customers' })
+  const employees = protocol({ ...options, collection: 'employees' })
   const sent = await customers.send({ email: 'same@example.com', purpose: 'login' }, 'peer')
   await expect(
     employees.verify({
@@ -251,7 +268,7 @@ it('the durable account emission quota survives email changes', async () => {
   }
   let now = 0
   let deliveries = 0
-  const flow = createOtpFlow({
+  const flow = protocol({
     collection: 'customers',
     secret: 's'.repeat(32),
     store,

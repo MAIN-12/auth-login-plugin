@@ -4,7 +4,7 @@ import type { createOtpLoginScope } from '../../composition/otpLogin'
 import type { OtpSendCommand, OtpVerifyCommand, Outcome } from '../../application/models'
 import { AuthOperationFailure } from '../../domain/errors'
 import { AuthFailure, authStatus } from '../../contracts/errors'
-import { otpSendSchema, otpVerifySchema, parseAuthInterface } from '../../../endpoints/authSchemas'
+import { otpSendSchema, otpVerifySchema, parseAuthInterface } from './authSchemas'
 import { readJSON, assertAllowedOrigin, authFailureResponse } from './authTransport'
 export function otpEndpoints(
   settings: PublicAuthConfig,

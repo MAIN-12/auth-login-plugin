@@ -10,7 +10,7 @@ import React, {
   useState,
 } from 'react'
 import { useRouter } from 'next/navigation'
-import type { PublicAuthConfig } from '../config'
+import type { PublicAuthConfig } from '../auth/contracts/publicConfig'
 import { AuthConfigProvider } from './AuthConfigContext'
 import { AuthSignupConfig } from './AuthSignupConfig'
 import type { AuthPresentationProps } from './auth-presentation/types'

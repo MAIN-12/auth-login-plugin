@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { createAuthService, AuthRequestError } from '../src/auth/application/services/authService'
+import { createAuthService, AuthRequestError } from '../src/auth/interface/client/authService'
 import { publicConfig } from './auth-test-config'
 afterEach(() => vi.unstubAllGlobals())
 it('never exposes an infrastructure response or trusts an invalid successful OTP response', async () => {
@@ -45,7 +45,7 @@ it('exported email generators escape branding and names without showing OTP in p
   ).not.toContain('123456')
   expect(() => generateWelcomeEmail({ userName: 'A', loginUrl: 'javascript:alert(1)' })).toThrow()
 })
-import { createPasswordLoginEndpoint } from '../src/endpoints/authEndpoints'
+import { createPasswordLoginEndpoint } from '../src/auth/composition/passwordLogin'
 it('failed password login returns a correlation identifier without logging submitted secrets', async () => {
   const events: unknown[] = []
   const req = {
@@ -97,7 +97,7 @@ it('explicit locale and HTTPS branding validate before any configuration is publ
     }),
   ).toThrow()
 })
-import { authRoute } from '../src/auth/application/AuthFlowContext'
+import { authRoute } from '../src/auth/interface/react/AuthFlowContext'
 it('configured navigation retains local query/hash and rejects encoded external bypasses', () => {
   expect(authRoute('/members', 'login', {}, '/checkout?item=1#payment')).toBe(
     '/members/login?redirect=%2Fcheckout%3Fitem%3D1%23payment',

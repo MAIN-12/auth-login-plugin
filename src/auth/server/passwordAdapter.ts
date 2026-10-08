@@ -20,8 +20,8 @@ import {
   loginOperation,
   type PayloadRequest,
 } from 'payload'
-import { AuthFailure } from '../domain/login'
-import type { PasswordPermit } from '../domain/passwordLifecycle'
+import { AuthFailure } from '../contracts/errors'
+import type { PasswordPermit } from '../domain/passwordPermit'
 import {
   credentialVersion,
   credentialRequests,
@@ -360,7 +360,7 @@ export async function passwordReauthentication(
 export async function commitEmailVerification(
   req: PayloadRequest,
   collection: string,
-  proof: import('../application/ownershipVerification').OwnershipProof,
+  proof: import('../application/ports/ownership').OwnershipProof,
   assertPublicAccount?: (req: PayloadRequest) => Promise<void>,
   assertCurrent?: () => Promise<void>,
 ) {

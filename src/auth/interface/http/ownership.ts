@@ -10,7 +10,7 @@ import {
   reauthenticationSchema,
   passwordCompletionSchema,
   parseAuthInterface,
-} from '../../../endpoints/authSchemas'
+} from './authSchemas'
 import { assertAllowedOrigin, authFailureResponse, readJSON } from './authTransport'
 type ScopeFactory = (req: PayloadRequest) => ReturnType<typeof createOwnershipScope>
 const headers = (req: PayloadRequest) =>

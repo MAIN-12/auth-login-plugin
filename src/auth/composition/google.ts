@@ -13,7 +13,7 @@ import { createPayloadOtpStore } from '../server/otpStore'
 import { credentialVersion } from '../server/credentialRequest'
 import { methodPermits, resolveGoogleAccount } from '../infrastructure/payload/googleAccountCommit'
 import { createOtpSession } from '../server/otpSession'
-import { AuthFailure } from '../domain/login'
+import { AuthFailure } from '../contracts/errors'
 /** Native-integrated application adapter: verified callback capability remains closure-local.
  * Framework-free correlation/account policy calls this explicitly Payload-bound workflow.
  */

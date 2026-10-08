@@ -1,4 +1,4 @@
-import type { PublicAuthConfig } from '../../../config'
+import type { PublicAuthConfig } from '../../contracts/publicConfig'
 export interface ClientPasswordProof {
   permit: string
   expiresAt: number

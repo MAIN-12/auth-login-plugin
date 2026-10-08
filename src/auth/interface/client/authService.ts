@@ -3,15 +3,15 @@ export { AuthRequestError } from './authRequestError'
 import { createGoogleActions } from './googleActions'
 export { initiateGoogleLogin } from './googleActions'
 import { z } from 'zod'
-import type { PublicAuthConfig } from '../../../config'
+import type { PublicAuthConfig } from '../../contracts/publicConfig'
 import type { CredentialCapabilities } from '../../domain/credentials'
-import type { ClientPasswordProof } from '../../application/services/passwordProof'
+import type { ClientPasswordProof } from './passwordProof'
 import type {
   SendOtpResponse,
   VerifyOtpResponse,
   SetPasswordResponse,
   SignupResponse,
-} from '../../domain/types'
+} from '../../contracts/clientModels'
 
 /** Explicit per-tree HTTP adapter; no module-global options or account discovery. */
 export function createAuthService(config: PublicAuthConfig, locale?: string) {

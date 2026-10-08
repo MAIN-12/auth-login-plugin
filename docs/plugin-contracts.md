@@ -110,12 +110,10 @@ results carry only a principal; native user/token/exp remain in a request-bound
 adapter receipt. Direct invocation is a trusted internal server seam, never a
 public caller-selected collection or principal.
 
-Temporary shims (retirement owner: auth-clean task 06): legacy `domain/login.ts`
-(error/operation compatibility only), application `services/authService`,
-`hooks/useLoginFlow`, and `AuthFlowContext`; endpoint login factory compatibility.
-These shims are explicitly transitional, not claims that the legacy folders are
-pure. Unmigrated OTP, ownership, Google and session paths retain their existing
-owners until their own tickets. Only new login rules/use-case modules are pure.
+Task 06 retired the temporary domain/login bridge, application client/hook/context
+paths, old endpoint factory forwarding paths and contracts compatibility owners.
+All production and test callers use the current seams; published exports remain
+explicit with the same names. See the closure inventory below.
 
 Rollback means reverting compatible code; it never restores revoked sessions or
 consumed proofs. Doubles prove delegation, mapping, isolation and cleanup protocols,
@@ -125,11 +123,24 @@ isolated use-case evidence; no Chromium/E2E or new DB acceptance suites are requ
 
 ## Dependency seams and evidence
 
-- `src/auth/domain`: no React/Next/Payload, HTTP adapters, components, application services or implicit environment reads. Server cryptography in existing domain modules is deliberate; this is not a claim of browser portability.
-- `src/auth/application`: existing workflows and the explicit HTTP/client adapter; no Payload/server/endpoint imports.
-- `src/auth/server` and endpoints: declared Payload-bound adapters, real transaction/session policies.
-- `src/components`: presentation, shared forms and concrete style adapters; no server/endpoint imports.
-- Stable published surfaces: root plugin, `/client`, `/rsc`, `/proxy`. ESLint checks concrete import barriers; packed-consumer acceptance validates actual exports and bundling.
+- `src/auth/domain`: deterministic rules, semantic codes and pure binding evidence;
+  no workflows, HTTP/UI models, crypto or ambient dependencies.
+- `src/auth/application`: portable use-cases/ports, including operator maintenance
+  intent; no Payload/SQL/HTTP/React/Next/crypto. Adapters select evidence.
+- `src/auth/infrastructure` and `src/auth/server`: concrete Payload/SQL/security/provider
+  adapters. Remaining server modules are operational owners, not legacy forwarding shims.
+- `src/auth/interface/http`: transport parsing, origin/CORS/cookies and mapping of
+  constructed operations. `composition` alone assembles concrete policy/adapter factories.
+- `src/auth/interface/client/authService`: sole browser HTTP owner for forms,
+  Google, capabilities, native me/logout. Hooks/context live in interface/react.
+- Stable root/client/rsc/proxy exports use explicit declarations. Public config types
+  live in contracts/publicConfig; browser/proxy imports no longer traverse private config.
+  RSC preserves its existing server option _type_ export via config, not root bootstrap;
+  no concrete server runtime or credentials cross that surface. Email APIs stay explicit.
+- `scripts/auth-architecture.mjs` resolves syntax with TypeScript and checks transitive
+  imports including types, alias barrels, dynamic import/require. ESLint uses the same
+  graph; tests exercise valid and forbidden fixtures. This is static evidence, not
+  packed/browser/runtime validation.
 
 Logger events include safe codes and server-generated correlation IDs. Failed requests expose `X-Auth-Request-ID`; password rejection, limits, callback rejection and infrastructure events exclude email, password, OTP, tokens and full bodies. Consumer logger failure cannot grant access. Retention, transport and access policy belong to the consumer; the plugin has no external telemetry default.
 
@@ -170,11 +181,9 @@ request-bound login adapter restores temporary user/evidence and keeps token/use
 in a private, consumable receipt outside application. HTTP materializes that receipt
 and preserves cookie/CORS/lifetime/token-removal behavior with no-store responses.
 
-OTP React verification lives in interface/react and uses the shared HTTP client;
-its application hook path is a compatibility re-export for task 06. The legacy
-domain/otp path delegates via contracts/otpCompatibility to the one protocol owner.
-That bridge preserves ownership callers pending task 03; those callers and other
-legacy modules are not declared portable. No ownership authorization, API/schema,
+OTP React verification lives in interface/react and uses the shared HTTP client.
+Task 06 removed the application hook and domain/otp/compatibility bridges after
+moving all callers to the one protocol owner. No ownership authorization, API/schema,
 proof TTL or public export changes are introduced. Compatible code rollback retains
 consumption/revocation history rather than restoring grants.
 
@@ -231,11 +240,9 @@ verification, preserves credential/session state and returns exactly success tru
 Password continuation and forgot-password hooks and proof storage live under
 interface/react and interface/client, using the one HTTP client. Editable password
 and bounded proof remain on transient failures; expiry/consumption restart ownership.
-Explicit compatibility paths (retirement owner: 06) include application ownership
-verification, application password/forgot hooks and proof storage, domain password
-lifecycle, contracts ownership/password-lifecycle bridges and the old password endpoint
-factory path. Google callers still use the password-lifecycle bridge pending 04;
-this is declared compatibility, not a second live ownership owner. No published
+Task 06 removed the ownership/password-lifecycle, client proof/hook and endpoint
+forwarding paths after migrating test composition and production Google callers.
+There is one ownership policy owner and the existing native commit adapter. No published
 exports, schema, password corpus or login policy changed. Code rollback preserves
 revocations, consumed proofs and the current generation.
 
@@ -291,12 +298,10 @@ HTTP adapter, and allow only one active Google link/popup operation per instance
 Exact popup/origin checks, malformed/expired grant rejection, cleanup and retry
 after transient failure are preserved; React state grants no authority.
 
-Retirement owner 06: legacy application/googleFlow and googleAccountPolicy,
-contracts/googleCompatibility, server/googleProvider/googleAccount/
-googleAuthentication and endpoints/googleEndpoints are explicit compatibility paths.
-The trusted historical flow shim retains its original login-only test seam; live
-plugin composition always supplies explicit method admission and native permission
-ports. Public package exports, Google options/schema, subject mapping and permit
+Task 06 removed the Google legacy flow/account-policy paths, contracts bridge,
+server forwarding modules and old endpoint factory path. Tests compose the current
+portable flow with explicit admission/ports; live composition retains native guards.
+Public package exports, Google options/schema, subject mapping and permit
 proof formats are unchanged. Compatible code rollback never restores consumed
 correlations, revoked sessions or old generation authority.
 
@@ -343,9 +348,43 @@ are per tree/config; nested foreign transport configurations get their own scope
 user fields. Duplicate in-flight session/logout requests share one transport;
 malformed/network failures do not become authentication and permit retry.
 
-Temporary compatibility modules `server/credentialEvidence`, `server/adminPolicy`,
-`server/sessionPolicy` and the refresh endpoint reexport remain for 06's caller
-inventory. Public entrypoints, overloads, options, routes, schema and cookies are
+Task 06 removed server credentialEvidence/adminPolicy/sessionPolicy forwarding and
+endpoint refresh reexport after updating callers. Public entrypoints, overloads, options, routes, schema and cookies are
 preserved. A code rollback cannot restore revoked sessions/grants or lower epochs.
 Doubles prove policy and adapter coordination, not browser cookies, native DB
 multiprocess locks or deployment behavior; no new DB/E2E certification is claimed.
+
+## Auth-clean 06: maintenance and architectural closure
+
+Authorized separately on 2026-10-08, after tasks 01–05 completed on chore/audit.
+`migrateAuthLogin(payload, options)` keeps its published signature/report. Composition
+captures the explicit legacy filter; application validates operator attestation and
+inventory identity, with no HTTP principal. The native maintenance adapter validates
+collection/engine and retains the entire existing transaction: direct storage cutoff,
+legacy filtered deletion and fresh collection generation, plus request/registry cleanup.
+Native DB writes intentionally bypass provisioning/change hooks without password rehash.
+Reports select only aggregates; thrown native operational errors retain the old API
+behavior and must not be exposed to a public HTTP caller or logged with secret data.
+Schema setup outside the transaction may remain after failure and grants no authority.
+
+Repeated cutoff neither lowers generation nor resets account/origin budgets or consumed
+permit records. Code rollback must retain bindings/revocations. Backup restoration still
+requires stopped writers and a fresh maintenance/re-cutover before serving traffic.
+Old Google correlations without principal binding are rejected; drain/finish eligible
+flows before rollout or require a fresh login/link/reauthentication after rollout.
+Do not downgrade checks or deserialize a legacy principal from browser state to rescue
+an in-flight callback. A failed later native effect does not resurrect consumed proof.
+
+Only internal unpublished forwarding paths were retired. Inert published global client
+functions and POST check-email/Google aliases remain deliberately disabled for source
+and wire compatibility. Public root/client/rsc/proxy exports, native hooks/settings,
+HTTP/status/cookies, native/private schema, formats/AAD/namespaces/TTL and password corpus
+retain their owners. See [closure evidence](architecture/auth-clean-closure.md) for
+operation inventory, SC-01–20 mapping, static API/schema comparison and limits.
+
+Historical packed/multiprocess receipts referenced above concern older candidates;
+this auth-clean candidate has unit/static checks only. SQLite/HTTP fixtures remain in
+test:unit and are not isolated doubles or current multiprocess certification. No
+Chromium/E2E, external integration, production migration, backup restore or deployment
+was run for this closure. Host writer shutdown, physical rollback/locks, real cookies,
+provider interop and native retention remain separate operational validation decisions.

@@ -1,4 +1,4 @@
-import { AuthFailure } from '../domain/login'
+import { AuthFailure } from '../contracts/errors'
 import { createHmac } from 'node:crypto'
 import type { PayloadRequest } from 'payload'
 import type { DrizzleDatabase } from './otpSession'

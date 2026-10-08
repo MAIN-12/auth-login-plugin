@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest'
 import type { PayloadRequest } from 'payload'
-import { readCredentialCapabilities } from '../src/auth/server/credentialEvidence'
+import { readCredentialCapabilities } from '../src/auth/infrastructure/payload/credentialEvidence'
 
 it('keeps omitted credentials unknown and never exposes storage secrets', async () => {
   const req = {

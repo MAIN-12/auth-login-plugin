@@ -2,7 +2,7 @@ import {
   clearAuthenticationEvidence,
   getAuthenticationEvidence,
   setAuthenticationEvidence,
-} from '../../server/adminPolicy'
+} from './adminPolicy'
 import type { PayloadRequest } from 'payload'
 import type { Principal } from '../../application/models'
 import { AuthOperationFailure } from '../../domain/errors'

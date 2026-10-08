@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { AuthStyle } from '../../config'
+import type { AuthStyle } from '../../auth/contracts/publicConfig'
 import type { DeepPartial, UiTranslations } from '../ui/translations'
 
 export interface AuthLocalizationProps {

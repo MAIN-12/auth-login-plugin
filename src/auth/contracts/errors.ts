@@ -4,7 +4,7 @@ export interface AuthErrorResponse {
   success: false
   code: AuthErrorCode
 }
-/** Legacy transport failure retained for unmigrated flows through task 06. */
+/** Transport failure used only by concrete adapters; semantic policy uses AuthOperationFailure. */
 export class AuthFailure extends Error {
   constructor(
     public readonly code: AuthErrorCode,

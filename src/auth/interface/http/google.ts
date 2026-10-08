@@ -12,12 +12,8 @@ import type { PublicAuthConfig } from '../../../config'
 import type { createGoogleScope } from '../../composition/google'
 import { AuthFailure, authStatus } from '../../contracts/errors'
 import { AuthOperationFailure } from '../../domain/errors'
-import { parseAuthInterface } from '../../../endpoints/authSchemas'
-import {
-  assertAllowedOrigin,
-  authFailureResponse,
-  readJSON,
-} from '../../../endpoints/authEndpoints'
+import { parseAuthInterface } from './authSchemas'
+import { assertAllowedOrigin, authFailureResponse, readJSON } from './authTransport'
 function failure(error: unknown, req: PayloadRequest, requestId?: string) {
   const mapped =
     error instanceof AuthOperationFailure

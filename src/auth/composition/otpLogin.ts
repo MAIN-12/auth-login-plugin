@@ -1,6 +1,6 @@
 import { selectEmailLocale } from '../domain/emailPresentation'
 import { otpEndpoints } from '../interface/http/otpLogin'
-import { createOwnershipOtpEndpoint } from '../../endpoints/passwordEndpoints'
+import { createOwnershipOtpEndpoint } from './ownership'
 import { randomBytes } from 'node:crypto'
 import type { PayloadRequest } from 'payload'
 import type { OtpOptions, PublicAuthConfig } from '../../config'

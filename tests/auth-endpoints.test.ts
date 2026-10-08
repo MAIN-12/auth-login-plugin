@@ -41,7 +41,7 @@ it('requires a dedicated key and trusted server-origin resolver before enabling 
 
 import type { PayloadRequest } from 'payload'
 import { resolveAuthConfig } from '../src/config'
-import { createGoogleEndpoints } from '../src/endpoints/googleEndpoints'
+import { createGoogleEndpoints } from '../src/auth/composition/google'
 it('correlates callback rejection with a server-generated safe ID, never provider secrets', async () => {
   const options = {
     enabled: true,

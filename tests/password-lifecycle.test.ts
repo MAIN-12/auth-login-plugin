@@ -1,9 +1,42 @@
 import { expect, it } from 'vitest'
-import { createPasswordLifecycle } from '../src/auth/domain/passwordLifecycle'
+import { createOwnershipPolicy } from '../src/auth/application/use-cases/ownership'
+import { createPasswordPermitCodec } from '../src/auth/infrastructure/crypto/passwordPermitCodec'
+import type { PasswordPermit } from '../src/auth/domain/passwordPermit'
+import type { CredentialCommit } from '../src/auth/application/ports/ownership'
+function fixture(options: {
+  secret: string
+  collection: string
+  now?: () => number
+  signup: boolean
+  recovery: boolean
+  password: boolean
+  commit: CredentialCommit
+}) {
+  const codec = createPasswordPermitCodec(options)
+  const policy = createOwnershipPolicy({
+    settings: { ...options, otpReauthentication: false },
+    principal: { id: 1, sid: 'current' },
+    permits: codec,
+    commit: options.commit,
+    protocol: async () => {
+      throw new Error('unused')
+    },
+    nativeReauthenticate: async () => {
+      throw new Error('unused')
+    },
+  })
+  return {
+    complete: policy.complete,
+    grant(permit: PasswordPermit) {
+      policy.admitMethod(permit.purpose, false)
+      return codec.grant(permit)
+    },
+  }
+}
 
 it('Signup establishes only an owner-chosen phrase after verification, never pre-registers credentials', async () => {
   const writes: unknown[] = []
-  const flow = createPasswordLifecycle({
+  const flow = fixture({
     secret: 's'.repeat(32),
     collection: 'customers',
     now: () => 1000,
@@ -37,7 +70,7 @@ it('Signup establishes only an owner-chosen phrase after verification, never pre
 it('a limited recovery grant is opaque, purpose-bound, expires at ten minutes and rejects weak passwords', async () => {
   let now = 1000
   let calls = 0
-  const flow = createPasswordLifecycle({
+  const flow = fixture({
     secret: 's'.repeat(32),
     collection: 'customers',
     now: () => now,
@@ -46,7 +79,7 @@ it('a limited recovery grant is opaque, purpose-bound, expires at ten minutes an
     password: true,
     commit: async () => {
       calls++
-      return true
+      return { success: true }
     },
   })
   const grant = flow.grant({
@@ -71,13 +104,13 @@ it('a limited recovery grant is opaque, purpose-bound, expires at ten minutes an
   expect(calls).toBe(0)
 })
 it('new passwords reject the versioned compromised corpus and count Unicode characters, not artificial composition', async () => {
-  const flow = createPasswordLifecycle({
+  const flow = fixture({
     secret: 's'.repeat(32),
     collection: 'customers',
     signup: true,
     recovery: false,
     password: true,
-    commit: async () => true,
+    commit: async () => ({ success: true }),
   })
   const grant = flow.grant({
     purpose: 'signup',
@@ -96,7 +129,7 @@ it('new passwords reject the versioned compromised corpus and count Unicode char
       permit: grant.permit,
       password: 'a long lowercase quiet phrase',
     }),
-  ).toBe(true)
+  ).toEqual({ success: true })
 })
 it('reauthentication is limited to five minutes, one collection and the selected method', async () => {
   let now = 1000
@@ -106,9 +139,9 @@ it('reauthentication is limited to five minutes, one collection and the selected
     recovery: false,
     password: true,
     now: () => now,
-    commit: async () => true,
+    commit: async () => ({ success: true }),
   }
-  const flow = createPasswordLifecycle({ ...options, collection: 'customers' })
+  const flow = fixture({ ...options, collection: 'customers' })
   const permit = flow.grant({
     purpose: 'reauth',
     email: 'owner@example.com',
@@ -118,7 +151,7 @@ it('reauthentication is limited to five minutes, one collection and the selected
   })
   expect(permit.expiresAt).toBe(301000)
   await expect(
-    createPasswordLifecycle({ ...options, collection: 'admins' }).complete('reauth', {
+    fixture({ ...options, collection: 'admins' }).complete('reauth', {
       permit: permit.permit,
       password: 'a long lowercase quiet phrase',
     }),
@@ -128,7 +161,7 @@ it('reauthentication is limited to five minutes, one collection and the selected
     flow.complete('reauth', { permit: permit.permit, password: 'a long lowercase quiet phrase' }),
   ).rejects.toThrow('AUTH_FAILED')
   expect(() =>
-    createPasswordLifecycle({ ...options, collection: 'customers', password: false }).grant({
+    fixture({ ...options, collection: 'customers', password: false }).grant({
       purpose: 'reauth',
       email: 'owner@example.com',
       account: 1,

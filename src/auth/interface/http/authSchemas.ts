@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AuthFailure } from '../auth/domain/login'
+import { AuthFailure } from '../../contracts/errors'
 const email = z
   .string()
   .max(254)

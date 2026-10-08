@@ -1,13 +1,11 @@
 import { createPasswordLoginEndpoint } from './passwordLogin'
 import { createAdminPolicy } from '../infrastructure/payload/adminPolicy'
-import { createGoogleEndpoints } from '../../endpoints/googleEndpoints'
+import { createGoogleEndpoints } from './google'
 import type { Config } from 'payload'
 import { resolveAuthConfig, type AuthLoginPluginOptions, type PublicAuthConfig } from '../../config'
-import {
-  createAuthEndpoints,
-  createRefreshEndpoint,
-  authFailureResponse,
-} from '../../endpoints/authEndpoints'
+import { createAuthEndpoints } from './authEndpoints'
+import { createRefreshEndpoint } from './session'
+import { authFailureResponse } from '../interface/http/authTransport'
 import { installNativeSessionCoordination } from '../server/otpSession'
 import { guardCredentialIntent } from '../server/credentialIntent'
 import { createSessionPolicy } from '../infrastructure/payload/sessionPolicy'

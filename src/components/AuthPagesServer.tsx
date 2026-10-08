@@ -1,6 +1,6 @@
 import AuthPagesClient from './AuthPages'
 import type { AuthPagesProps as ClientAuthPagesProps } from './AuthPages'
-import type { PublicAuthConfig } from '../config'
+import type { PublicAuthConfig } from '../auth/contracts/publicConfig'
 import { AuthConfigProvider } from './AuthConfigContext'
 import { AuthSignupConfig } from './AuthSignupConfig'
 import { AuthPresentationDefaults } from './auth-presentation/AuthPresentationContext'

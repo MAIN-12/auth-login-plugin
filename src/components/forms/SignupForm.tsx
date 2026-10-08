@@ -10,7 +10,7 @@ import {
   authRoute,
   useAuthNavigation,
   useAuthSearchParams,
-} from '../../auth/application/AuthFlowContext'
+} from '../../auth/interface/react/AuthFlowContext'
 import { useAuthConfig } from '../AuthConfigContext'
 import { useAuthService } from '../../auth/interface/react/AuthServiceContext'
 import { Button, Input, Divider } from '../ui/index'

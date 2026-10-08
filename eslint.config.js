@@ -1,3 +1,4 @@
+import { architecturePlugin } from './scripts/auth-architecture.mjs'
 import reactHooks from 'eslint-plugin-react-hooks'
 import tseslint from 'typescript-eslint'
 
@@ -9,14 +10,37 @@ export default [
   ...tseslint.configs.recommended,
   {
     files: ['src/**/*.{ts,tsx}', 'tests/**/*.{ts,tsx}', 'scripts/**/*.ts'],
-    plugins: { 'react-hooks': reactHooks },
+    plugins: { 'react-hooks': reactHooks, architecture: architecturePlugin },
     rules: {
+      'architecture/boundaries': 'error',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': [
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
+    },
+  },
+  {
+    files: [
+      'src/components/**/*.{ts,tsx}',
+      'src/auth/interface/client/**/*.{ts,tsx}',
+      'src/auth/interface/react/**/*.{ts,tsx}',
+    ],
+    ignores: ['src/auth/interface/client/authService.ts', 'src/components/email/**'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        { name: 'fetch', message: 'Client HTTP belongs to authService.' },
+      ],
+      'no-restricted-properties': [
+        'error',
+        ...['globalThis', 'window'].map((object) => ({
+          object,
+          property: 'fetch',
+          message: 'Client HTTP belongs to authService.',
+        })),
       ],
     },
   },
@@ -66,9 +90,8 @@ export default [
   },
   {
     files: [
-      'src/auth/application/use-cases/**/*.ts',
-      'src/auth/application/ports/**/*.ts',
-      'src/auth/application/models.ts',
+      'src/auth/application/**/*.ts',
+      'src/auth/domain/**/*.ts',
       'src/auth/domain/errors.ts',
       'src/auth/domain/passwordLoginRules.ts',
       'src/auth/domain/otpRules.ts',

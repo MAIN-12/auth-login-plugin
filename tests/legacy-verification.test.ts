@@ -1,6 +1,9 @@
+import { createOtpCodec } from '../src/auth/infrastructure/crypto/otpCodec'
+import { createOtpLedger } from '../src/auth/infrastructure/payload/otpLedger'
+import { mapOwnershipAccount } from '../src/auth/server/ownershipAccount'
 import { expect, it } from 'vitest'
-import { createOwnershipVerification } from '../src/auth/application/ownershipVerification'
-import type { OtpStore } from '../src/auth/domain/otp'
+import { createOwnershipVerification } from '../src/auth/application/use-cases/ownershipVerification'
+import type { OtpStore } from '../src/auth/infrastructure/payload/otpLedger'
 it('legacy email ownership binds existing credential evidence without granting password or session authority', async () => {
   const rows = new Map<string, Record<string, unknown>>()
   const store: OtpStore = {
@@ -16,17 +19,16 @@ it('legacy email ownership binds existing credential evidence without granting p
   const flow = createOwnershipVerification({
     collection: 'customers',
     purpose: 'verify-email',
-    secret: 's'.repeat(32),
-    store,
+    codec: createOtpCodec('s'.repeat(32)),
+    ledger: createOtpLedger(store),
+    now: Date.now,
     random: () => '123456',
     context: () => 'a'.repeat(64),
-    findOwnershipAccount: async () => ({
-      id: 7,
-      email: 'owner@example.com',
-      hash: 'original-hash',
-      salt: 'original-salt',
-    }),
-    credentialVersion: () => 'original-version',
+    findOwnershipAccount: async () =>
+      mapOwnershipAccount(
+        { id: 7, email: 'owner@example.com', hash: 'original-hash', salt: 'original-salt' },
+        'original-version',
+      ),
     principal: null,
     deliver: async () => {},
     event: () => {},
@@ -74,14 +76,14 @@ it('legacy ownership expiry and purpose separation cannot authorize password com
   const flow = createOwnershipVerification({
     collection: 'customers',
     purpose: 'verify-email',
-    secret: 's'.repeat(32),
-    store,
+    codec: createOtpCodec('s'.repeat(32)),
+    ledger: createOtpLedger(store),
     now: () => now,
     ttlSeconds: 60,
     random: () => '123456',
     context: () => 'a'.repeat(64),
-    findOwnershipAccount: async () => ({ id: 7, email: 'owner@example.com' }),
-    credentialVersion: () => 'unknown-native-version',
+    findOwnershipAccount: async () =>
+      mapOwnershipAccount({ id: 7, email: 'owner@example.com' }, 'unknown-native-version'),
     principal: null,
     deliver: async () => {},
     event: () => {},

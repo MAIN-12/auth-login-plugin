@@ -1,5 +1,5 @@
 import React from 'react'
-import type { PublicAuthConfig } from '../../config'
+import type { PublicAuthConfig } from '../../auth/contracts/publicConfig'
 import type { ResolvedAuthPresentation } from './types'
 export async function getServerPresentationDefaults(
   settings: PublicAuthConfig,

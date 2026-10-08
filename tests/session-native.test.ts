@@ -4,7 +4,7 @@ import { createRefreshScope } from '../src/auth/composition/session'
 import {
   getAuthenticationEvidence,
   setAuthenticationEvidence,
-} from '../src/auth/server/adminPolicy'
+} from '../src/auth/infrastructure/payload/adminPolicy'
 
 afterEach(() => vi.restoreAllMocks())
 it.each(['success', 'reject'] as const)(
@@ -35,7 +35,7 @@ it.each(['success', 'reject'] as const)(
   },
 )
 
-import { createSessionPolicy } from '../src/auth/server/sessionPolicy'
+import { createSessionPolicy } from '../src/auth/infrastructure/payload/sessionPolicy'
 it('caps native refresh at original creation even after a later sliding expiry', async () => {
   vi.spyOn(Date, 'now').mockReturnValue(1000000)
   const req = {

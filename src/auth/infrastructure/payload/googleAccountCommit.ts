@@ -9,7 +9,7 @@ import {
 import { sql } from 'drizzle-orm'
 import { randomBytes } from 'node:crypto'
 import { checkLoginPermission, type PayloadRequest } from 'payload'
-import { AuthFailure } from '../../domain/login'
+import { AuthFailure } from '../../contracts/errors'
 import type { GoogleCorrelation, GoogleIdentity } from '../../application/ports/google'
 import type { PublicAuthConfig } from '../../../config'
 import { credentialTransaction } from '../../server/passwordAdapter'

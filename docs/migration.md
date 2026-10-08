@@ -51,3 +51,21 @@ The collection generation binds OTP challenge keys, Google correlation state and
 Restoring an old database and immediately serving it can revive its old sessions/codes/permits; no database-resident epoch can magically protect that unsafe sequence. Likewise, an insecure prior plugin is **not** a safe rollback target. Rehearsal is not deployment approval and does not claim recovery of destroyed passwords.
 
 **Concurrent SQLite host requirement:** configure `sqliteAdapter({ wal: true, busyTimeout: 1000, ... })` on every instance. The demonstrated two-process setup uses WAL plus a 1,000 ms native read busy timeout; default DELETE journal/zero timeout can fail native authentication/logout during overlapping OTP writes. The plugin does not silently change the host journal mode or retry authentication hooks. Local file/WAL requires a filesystem that supports SQLite shared-memory/locking; multi-host network filesystems are not established support.
+
+## Compatibility when deploying the auth-clean refactor
+
+The internal maintenance split preserves the public helper, one native commit and
+its rollback. Application validates explicit operator intent; concrete storage/filters
+stay server-only. The new tests use adapter doubles and retain historical SQLite/HTTP
+fixtures; they do not certify production writer shutdown or multiprocess rollback.
+No migration ran against a real service as part of this refactor.
+
+Google correlations created before exact principal binding was required cannot finish
+link/reauthentication after upgrade. Drain eligible flows before rollout or start fresh
+login/link/reauthentication. Never accept an unbound legacy correlation or restore a
+consumed permit to rescue a callback. Code rollback is safe only to a build preserving
+these checks and current generation; it cannot revive sessions/correlations/permits.
+
+Only unpublished internal forwarding imports were removed. Published exports, inert
+legacy client functions, HTTP compatibility stubs, schema and proof formats remain.
+A pre-cutover backup still requires the stopped-writer re-cutover procedure above.

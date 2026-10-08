@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useAuthNavigation, authRoute } from '../AuthFlowContext'
 import { useAuthService } from '../AuthServiceContext'
-import { storePasswordProof } from '../../../application/services/passwordProof'
+import { storePasswordProof } from '../../client/passwordProof'
 import { useAuthConfig } from '../../../../components/AuthConfigContext'
 
 export interface UseVerifyOtpFlowOptions {

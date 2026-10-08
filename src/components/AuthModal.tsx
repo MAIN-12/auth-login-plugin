@@ -1,7 +1,7 @@
 'use client'
 
 import React, { lazy, Suspense, useEffect, useRef } from 'react'
-import type { AuthStyle } from '../config'
+import type { AuthStyle } from '../auth/contracts/publicConfig'
 
 const HeroAuthModal = lazy(() => import('./AuthModalHero'))
 

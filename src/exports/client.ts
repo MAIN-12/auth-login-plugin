@@ -6,14 +6,14 @@
 
 // Plugin client config initializer
 export { AuthConfigProvider, useAuthConfig } from '../components/AuthConfigContext'
-export type { PublicAuthConfig } from '../config'
+export type { PublicAuthConfig } from '../auth/contracts/publicConfig'
 export { AuthClientInit } from '../components/AuthClientInit'
 
 // Auth hooks
 export { useLoginFlow } from '../auth/interface/react/hooks/useLoginFlow'
-export { useVerifyOtpFlow } from '../auth/application/hooks/useVerifyOtpFlow'
-export { useForgotPasswordFlow } from '../auth/application/hooks/useForgotPasswordFlow'
-export { useSetPasswordFlow } from '../auth/application/hooks/useSetPasswordFlow'
+export { useVerifyOtpFlow } from '../auth/interface/react/hooks/useVerifyOtpFlow'
+export { useForgotPasswordFlow } from '../auth/interface/react/hooks/useForgotPasswordFlow'
+export { useSetPasswordFlow } from '../auth/interface/react/hooks/useSetPasswordFlow'
 
 // Auth service functions (client-side fetch wrappers)
 export {
@@ -89,12 +89,11 @@ export type {
   VerifyOtpResponse,
   SetPasswordResponse,
   SignupResponse,
-  PasswordStrengthResult,
-} from '../auth/domain/types'
+} from '../auth/contracts/clientModels'
 
 export type { UseLoginFlowOptions } from '../auth/interface/react/hooks/useLoginFlow'
-export type { UseVerifyOtpFlowOptions } from '../auth/application/hooks/useVerifyOtpFlow'
-export type { UseSetPasswordFlowOptions } from '../auth/application/hooks/useSetPasswordFlow'
+export type { UseVerifyOtpFlowOptions } from '../auth/interface/react/hooks/useVerifyOtpFlow'
+export type { UseSetPasswordFlowOptions } from '../auth/interface/react/hooks/useSetPasswordFlow'
 
 export type { LoginPageProps } from '../components/pages/LoginPage'
 export type { SignupPageProps } from '../components/pages/SignupPage'
@@ -126,4 +125,6 @@ export {
 
 export type { CredentialCapabilities } from '../auth/domain/credentials'
 
-export type { AuthErrorCode, AuthErrorResponse } from '../auth/domain/login'
+export type { AuthErrorCode, AuthErrorResponse } from '../auth/contracts/errors'
+
+export type { PasswordStrengthResult } from '../auth/domain/types'

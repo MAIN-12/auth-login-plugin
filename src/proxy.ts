@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import type { PublicAuthConfig } from './config'
+import type { PublicAuthConfig } from './auth/contracts/publicConfig'
 
 const AUTH_ROUTES = ['login', 'signup', 'forgot-password', 'verify-otp', 'set-password']
 
