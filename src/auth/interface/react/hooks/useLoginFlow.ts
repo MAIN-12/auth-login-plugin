@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useMemo } from 'react'
 import { useAuthNavigation, authRoute } from '../AuthFlowContext'
 import type { LoginStep } from '../../../domain/types'
-import { authErrorKey, createAuthService, initiateGoogleLogin } from '../../client/authService'
+import { authErrorKey, createAuthService } from '../../client/authService'
 import { useAuthConfig } from '../../../../components/AuthConfigContext'
 
 export interface UseLoginFlowOptions {
@@ -19,6 +19,7 @@ export interface UseLoginFlowOptions {
  */
 export function useLoginFlow({ redirectTo, onPasswordLogin, locale }: UseLoginFlowOptions) {
   const config = useAuthConfig()
+  const service = useMemo(() => createAuthService(config, locale), [config, locale])
   const router = useAuthNavigation()
   const inFlight = useRef(false)
 
@@ -75,7 +76,7 @@ export function useLoginFlow({ redirectTo, onPasswordLogin, locale }: UseLoginFl
     setIsSendingOtp(true)
     setError(null)
     try {
-      const data = await createAuthService(config, locale).sendOtp(email)
+      const data = await service.sendOtp(email)
       if (data.success) {
         router.push(
           authRoute(
@@ -94,7 +95,7 @@ export function useLoginFlow({ redirectTo, onPasswordLogin, locale }: UseLoginFl
       inFlight.current = false
       setIsSendingOtp(false)
     }
-  }, [email, redirectTo, router, config, locale])
+  }, [email, redirectTo, router, config, service])
 
   const handleEditEmail = useCallback(() => {
     if (inFlight.current) return
@@ -103,8 +104,8 @@ export function useLoginFlow({ redirectTo, onPasswordLogin, locale }: UseLoginFl
   }, [])
 
   const handleGoogleLogin = useCallback(() => {
-    if (!inFlight.current && config.googleOAuthEnabled) initiateGoogleLogin(redirectTo, config)
-  }, [redirectTo, config])
+    if (!inFlight.current && config.googleOAuthEnabled) service.loginGoogle(redirectTo)
+  }, [redirectTo, config, service])
 
   return {
     step,

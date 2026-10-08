@@ -1,6 +1,8 @@
+import { AuthRequestError } from './authRequestError'
+export { AuthRequestError } from './authRequestError'
+import { createGoogleActions } from './googleActions'
+export { initiateGoogleLogin } from './googleActions'
 import { z } from 'zod'
-import type { AuthErrorCode } from '../../domain/errors'
-import { safeAuthRedirect } from '../../domain/redirect'
 import type { PublicAuthConfig } from '../../../config'
 import type { CredentialCapabilities } from '../../domain/credentials'
 import type { ClientPasswordProof } from '../../application/services/passwordProof'
@@ -10,15 +12,6 @@ import type {
   SetPasswordResponse,
   SignupResponse,
 } from '../../domain/types'
-
-export class AuthRequestError extends Error {
-  constructor(
-    public readonly code: AuthErrorCode,
-    public readonly status: number,
-  ) {
-    super(code)
-  }
-}
 
 /** Explicit per-tree HTTP adapter; no module-global options or account discovery. */
 export function createAuthService(config: PublicAuthConfig, locale?: string) {
@@ -99,73 +92,7 @@ export function createAuthService(config: PublicAuthConfig, locale?: string) {
     return parsed.data
   }
   return {
-    reauthenticateGoogle(): Promise<ClientPasswordProof> {
-      if (!config.googleOAuthEnabled)
-        return Promise.reject(new AuthRequestError('METHOD_DISABLED', 403))
-      let popup: Window | null
-      try {
-        popup = window.open(
-          `${config.apiPrefix}${config.authEndpointPrefix}/oauth/google/reauthenticate?mode=popup`,
-          '_blank',
-          'popup,width=600,height=700',
-        )
-      } catch {
-        return Promise.reject(new AuthRequestError('AUTH_UNAVAILABLE', 503))
-      }
-      if (!popup) return Promise.reject(new AuthRequestError('AUTH_UNAVAILABLE', 503))
-      return new Promise((resolve, reject) => {
-        const origin = window.location.origin
-        const finish = (grant?: ClientPasswordProof) => {
-          window.removeEventListener('message', receive)
-          clearInterval(closed)
-          clearTimeout(timeout)
-          try {
-            popup.close()
-          } catch {
-            reject(new AuthRequestError('AUTH_UNAVAILABLE', 503))
-            return
-          }
-          if (grant) resolve(grant)
-          else reject(new AuthRequestError('AUTH_FAILED', 401))
-        }
-        const receive = (event: MessageEvent) => {
-          if (event.origin !== origin || event.source !== popup) return
-          const message = z
-            .object({
-              type: z.literal('auth-login.google.reauthentication'),
-              grant: z.object({
-                success: z.literal(true),
-                permit: z.string().min(1).max(2048),
-                expiresAt: z.number().finite(),
-              }),
-            })
-            .safeParse(event.data as unknown)
-          if (!message.success) return
-          const grant = message.data.grant
-          if (grant.expiresAt <= Date.now() || grant.permit.length > 2048) return finish()
-          finish({ purpose: 'reauth', permit: grant.permit, expiresAt: grant.expiresAt })
-        }
-        const closed = setInterval(() => {
-          if (popup.closed) finish()
-        }, 250)
-        const timeout = setTimeout(() => finish(), 300000)
-        window.addEventListener('message', receive)
-      })
-    },
-    async linkGoogle(permit: string, returnTo = '/'): Promise<void> {
-      if (!config.googleOAuthEnabled) throw new AuthRequestError('METHOD_DISABLED', 403)
-      const result = await request(
-        'oauth/google/link',
-        { permit, confirm: true, returnTo: safeAuthRedirect(returnTo) },
-        z.object({ url: z.string().url() }),
-      )
-      if (typeof result.url !== 'string') throw new AuthRequestError('AUTH_FAILED', 401)
-      try {
-        window.location.assign(result.url)
-      } catch {
-        throw new AuthRequestError('AUTH_UNAVAILABLE', 503)
-      }
-    },
+    ...createGoogleActions(config, request),
     sendOtp: (email: string, context?: string): Promise<SendOtpResponse> =>
       config.otpLogin
         ? request('otp/send', { email, purpose: 'login', ...(context ? { context } : {}) }, otpSent)
@@ -263,17 +190,6 @@ export async function setUserPassword(
 export async function signup(_name: string, _email: string): Promise<SignupResponse> {
   return unavailable()
 }
-export function initiateGoogleLogin(redirectTo = '/', config?: PublicAuthConfig): void {
-  if (!config?.googleOAuthEnabled) throw new AuthRequestError('METHOD_DISABLED', 403)
-  try {
-    window.location.assign(
-      `${config.apiPrefix}${config.authEndpointPrefix}/oauth/google?returnTo=${encodeURIComponent(safeAuthRedirect(redirectTo))}`,
-    )
-  } catch {
-    throw new AuthRequestError('AUTH_UNAVAILABLE', 503)
-  }
-}
-
 /** Error codes remain separate from presentation text; unknown errors use a safe key. */
 export function authErrorKey(error: unknown): 'invalidCredentials' | 'genericError' {
   return error instanceof AuthRequestError && error.code === 'AUTH_FAILED'

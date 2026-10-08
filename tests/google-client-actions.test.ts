@@ -63,3 +63,96 @@ it('Google reauthentication receives a bounded popup grant only from the exact p
   expect(close).toHaveBeenCalled()
   expect(listeners.size).toBe(0)
 })
+it('one service admits only one Google popup while reauthentication is in flight', async () => {
+  const popup = { closed: false, close: vi.fn() }
+  const listeners = new Map<string, (event: MessageEvent) => void>()
+  const open = vi.fn(() => popup)
+  vi.stubGlobal('window', {
+    location: { origin: 'https://app.test' },
+    open,
+    addEventListener: (name: string, listener: (event: MessageEvent) => void) =>
+      listeners.set(name, listener),
+    removeEventListener: (name: string) => listeners.delete(name),
+  })
+  const service = createAuthService({ ...publicConfig, googleOAuthEnabled: true })
+  const first = service.reauthenticateGoogle()
+  const second = service.reauthenticateGoogle()
+  const denied = expect(second).rejects.toMatchObject({ code: 'AUTH_UNAVAILABLE' })
+  listeners.get('message')!({
+    origin: 'https://app.test',
+    source: popup,
+    data: {
+      type: 'auth-login.google.reauthentication',
+      grant: { success: true, permit: 'bounded', expiresAt: Date.now() + 60000 },
+    },
+  } as unknown as MessageEvent)
+  await first
+  await denied
+  expect(open).toHaveBeenCalledTimes(1)
+})
+it('expired popup proof closes and removes listeners, then permits a fresh retry without transport', async () => {
+  const popup = { closed: false, close: vi.fn() }
+  const listeners = new Map<string, (event: MessageEvent) => void>()
+  vi.stubGlobal('window', {
+    location: { origin: 'https://app.test' },
+    open: vi.fn(() => popup),
+    addEventListener: (name: string, listener: (event: MessageEvent) => void) =>
+      listeners.set(name, listener),
+    removeEventListener: (name: string) => listeners.delete(name),
+  })
+  const fetch = vi.fn()
+  vi.stubGlobal('fetch', fetch)
+  const service = createAuthService({ ...publicConfig, googleOAuthEnabled: true })
+  const send = (data: unknown) =>
+    listeners.get('message')!({
+      origin: 'https://app.test',
+      source: popup,
+      data,
+    } as unknown as MessageEvent)
+  const first = service.reauthenticateGoogle()
+  const denied = expect(first).rejects.toMatchObject({ code: 'AUTH_FAILED' })
+  send({
+    type: 'auth-login.google.reauthentication',
+    grant: { success: true, permit: 'expired', expiresAt: Date.now() - 1 },
+  })
+  await denied
+  expect(listeners.size).toBe(0)
+  const retry = service.reauthenticateGoogle()
+  send({
+    type: 'auth-login.google.reauthentication',
+    grant: { success: true, permit: 'bad', expiresAt: 'malformed' },
+  })
+  expect(listeners.size).toBe(1)
+  send({
+    type: 'auth-login.google.reauthentication',
+    grant: { success: true, permit: 'fresh', expiresAt: Date.now() + 60000 },
+  })
+  expect(await retry).toMatchObject({ purpose: 'reauth', permit: 'fresh' })
+  expect(fetch).not.toHaveBeenCalled()
+})
+it('Google linking has one HTTP request while in flight and allows retry after a transient failure', async () => {
+  const assign = vi.fn()
+  vi.stubGlobal('window', { location: { assign } })
+  let reject!: (error: Error) => void
+  const fetch = vi
+    .fn()
+    .mockImplementationOnce(
+      () =>
+        new Promise((_resolve, fail) => {
+          reject = fail
+        }),
+    )
+    .mockResolvedValueOnce(Response.json({ url: 'https://accounts.google.com/authorize' }))
+  vi.stubGlobal('fetch', fetch)
+  const service = createAuthService({ ...publicConfig, googleOAuthEnabled: true })
+  const first = service.linkGoogle('limited')
+  const failure = expect(first).rejects.toMatchObject({ code: 'AUTH_UNAVAILABLE' })
+  await expect(service.linkGoogle('limited')).rejects.toMatchObject({ code: 'AUTH_UNAVAILABLE' })
+  reject(new Error('network'))
+  await failure
+  expect(fetch).toHaveBeenCalledTimes(1)
+  expect(assign).not.toHaveBeenCalled()
+  await service.linkGoogle('limited')
+  expect(fetch).toHaveBeenCalledTimes(2)
+  expect(assign).toHaveBeenCalledTimes(1)
+})

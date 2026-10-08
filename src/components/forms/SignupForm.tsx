@@ -12,7 +12,7 @@ import {
   useAuthSearchParams,
 } from '../../auth/application/AuthFlowContext'
 import { useAuthConfig } from '../AuthConfigContext'
-import { createAuthService, initiateGoogleLogin } from '../../auth/application/services/authService'
+import { createAuthService } from '../../auth/application/services/authService'
 import { Button, Input, Divider } from '../ui/index'
 import type { AuthLocalizationProps } from '../auth-presentation/types'
 
@@ -32,6 +32,7 @@ export function SignupForm({
   messages,
 }: SignupFormProps) {
   const config = useAuthConfig()
+  const service = React.useMemo(() => createAuthService(config, locale), [config, locale])
   const params = useAuthSearchParams()
   const navigation = useAuthNavigation()
   const redirectTo = params.get('redirect') || '/'
@@ -52,7 +53,7 @@ export function SignupForm({
     setIsLoading(true)
     setError(null)
     try {
-      const sent = await createAuthService(config, locale).sendOwnership(email, 'signup')
+      const sent = await service.sendOwnership(email, 'signup')
       if (!sent.success) throw new Error(sent.code)
       navigation.push(
         authRoute(
@@ -78,7 +79,7 @@ export function SignupForm({
             variant="bordered"
             size="lg"
             className="mb-4 [--button-fg:var(--foreground)]"
-            onPress={() => initiateGoogleLogin(redirectTo, config)}
+            onPress={() => service.loginGoogle(redirectTo)}
           >
             <svg width="20" height="20" viewBox="0 0 48 48">
               <path

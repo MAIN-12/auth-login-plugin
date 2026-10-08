@@ -243,3 +243,65 @@ Doubles exercise portable admission, native interleaving, request isolation, saf
 HTTP mapping and cleanup; they do not establish physical rollback or multiprocess
 locks. Historical SQL/HTTP tests remain in test:unit. Task 03 introduces no new DB
 acceptance suite and runs no Chromium/E2E.
+
+## Auth-clean task 04: Google provider and account policy
+
+The user authorized only task 04 in its dedicated sequential chat. The portable
+Google flow owns method admission, typed start/callback inputs, explicit recent
+link permission, local continuation and consume/exchange/finish ordering. Disabled
+internal calls fail before generation reads, provider or correlation effects.
+Node entropy/key namespaces live in googleCorrelationCrypto; durable reservation
+and burn live in googleCorrelations. Historical 32-byte base64url values, SHA256
+keys, collection/generation namespaces and ten-minute TTL are preserved, along
+with store encryption/AAD. An additive private binding ties rows to collection,
+configured callback origin and epoch even at the empty baseline generation. Old
+unbound rows cannot authorize upgraded flows; they expire within the existing TTL. A storage error cannot fall back to process memory.
+
+The OIDC adapter retains oauth4webapi discovery, PKCE, nonce, issuer/audience,
+RS256 signature checks and private transport/config; it returns only a verified
+stable subject/identity. Expected protocol rejection is semantic AUTH_FAILED;
+unexpected transport/storage failure maps to AUTH_UNAVAILABLE. Pure account
+policy selects existing/provision and explicit link/reauth eligibility. Matching
+email never grants a subject association. Native commit retains trusted table
+identifiers, bound SQL values, collection/subject and collection/account uniqueness,
+real request propagation and credential/account locks. It rechecks exact current
+principal/SID, version, verification and live native session under the commit,
+including after asynchronous permit/generation work. Reauth requires recent finite
+provider authentication time and emits only the existing five-minute permit.
+
+Native provisioning still creates a Payload account and removes the discarded
+bootstrap credential in that same transaction. Final account evidence after host
+access callbacks must remain verified, passwordless and without sessions. The
+sub/account mapping commits before the separate native session operation. A native
+session/hook failure burns correlation and leaves an already committed association
+intact; a fresh Google login can use that association. Linking permit consumption
+and association write share a transaction: their rollback can preserve the permit,
+but cannot revive the earlier correlation burn. Reauth creates no session. The
+native session adapter remains authority for login hooks, lockout, access, signing,
+version/generation rechecks and cleanup; no alternate session engine is introduced.
+
+Request scopes accept one operation, restore temporary user/headers on settlement,
+and retain session tokens/users only in a private consumable receipt. HTTP owns
+existing routes/strict schemas, Origin/CORS, no-store, correlation/native cookie
+flags, callback phase cleanup and popup HTML. Login callback still redirects with
+an empty body, so tokens never appear in JSON, including with
+removeTokenFromResponses. Disabled POST aliases remain inert. Client Google actions
+and navigation/popup helpers live together in interface/client, share the per-tree
+HTTP adapter, and allow only one active Google link/popup operation per instance.
+Exact popup/origin checks, malformed/expired grant rejection, cleanup and retry
+after transient failure are preserved; React state grants no authority.
+
+Retirement owner 06: legacy application/googleFlow and googleAccountPolicy,
+contracts/googleCompatibility, server/googleProvider/googleAccount/
+googleAuthentication and endpoints/googleEndpoints are explicit compatibility paths.
+The trusted historical flow shim retains its original login-only test seam; live
+plugin composition always supplies explicit method admission and native permission
+ports. Public package exports, Google options/schema, subject mapping and permit
+proof formats are unchanged. Compatible code rollback never restores consumed
+correlations, revoked sessions or old generation authority.
+
+Direct/application, HTTP/client and native transaction doubles prove ordering,
+rechecks, safe mappings, SQL bindings, isolation and cleanup. They do not certify
+provider runtime, real popup/cookie handling, multiprocess uniqueness locks or
+physical database rollback. Historical fixtures remain; no new DB/E2E suite or
+Chromium run is part of task 04.
