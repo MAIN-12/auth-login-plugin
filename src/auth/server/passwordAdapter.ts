@@ -1,3 +1,15 @@
+import {
+  beginReauthenticationEvidence,
+  clearReauthenticationEvidence,
+  readReauthenticationProof,
+  sealReauthenticationEvidence,
+  settleReauthenticationTransaction,
+} from './reauthenticationEvidence'
+import {
+  beginCredentialIntent,
+  clearCredentialIntent,
+  assertCredentialIntent,
+} from './credentialIntent'
 import { initializeMethodPermitLedger, consumeMethodPermit } from './methodPermitLedger'
 import { createHmac, randomUUID } from 'node:crypto'
 import { sql } from 'drizzle-orm'
@@ -83,11 +95,13 @@ export async function commitPassword(
   password: string,
   now: () => number = Date.now,
   assertPublicAccount?: (req: PayloadRequest) => Promise<void>,
+  assertCurrent?: () => Promise<void>,
 ): Promise<{ success: boolean; token?: string; exp?: number }> {
   await initializeMethodPermitLedger(req)
   const originalUser = req.user
   try {
     return await credentialTransaction(req, collection, permit.email, async () => {
+      await assertCurrent?.()
       await consumeMethodPermit(req, permit, now)
       const record = (await req.payload.db.findOne({
         collection,
@@ -96,6 +110,7 @@ export async function commitPassword(
       })) as User | null
       if (permit.purpose === 'signup') {
         if (record || permit.account !== null) throw new AuthFailure('AUTH_FAILED', 401)
+        beginCredentialIntent(req, permit.email, password)
         const user = await req.payload.create({
           collection,
           req,
@@ -108,12 +123,14 @@ export async function commitPassword(
           req,
           where: { id: { equals: user.id } },
         })
-        if (!native || native.email !== permit.email) throw new AuthFailure('AUTH_FAILED', 401)
+        assertCredentialIntent(req, native, user.id)
+        if (!native) throw new AuthFailure('AUTH_FAILED', 401)
         req.user = { ...native, collection } as User
         await assertPublicAccount?.(req)
         // Public registration can never create an admin-eligible principal via host defaults/hooks.
         if ((await req.payload.collections[collection].config.access.admin?.({ req })) !== false)
           throw new AuthFailure('AUTH_FAILED', 401)
+        await assertCurrent?.()
         return { success: true }
       }
       if (
@@ -131,6 +148,7 @@ export async function commitPassword(
           !record.salt
         )
           throw new AuthFailure('AUTH_FAILED', 401)
+        beginCredentialIntent(req, permit.email, password)
         // Ownership proof can establish previously unknown email verification, never infer it.
         await req.payload.update({
           collection,
@@ -144,6 +162,7 @@ export async function commitPassword(
           req,
           where: { id: { equals: record.id } },
         })
+        assertCredentialIntent(req, fresh, record.id)
         await req.payload.db.updateOne({
           collection,
           id: record.id,
@@ -151,6 +170,7 @@ export async function commitPassword(
           data: { ...fresh, sessions: [] },
           returning: false,
         })
+        await assertCurrent?.()
         return { success: true }
       }
       if (
@@ -174,6 +194,7 @@ export async function commitPassword(
       if (!session || !Number.isFinite(cap) || cap <= Date.now())
         throw new AuthFailure('AUTH_FAILED', 401)
       checkLoginPermission({ req, user: record })
+      beginCredentialIntent(req, permit.email, password)
       await req.payload.update({
         collection,
         id: record.id,
@@ -186,6 +207,7 @@ export async function commitPassword(
         req,
         where: { id: { equals: record.id } },
       })) as User
+      assertCredentialIntent(req, fresh, record.id)
       const sid = randomUUID()
       await req.payload.db.updateOne({
         collection,
@@ -215,9 +237,11 @@ export async function commitPassword(
         secret: req.payload.secret,
         tokenExpiration: Math.max(1, Math.floor((cap - Date.now()) / 1000)),
       })
+      await assertCurrent?.()
       return { success: true, ...signed }
     })
   } finally {
+    clearCredentialIntent(req)
     req.user = originalUser
   }
 }
@@ -233,38 +257,98 @@ export async function passwordReauthentication(
   const original = req.user
   if (!original || original.collection !== collection || !original._sid)
     throw new AuthFailure('UNAUTHENTICATED', 401)
+  if (req.transactionID) throw new AuthFailure('AUTH_UNAVAILABLE', 503)
+  const before = await req.payload.db.findOne<User>({
+    collection,
+    req,
+    where: { id: { equals: original.id } },
+  })
+  if (
+    !before ||
+    before.email !== original.email ||
+    before._verified !== true ||
+    before.deletedAt ||
+    typeof before.hash !== 'string' ||
+    !before.hash ||
+    typeof before.salt !== 'string' ||
+    !before.salt
+  )
+    throw new AuthFailure('AUTH_FAILED', 401)
+  beginReauthenticationEvidence(req, collection, original, before)
+  let proof: PasswordPermit | undefined
+  const nativeCollection = req.payload.collections[collection]
+  const guardedCollection = {
+    ...nativeCollection,
+    config: {
+      ...nativeCollection.config,
+      hooks: {
+        ...nativeCollection.config.hooks,
+        beforeOperation: [
+          ...(nativeCollection.config.hooks?.beforeOperation ?? []),
+          (
+            args: Parameters<
+              NonNullable<typeof nativeCollection.config.hooks.beforeOperation>[number]
+            >[0],
+          ) => {
+            const nativeArgs = args.args as Parameters<typeof loginOperation>[0]
+            if (
+              nativeArgs.req !== req ||
+              nativeArgs.collection !== guardedCollection ||
+              nativeArgs.data.email !== original.email ||
+              nativeArgs.data.password !== password
+            )
+              throw new AuthFailure('AUTH_FAILED', 401)
+            return args.args
+          },
+        ],
+        beforeLogin: [
+          ({
+            req: nativeReq,
+            user,
+          }: Parameters<
+            NonNullable<typeof nativeCollection.config.hooks.beforeLogin>[number]
+          >[0]) => {
+            if (nativeReq !== req) throw new AuthFailure('AUTH_FAILED', 401)
+            sealReauthenticationEvidence(req)
+            return user
+          },
+          ...(nativeCollection.config.hooks?.beforeLogin ?? []),
+        ],
+        afterOperation: [
+          ...(nativeCollection.config.hooks?.afterOperation ?? []),
+          async (
+            args: Parameters<
+              NonNullable<typeof nativeCollection.config.hooks.afterOperation>[number]
+            >[0],
+          ) => {
+            if (args.operation !== 'login' || args.req !== req)
+              throw new AuthFailure('AUTH_FAILED', 401)
+            proof = await readReauthenticationProof(req, (args.result as { user?: User }).user)
+            return args.result
+          },
+        ],
+      },
+    },
+  }
   try {
     reauthenticationRequests.add(req)
     await loginOperation({
-      collection: req.payload.collections[collection],
+      collection: guardedCollection,
       req,
       data: { email: String(original.email), password },
     })
-    reauthenticationRequests.delete(req)
-    req.user = original
-    return await credentialTransaction(req, collection, String(original.email), async () => {
-      const record = (await req.payload.db.findOne({
-        collection,
-        req,
-        where: { id: { equals: original.id } },
-      })) as User | null
-      if (
-        !record ||
-        !(record.sessions as Session[]).some(
-          (session) =>
-            session.id === original._sid && new Date(session.expiresAt).getTime() > Date.now(),
-        )
-      )
-        throw new AuthFailure('AUTH_FAILED', 401)
-      return {
-        purpose: 'reauth',
-        email: String(record.email),
-        account: record.id,
-        version: credentialVersion(req.payload.secret, record),
-        sid: String(original._sid),
-      }
-    })
+    if (!proof) throw new AuthFailure('AUTH_FAILED', 401)
+    await settleReauthenticationTransaction(req)
+    return proof
+  } catch (error) {
+    try {
+      await settleReauthenticationTransaction(req, error)
+    } catch {
+      /* Preserve the native failure. */
+    }
+    throw error
   } finally {
+    clearReauthenticationEvidence(req)
     reauthenticationRequests.delete(req)
     req.user = original
   }
@@ -278,10 +362,12 @@ export async function commitEmailVerification(
   collection: string,
   proof: import('../application/ownershipVerification').OwnershipProof,
   assertPublicAccount?: (req: PayloadRequest) => Promise<void>,
+  assertCurrent?: () => Promise<void>,
 ) {
   const original = req.user
   try {
     return await credentialTransaction(req, collection, proof.email, async () => {
+      await assertCurrent?.()
       const record = await req.payload.db.findOne<User>({
         collection,
         req,
@@ -323,9 +409,64 @@ export async function commitEmailVerification(
         throw new AuthFailure('AUTH_FAILED', 401)
       req.user = { ...fresh, collection } as User
       await assertPublicAccount(req)
+      await assertCurrent?.()
       return { success: true as const }
     })
   } finally {
     req.user = original
   }
+}
+
+/** Issuing authority requires a fresh native decision under the same credential locks as completion. */
+export async function grantOwnershipPermit<T>(
+  req: PayloadRequest,
+  collection: string,
+  proof: PasswordPermit,
+  issue: () => Promise<T>,
+  assertCurrent?: () => Promise<void>,
+): Promise<T> {
+  return credentialTransaction(req, collection, proof.email, async () => {
+    await assertCurrent?.()
+    const record = await req.payload.db.findOne<User>({
+      collection,
+      req,
+      where: { email: { equals: proof.email } },
+    })
+    if (proof.purpose === 'signup') {
+      if (record || proof.account !== null || proof.version !== '')
+        throw new AuthFailure('AUTH_FAILED', 401)
+    } else {
+      if (
+        !record ||
+        record.id !== proof.account ||
+        record.email !== proof.email ||
+        record.deletedAt ||
+        credentialVersion(req.payload.secret, record) !== proof.version
+      )
+        throw new AuthFailure('AUTH_FAILED', 401)
+      if (
+        proof.purpose === 'recovery' &&
+        (typeof record.hash !== 'string' ||
+          !record.hash ||
+          typeof record.salt !== 'string' ||
+          !record.salt)
+      )
+        throw new AuthFailure('AUTH_FAILED', 401)
+      if (
+        proof.purpose === 'reauth' &&
+        (req.user?.collection !== collection ||
+          req.user.id !== record.id ||
+          req.user._sid !== proof.sid ||
+          record._verified !== true ||
+          !(record.sessions as Session[] | undefined)?.some(
+            (session) =>
+              session.id === proof.sid && new Date(session.expiresAt).getTime() > Date.now(),
+          ))
+      )
+        throw new AuthFailure('AUTH_FAILED', 401)
+    }
+    const result = await issue()
+    await assertCurrent?.()
+    return result
+  })
 }

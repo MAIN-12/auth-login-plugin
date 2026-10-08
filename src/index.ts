@@ -9,6 +9,7 @@ import {
   authFailureResponse,
 } from './endpoints/authEndpoints'
 import { installNativeSessionCoordination } from './auth/server/otpSession'
+import { guardCredentialIntent } from './auth/server/credentialIntent'
 import { createSessionPolicy } from './auth/server/sessionPolicy'
 import { AuthFailure } from './auth/domain/login'
 
@@ -156,6 +157,7 @@ export function authLoginPlugin(
               },
               hooks: {
                 ...target.hooks,
+                beforeChange: [...(target.hooks?.beforeChange ?? []), guardCredentialIntent],
                 beforeLogin: [
                   ...(target.hooks?.beforeLogin ?? []),
                   ({ user }) => {

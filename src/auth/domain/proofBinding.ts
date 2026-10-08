@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { AuthFailure } from './login'
+import { AuthOperationFailure } from './errors'
 const proofBindingSchema = z.strictObject({
   accountID: z.union([z.string(), z.number(), z.null()]),
   version: z.string(),
@@ -15,12 +15,12 @@ export function decodeProofBinding(reference: string | number): ProofBinding {
   try {
     return proofBindingSchema.parse(JSON.parse(String(reference)))
   } catch {
-    throw new AuthFailure('AUTH_FAILED', 401)
+    throw new AuthOperationFailure('AUTH_FAILED')
   }
 }
 export function proofQuotaIdentity(reference: string | number): string | number {
   const binding = decodeProofBinding(reference)
   if (binding.accountID !== null) return binding.accountID
   if (binding.email) return binding.email
-  throw new AuthFailure('AUTH_FAILED', 401)
+  throw new AuthOperationFailure('AUTH_FAILED')
 }

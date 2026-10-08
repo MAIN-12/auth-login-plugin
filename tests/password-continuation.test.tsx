@@ -119,3 +119,62 @@ it('server password validation errors preserve the valid proof for correction in
   expect(readPasswordProof(publicConfig)?.permit).toBe('opaque-proof')
   expect(host.querySelector('form')).toBeTruthy()
 })
+it('a pending completion uses one request even when its form is submitted again', async () => {
+  await mount('recovery', 600000)
+  let resolve!: (response: Response) => void
+  vi.mocked(fetch).mockReturnValue(
+    new Promise<Response>((done) => {
+      resolve = done
+    }),
+  )
+  await submit()
+  await act(async () => {
+    host
+      .querySelector('form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  })
+  expect(fetch).toHaveBeenCalledTimes(1)
+  await act(async () =>
+    resolve(Response.json({ success: false, code: 'AUTH_UNAVAILABLE' }, { status: 503 })),
+  )
+  expect(readPasswordProof(publicConfig)?.permit).toBe('opaque-proof')
+})
+it('repeated recovery submissions share one pending ownership request', async () => {
+  const { ForgotPasswordForm } = await import('../src/components/forms/ForgotPasswordForm')
+  let resolve!: (response: Response) => void
+  vi.mocked(fetch).mockReturnValue(
+    new Promise<Response>((done) => {
+      resolve = done
+    }),
+  )
+  await act(async () =>
+    root.render(
+      <AuthConfigProvider publicConfig={publicConfig}>
+        <AuthFlowContext.Provider
+          value={{ push, complete: async () => {}, searchParams: new URLSearchParams() }}
+        >
+          <ForgotPasswordForm locale="en" />
+        </AuthFlowContext.Provider>
+      </AuthConfigProvider>,
+    ),
+  )
+  await act(async () => {
+    const input = host.querySelector('input')!
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
+      input,
+      'owner@example.com',
+    )
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+  })
+  await act(async () => {
+    for (let attempt = 0; attempt < 2; attempt++)
+      host
+        .querySelector('form')!
+        .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  })
+  expect(fetch).toHaveBeenCalledTimes(1)
+  await act(async () =>
+    resolve(Response.json({ success: true, context: 'a'.repeat(64), retryAfter: 60 })),
+  )
+  expect(push).toHaveBeenCalledTimes(1)
+})

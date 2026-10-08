@@ -1,3 +1,5 @@
+import { observeNativeRehash, holdReauthenticationTransaction } from './reauthenticationEvidence'
+import { observeCredentialWrite } from './credentialIntent'
 import { setAuthenticationEvidence, type AuthenticationEvidence } from './adminPolicy'
 import { randomUUID } from 'node:crypto'
 import { createClient, type Config as SQLiteConfig } from '@libsql/client'
@@ -323,6 +325,12 @@ export function installNativeSessionCoordination(payload: Payload, collection: s
   const snapshots = new WeakMap<object, Map<string, NativeSession[]>>()
   const findOne = payload.db.findOne.bind(payload.db)
   const updateOne = payload.db.updateOne.bind(payload.db)
+  const create = payload.db.create.bind(payload.db)
+  payload.db.create = async (args) => {
+    if (args.collection === collection)
+      observeCredentialWrite(args.req as PayloadRequest | undefined, args.data)
+    return create(args)
+  }
   const copy = (sessions: NativeSession[]) => sessions.map((session) => ({ ...session }))
   const coordinateFind = async (args: Parameters<typeof payload.db.findOne>[0]) => {
     const result = await findOne<NativeUser>(args)
@@ -436,32 +444,49 @@ export function installNativeSessionCoordination(payload: Payload, collection: s
       return perform(session.db)
     }
     const transactionID = randomUUID()
-    return nativeTransaction(db, async (tx) => {
-      req.transactionID = transactionID
-      db.sessions[transactionID] = {
-        db: tx,
-        reject: async () => {
-          throw new APIError('AUTH_FAILED', 401)
-        },
-        resolve: async () => {
-          throw new APIError('AUTH_FAILED', 401)
-        },
-      }
-      try {
-        return await perform(tx)
-      } finally {
-        delete req.transactionID
-        delete db.sessions[transactionID]
-      }
-    })
+    const transaction = (publish?: (value: unknown) => void, finished?: Promise<void>) =>
+      nativeTransaction(db, async (tx) => {
+        req.transactionID = transactionID
+        db.sessions[transactionID] = {
+          db: tx,
+          reject: async () => {
+            throw new APIError('AUTH_FAILED', 401)
+          },
+          resolve: async () => {
+            throw new APIError('AUTH_FAILED', 401)
+          },
+        }
+        try {
+          const result = await perform(tx)
+          publish?.(result)
+          await finished
+          return result
+        } finally {
+          delete req.transactionID
+          delete db.sessions[transactionID]
+        }
+      })
+    return isReauthenticationRequest(req)
+      ? holdReauthenticationTransaction(req, (publish, finished) => transaction(publish, finished))
+      : transaction()
   }
   payload.db.updateOne = async (args) => {
+    if (args.collection === collection)
+      observeCredentialWrite(args.req as PayloadRequest | undefined, args.data)
     if (
       args.collection !== collection ||
       !Array.isArray(args.data.sessions) ||
       (args.req && isCredentialRequest(args.req as PayloadRequest))
-    )
-      return updateOne(args)
+    ) {
+      const result = await updateOne(args)
+      observeNativeRehash(
+        args.req as PayloadRequest | undefined,
+        args.collection,
+        args.data,
+        args.where,
+      )
+      return result
+    }
     try {
       return await coordinateUpdate(args)
     } catch {

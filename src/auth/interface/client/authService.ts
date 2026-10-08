@@ -32,7 +32,6 @@ export function createAuthService(config: PublicAuthConfig, locale?: string) {
     'ORIGIN_DENIED',
   ] as const
   const success = z.object({ success: z.literal(true) })
-  const sent = success.extend({ context: z.string().min(1), retryAfter: z.number().nonnegative() })
   const otpVerified = success.extend({
     user: z.object({ id: z.union([z.string().min(1), z.number().finite()]) }),
     exp: z
@@ -46,7 +45,10 @@ export function createAuthService(config: PublicAuthConfig, locale?: string) {
   })
   const proof = success.extend({
     permit: z.string().min(1).max(2048),
-    expiresAt: z.number().finite(),
+    expiresAt: z
+      .number()
+      .finite()
+      .refine((expiresAt) => expiresAt > Date.now()),
   })
   const request = async <T>(
     action: string,
@@ -177,7 +179,7 @@ export function createAuthService(config: PublicAuthConfig, locale?: string) {
       purpose: 'signup' | 'recovery' | 'reauth' | 'verify-email',
       context?: string,
     ): Promise<SendOtpResponse> =>
-      request('otp/send', { email, purpose, ...(context ? { context } : {}) }, sent),
+      request('otp/send', { email, purpose, ...(context ? { context } : {}) }, otpSent),
     verifyEmail: (email: string, otp: string, context: string): Promise<{ success: true }> =>
       request('otp/verify', { email, otp, context, purpose: 'verify-email' }, success),
     verifyOwnership: async (

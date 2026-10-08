@@ -182,3 +182,64 @@ Direct and HTTP/client/React doubles demonstrate ordering, interleaved consumpti
 cleanup, evidence changes and filtered secrets; they do not certify multiprocess
 locks, physical database rollback or browser cookies. Existing historical SQL/HTTP
 fixtures remain in test:unit; task 02 adds no DB/E2E suite and runs no Chromium.
+
+## Auth-clean task 03: ownership and password lifecycle
+
+The user authorized task 03 in its dedicated sequential chat. Ownership method
+admission and typed send/verify/completion/password-reauthentication commands now
+belong to application/use-cases/ownership. HTTP and trusted internal callers use
+that same policy before storage, delivery or native authentication. Forgot-password
+invokes the shared recovery operation rather than another HTTP handler. Native
+collection aliases remain disabled. Method-disabled precedence is preserved for
+password completion, recovery alias and password reauthentication.
+
+Selected ownership evidence contains only ID/email, explicit account/password/email
+verification states and an opaque version. Raw native hash/salt stop at the server
+mapper. The portable ownership protocol uses the OTP codec/ledger/delivery seams
+from 02. Missing/deleted/passwordless/unknown recovery remains generic and cannot
+establish a first password. Reauth binds a verified exact principal and current SID;
+password reauth calls native login and rechecks version before its native transaction
+commits, without adding a session or returning a login token. Incorrect-password
+attempts retain Payload's deliberately external lockout writes before acquiring
+session/credential locks. A conditional native legacy rehash is tracked before
+login hooks; hooks cannot register a second upgrade. A change during hooks denies
+reauth; legacy password login and its validation are unaffected. When native auth
+does not open its own transaction, session coordination holds a borrowed native
+transaction through hooks/final evidence checks and releases or rejects it exactly
+once after the native operation settles. No authentication callback is retried.
+
+Permit issuance, credential completion and verification-only commits re-read under
+native credential/account locks. Decode alone does not grant authority. Generation
+and the captured principal are rechecked under the commit, including after async
+callbacks. Permit codec v1 preserves AES-GCM layout, AAD, encryption namespace,
+nonces and ten-minute signup/recovery versus five-minute reauth TTL. Native credential
+writes, permit consumption and session revocation remain one transaction; OTP burn
+commits earlier and never revives on failure. A transactionally rolled-back password
+completion can retry its still-valid permit, as required by the historical fixture.
+
+Owner password intent is private per request. A final beforeChange guard prevents
+host substitution of the chosen password; DB write observation captures the first
+native hash/salt before afterChange callbacks, and completion rechecks that evidence.
+Native hooks still run once; final rejection rolls back their transactional writes.
+Finally clears intent, credential/reauth markers, temporary user and native transaction
+registry on asynchronous failure. SQL permit/credential values are bound; trusted
+native table resolution and acquisition-only retry rules are preserved. Signup
+creates only after ownership and never auto-logins. Recovery revokes sessions and
+older version-bound permits without auto-login. Verify-email still changes only
+verification, preserves credential/session state and returns exactly success true.
+
+Password continuation and forgot-password hooks and proof storage live under
+interface/react and interface/client, using the one HTTP client. Editable password
+and bounded proof remain on transient failures; expiry/consumption restart ownership.
+Explicit compatibility paths (retirement owner: 06) include application ownership
+verification, application password/forgot hooks and proof storage, domain password
+lifecycle, contracts ownership/password-lifecycle bridges and the old password endpoint
+factory path. Google callers still use the password-lifecycle bridge pending 04;
+this is declared compatibility, not a second live ownership owner. No published
+exports, schema, password corpus or login policy changed. Code rollback preserves
+revocations, consumed proofs and the current generation.
+
+Doubles exercise portable admission, native interleaving, request isolation, safe
+HTTP mapping and cleanup; they do not establish physical rollback or multiprocess
+locks. Historical SQL/HTTP tests remain in test:unit. Task 03 introduces no new DB
+acceptance suite and runs no Chromium/E2E.

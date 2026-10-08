@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm'
 import { createHmac } from 'node:crypto'
 import type { PayloadRequest } from 'payload'
 import { AuthFailure } from '../domain/login'
@@ -24,6 +25,6 @@ export async function consumeMethodPermit(
   const key = createHmac('sha256', req.payload.secret).update(permit.nonce).digest('hex')
   await db.execute({
     db: transaction.db,
-    raw: `INSERT INTO auth_login_password_permits (key, expires_at) VALUES ('${key}', ${permit.expiresAt})`,
+    sql: sql`INSERT INTO auth_login_password_permits (key, expires_at) VALUES (${key}, ${permit.expiresAt})`,
   })
 }

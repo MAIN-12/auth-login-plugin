@@ -1,6 +1,6 @@
 # Separar la política de autenticación de Payload, HTTP y React
 
-**Estado: adaptación aprobada para la tarea 01 por instrucción explícita del usuario (2026-10-08); tareas 02–06 aún pendientes.** Esta especificación adapta
+**Estado: adaptación aprobada para las tareas 01–03 en sus chats dedicados por instrucción explícita del usuario (2026-10-08); tareas 04–06 aún pendientes.** Esta especificación adapta
 Clean Architecture al plugin `@main12/auth-login`, tomando como evidencia el código
 `5bd52e1`. Define propietarios de política, contratos y una migración incremental;
 no afirma que las capas propuestas ya existan ni autoriza una reescritura.
@@ -40,8 +40,8 @@ Los contratos de seguridad existentes permanecen vigentes.
 
 Los términos **DEBE**, **NO DEBE** y **DEBERÍA** son obligaciones propuestas:
 DEBE/NO DEBE son criterios de aceptación; DEBERÍA admite excepción documentada
-con razón, alcance, responsable y test. Son criterios aprobados para el slice de login de la tarea 01; las demás operaciones
-continúan como propuestas pendientes de sus propios chats.
+con razón, alcance, responsable y test. Son criterios aprobados para los slices 01–03 en sus chats dedicados; las operaciones
+de 04–06 continúan pendientes de sus propios chats.
 
 ### 2.2 Incluido y excluido
 
