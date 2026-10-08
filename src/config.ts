@@ -15,6 +15,7 @@ export interface AuthLoginPluginOptions {
   collection?: string
   apiPrefix?: string
   authEndpointPrefix?: string
+  /** Frontend auth-page mount. Use '' for root routes such as /login; defaults to /auth. */
   basePath?: string
   locale?: 'es' | 'en'
   style?: AuthStyle
@@ -177,18 +178,16 @@ export function resolveAuthConfig(options: AuthLoginPluginOptions): PublicAuthCo
     )
   if (options.logo && !/^\/(?!\/)[a-zA-Z0-9/_.-]+$/.test(options.logo))
     validatedEmailUrl(options.logo)
+  const frontendBasePath =
+    options.basePath ??
+    (typeof options.routeRedirects === 'object' ? options.routeRedirects.basePath : undefined) ??
+    '/auth'
   return Object.freeze({
     collection,
     apiPrefix: path(options.apiPrefix ?? '/api', 'apiPrefix'),
     authEndpointPrefix: path(options.authEndpointPrefix ?? '/auth', 'authEndpointPrefix'),
-    authBasePath: path(
-      options.basePath ??
-        (typeof options.routeRedirects === 'object'
-          ? options.routeRedirects.basePath
-          : undefined) ??
-        '/auth',
-      'basePath',
-    ),
+    // Empty is a root frontend mount, never an API/endpoint prefix.
+    authBasePath: frontendBasePath === '' ? '' : path(frontendBasePath, 'basePath'),
     locale: options.locale ?? options.otp?.email?.locale ?? 'en',
     style: options.style ?? 'tailwind',
     logoUrl: options.logo,

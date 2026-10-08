@@ -8,6 +8,9 @@ it('preserves stylesheet assets while rewriting extensionless JavaScript imports
   const fixture = await mkdtemp(path.join(tmpdir(), 'auth-imports-'))
   try {
     await mkdir(path.join(fixture, 'dist'))
+    for (const name of ['Card', 'Form', 'Modal']) {
+      await writeFile(path.join(fixture, 'dist', `${name}.js`), `export const ${name} = {};`)
+    }
     const file = path.join(fixture, 'dist', 'example.js')
     await writeFile(
       file,
