@@ -1,6 +1,6 @@
 {
   "name": "@main12/auth-login",
-  "version": "2.2.1",
+  "version": "3.0.0",
   "description": "Payload CMS authentication plugin — isolated configuration and guarded native password login",
   "license": "MIT",
   "type": "module",
@@ -64,7 +64,9 @@
     "hooks:install": "lefthook install",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test:consumer:integration": "tsx scripts/test-consumer.ts"
+    "test:consumer:integration": "tsx scripts/test-consumer.ts",
+    "release:check": "node scripts/publish-package.mjs --dry-run",
+    "release:publish": "node scripts/publish-package.mjs --publish"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
