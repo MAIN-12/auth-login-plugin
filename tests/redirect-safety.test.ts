@@ -15,3 +15,16 @@ it('rejects encoded authority, backslash and controls while preserving local que
     '/dashboard?next=%2Fsafe#section',
   )
 })
+it.each([
+  '/caf%C3%A9/%E6%AC%A2%E8%BF%8E',
+  '/dashboard?message=hello%20world&next=%2Fsafe#caf%C3%A9',
+  '/caf%C3%A9?q=%E6%AC%A2%E8%BF%8E#hello%20world',
+])('preserves valid percent-encoded local destination %s', (value) => {
+  expect(safeAuthRedirect(value, '/fallback')).toBe(value)
+})
+it.each(['/bad%', '/bad%2', '/bad%GG', '/%C3%28', '/hello%20world'])(
+  'falls back for malformed encoding or decoded path whitespace: %s',
+  (value) => {
+    expect(safeAuthRedirect(value, '/fallback')).toBe('/fallback')
+  },
+)

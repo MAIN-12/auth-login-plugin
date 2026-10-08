@@ -1,8 +1,9 @@
 import { randomBytes, randomUUID } from 'node:crypto'
+import { sql } from 'drizzle-orm'
 import { createLocalReq, type Payload, type Where } from 'payload'
 import type { MaintenanceCommit } from '../../application/ports/maintenance'
 import { credentialRequests } from '../../server/credentialRequest'
-import { cutoverTable, readCutoverGeneration, sqlLiteral } from '../../server/cutoverGeneration'
+import { readCutoverGeneration } from '../../server/cutoverGeneration'
 import { nativeTransaction, type DrizzleDatabase } from '../../server/otpSession'
 
 /** Keeps the entire cutover in the existing native transaction, including rollback/finally. */
@@ -70,7 +71,7 @@ export function createMaintenanceCommit(payload: Payload, legacyWhere?: Where): 
           }
           await db.execute({
             db: tx,
-            raw: `INSERT INTO ${cutoverTable} (collection,generation) VALUES (${sqlLiteral(options.collection)},${sqlLiteral(generation)}) ON CONFLICT (collection) DO UPDATE SET generation=excluded.generation`,
+            sql: sql`INSERT INTO auth_login_cutovers (collection,generation) VALUES (${options.collection},${generation}) ON CONFLICT (collection) DO UPDATE SET generation=excluded.generation`,
           })
           return {
             success: true as const,

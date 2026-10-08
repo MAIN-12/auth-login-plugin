@@ -62,9 +62,11 @@ it('emits JSON import attributes for native Node rather than relying on Next bun
       path.resolve('.swcrc'),
     ])
     await writeFile(
-      path.join(fixture, 'password-blocklist.json'),
-      await readFile(path.resolve('src/auth/domain/password-blocklist.json')),
+      path.join(fixture, 'password-blocklist-eligible.json'),
+      await readFile(path.resolve('src/auth/domain/password-blocklist-eligible.json')),
     )
+    const compiled = await readFile(output, 'utf8')
+    expect(compiled).not.toContain("'./password-blocklist.json'")
     const result = execFileSync(
       process.execPath,
       [

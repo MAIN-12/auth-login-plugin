@@ -1,7 +1,8 @@
-import compromised from './password-blocklist.json' with { type: 'json' }
+import compromised from './password-blocklist-eligible.json' with { type: 'json' }
 import type { PasswordStrengthResult } from './types'
 
-const blocked = new Set(compromised.map((password) => password.toLowerCase()))
+// Generated from the licensed corpus: shorter entries already fail the length rule.
+const blocked = new Set(compromised)
 export const MIN_PASSWORD_LENGTH = 15
 
 /**

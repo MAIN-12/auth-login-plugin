@@ -1,4 +1,7 @@
 import type { Payload, PayloadRequest } from 'payload'
+import { PgDialect } from 'drizzle-orm/pg-core'
+import { SQLiteSyncDialect } from 'drizzle-orm/sqlite-core'
+import type { SQL } from 'drizzle-orm'
 import { expect, it, vi } from 'vitest'
 import { migrateAuthLogin } from '../src/index'
 import { isCredentialRequest } from '../src/auth/server/credentialRequest'
@@ -14,7 +17,8 @@ vi.mock('../src/auth/server/otpSession', async (original) => ({
     db.drizzle.transaction(work),
 }))
 
-function fixture(fail = false) {
+function fixture(fail = false, name = 'postgres', collection = 'customers') {
+  const dialect = name === 'postgres' ? new PgDialect() : new SQLiteSyncDialect()
   const original = {
     id: 7,
     email: 'owner@example.com',
@@ -34,7 +38,7 @@ function fixture(fail = false) {
   const reqs: PayloadRequest[] = []
   const tx = {}
   const db = {
-    name: 'postgres',
+    name,
     sessions: {},
     drizzle: {
       async transaction(work: (tx: object) => Promise<unknown>) {
@@ -49,29 +53,35 @@ function fixture(fail = false) {
         }
       },
     },
-    execute: vi.fn(async (args: { db: unknown; raw: string }) => {
-      if (args.raw.startsWith('SELECT')) {
-        expect(args.raw).toBe(
-          "SELECT generation FROM auth_login_cutovers WHERE collection='customers'",
-        )
+    execute: vi.fn(async (args: { db: unknown; raw?: string; sql?: SQL }) => {
+      const query = args.sql ? dialect.sqlToQuery(args.sql) : undefined
+      const text = args.raw ?? query!.sql
+      if (text.startsWith('SELECT')) {
+        expect(args.raw).toBeUndefined()
+        expect(query!.params).toEqual([collection])
+        expect(text).not.toContain(collection)
         return { rows: [{ generation }] }
       }
-      if (args.raw.startsWith('CREATE')) {
+      if (text.startsWith('CREATE')) {
         expect(args.raw).toBe(
           'CREATE TABLE IF NOT EXISTS auth_login_cutovers (collection TEXT PRIMARY KEY, generation TEXT NOT NULL)',
         )
         return { rows: [] }
       }
-      if (args.raw.startsWith('INSERT')) {
+      if (text.startsWith('INSERT')) {
         expect(args.db).toBe(tx)
-        generation = args.raw.match(/,'([a-f0-9]{64})'\)/)![1]
+        expect(args.raw).toBeUndefined()
+        expect(query!.params).toEqual([collection, expect.stringMatching(/^[a-f0-9]{64}$/)])
+        expect(text).not.toContain(collection)
+        expect(text).not.toContain(query!.params[1])
+        generation = query!.params[1] as string
         return { rows: [] }
       }
       throw new Error('Unexpected SQL outside cutover generation')
     }),
     find: vi.fn(
       async ({
-        collection,
+        collection: requestedCollection,
         req,
         where,
       }: {
@@ -82,7 +92,7 @@ function fixture(fail = false) {
         expect(isCredentialRequest(req)).toBe(true)
         expect(Object.keys(db.sessions)).toEqual([req.transactionID])
         reqs.push(req)
-        if (collection === 'customers') return { docs: [record] }
+        if (requestedCollection === collection) return { docs: [record] }
         expect(where).toEqual({ scope: { equals: 'customers' } })
         return { docs: codes.filter((code) => code.scope === 'customers') }
       },
@@ -117,14 +127,14 @@ function fixture(fail = false) {
   const payload = {
     db,
     collections: {
-      customers: { config: { auth: { useSessions: true, verify: true } } },
+      [collection]: { config: { auth: { useSessions: true, verify: true } } },
       'auth-otps': { config: {} },
     },
     update: vi.fn(),
     create: vi.fn(),
   } as unknown as Payload
   const options = {
-    collection: 'customers',
+    collection,
     maintenance: true as const,
     legacyOtpCollection: { slug: 'auth-otps', where: { scope: { equals: 'customers' } } },
   }
@@ -192,3 +202,16 @@ it('maintenance refuses invalid inventory and unsupported native collections bef
   expect(f.db.find).not.toHaveBeenCalled()
   expect(f.db.execute).not.toHaveBeenCalled()
 })
+
+it.each(['sqlite', 'postgres'])(
+  'binds adversarial cutover collection and fresh generation on %s without SQL interpolation',
+  async (name) => {
+    const collection = "customers'; DROP TABLE auth_login_cutovers; --"
+    const f = fixture(false, name, collection)
+    const result = await migrateAuthLogin(f.payload, f.options)
+    expect(result.collection).toBe(collection)
+    expect(result.generation).toMatch(/^[a-f0-9]{64}$/)
+    expect(f.state().generation).toBe(result.generation)
+    expect(f.db.sessions).toEqual({})
+  },
+)

@@ -1,9 +1,9 @@
 import { AuthFailure } from '../contracts/errors'
 import { createHmac } from 'node:crypto'
+import { sql } from 'drizzle-orm'
 import type { PayloadRequest } from 'payload'
 import type { DrizzleDatabase } from './otpSession'
 export const cutoverTable = 'auth_login_cutovers'
-export const sqlLiteral = (value: string) => `'${value.replaceAll("'", "''")}'`
 /** Private durable state: no collection CRUD surface; missing state is baseline, not a read-error fallback. */
 export async function readCutoverGeneration(
   req: PayloadRequest,
@@ -22,7 +22,7 @@ export async function readCutoverGeneration(
     })
     const result = (await db.execute({
       db: connection,
-      raw: `SELECT generation FROM ${cutoverTable} WHERE collection=${sqlLiteral(collection)}`,
+      sql: sql`SELECT generation FROM auth_login_cutovers WHERE collection = ${collection}`,
     })) as { rows: { generation: string }[] }
     const generation = result.rows[0]?.generation ?? ''
     if (result.rows.length && !/^[a-f0-9]{64}$/.test(generation))
