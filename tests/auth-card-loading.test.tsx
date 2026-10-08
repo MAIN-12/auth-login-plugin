@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import { publicConfig } from './auth-test-config'
 import { AuthConfigProvider } from '../src/components/AuthConfigContext'
-import { AuthCard } from '../src/components/AuthCard'
+import { AuthCard } from '../src/components/organisms/AuthCard'
 import { AuthProvider, useAuth, type AuthContextValue } from '../src/exports/client'
 
 const loading = vi.hoisted(() => {

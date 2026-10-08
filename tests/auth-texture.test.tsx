@@ -2,7 +2,7 @@
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AuthLayout } from '../src/components/AuthLayout'
+import { AuthLayout } from '../src/components/templates/AuthLayout'
 
 let root: Root
 let host: HTMLDivElement

@@ -7,15 +7,15 @@ import { AuthProvider as ServerAuthProvider } from '../src/components/AuthProvid
 import { AuthCard, AuthPages, AuthClientInit, useAuthConfig } from '../src/exports/client'
 import { AuthCard as ServerAuthCard } from '../src/components/AuthCardServer'
 import ServerAuthPages from '../src/components/AuthPagesServer'
-import { AuthLayout } from '../src/components/AuthLayout'
-import { PoweredBy } from '../src/components/PoweredBy'
+import { AuthLayout } from '../src/components/templates/AuthLayout'
+import { PoweredBy } from '../src/components/molecules/PoweredBy'
 import {
   LoginForm,
   SignupForm,
   ForgotPasswordForm,
   VerifyOtpForm,
   SetPasswordForm,
-} from '../src/components/forms'
+} from '../src/components/organisms/forms'
 import LoginPage from '../src/components/pages/LoginPage'
 import SignupPage from '../src/components/pages/SignupPage'
 import ForgotPasswordPage from '../src/components/pages/ForgotPasswordPage'
@@ -493,7 +493,7 @@ describe('configured style renders actual controls', () => {
     'uses %s controls from server plugin settings',
     async (style) => {
       const styledConfig = { ...publicConfig, style }
-      await import('../src/components/ui/hero')
+      await import('../src/components/atoms/adapters/hero')
       const content = await ServerAuthProvider({
         publicConfig: styledConfig,
         initialUser: null,

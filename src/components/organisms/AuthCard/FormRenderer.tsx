@@ -6,7 +6,7 @@ import { useAuthService } from '../../../auth/interface/react/AuthServiceContext
 import { useAuthConfig, AuthConfigProvider } from '../../AuthConfigContext'
 import { useAuthPresentation } from '../../auth-presentation/AuthPresentationContext'
 import { getUiTranslations, type DeepPartial, type UiTranslations } from '../../ui/translations'
-import { AUTH_FORMS, type AuthFormSlug } from '../../forms/index'
+import { AUTH_FORMS, type AuthFormSlug } from '../forms'
 import { FORM_CONFIGS, type FormPropsContext } from './formConfigs'
 import { AuthCardShell, type PoweredByConfig } from './AuthCardShell'
 

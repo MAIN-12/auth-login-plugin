@@ -4,8 +4,8 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import { AuthConfigProvider } from '../src/components/AuthConfigContext'
 import { AuthFlowContext } from '../src/auth/interface/react/AuthFlowContext'
-import { VerifyOtpForm } from '../src/components/forms/VerifyOtpForm'
-import { OtpInput } from '../src/components/ui/tailwind'
+import { VerifyOtpForm } from '../src/components/organisms/VerifyOtpForm'
+import { OtpInput } from '../src/components/molecules/OtpInput'
 import { publicConfig } from './auth-test-config'
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -82,7 +82,7 @@ it('autofill plus a simultaneous manual verify sends at most one HTTP request', 
   expect(request).toHaveBeenCalledTimes(1)
   await act(async () => resolve(Response.json({ success: true })))
 })
-import { AuthCard } from '../src/components/AuthCard'
+import { AuthCard } from '../src/components/organisms/AuthCard'
 it('responsive card presentation mounts only one live form tree', async () => {
   const host = await mount(
     <AuthCard>
@@ -93,12 +93,12 @@ it('responsive card presentation mounts only one live form tree', async () => {
   )
   expect(host.querySelectorAll('form')).toHaveLength(1)
 })
-import { getFormBySlug, LoginForm } from '../src/components/forms'
+import { getFormBySlug, LoginForm } from '../src/components/organisms/forms'
 it('unrecognized or inherited form names recover to the login form', () => {
   expect(getFormBySlug('__proto__')).toBe(LoginForm)
   expect(getFormBySlug('constructor')).toBe(LoginForm)
 })
-import { Button as HeroButton } from '../src/components/ui/hero'
+import { Button as HeroButton } from '../src/components/atoms/adapters/hero'
 it('HeroUI primary actions delegate their colors to the host theme', async () => {
   const host = await mount(<HeroButton variant="primary">Continue</HeroButton>)
   const button = host.querySelector('button')!

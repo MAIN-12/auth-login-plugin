@@ -68,17 +68,17 @@ export {
   ForgotPasswordForm,
   VerifyOtpForm,
   SetPasswordForm,
-} from '../components/forms/index'
+} from '../components/organisms/forms'
 export type {
   LoginFormProps,
   SignupFormProps,
   ForgotPasswordFormProps,
   VerifyOtpFormProps,
   SetPasswordFormProps,
-} from '../components/forms/index'
+} from '../components/organisms/forms'
 
 // Form registry (for advanced usage / extending)
-export { AUTH_FORMS, getFormBySlug, type AuthFormSlug } from '../components/forms/index'
+export { AUTH_FORMS, getFormBySlug, type AuthFormSlug } from '../components/organisms/forms'
 
 // Types
 export type {

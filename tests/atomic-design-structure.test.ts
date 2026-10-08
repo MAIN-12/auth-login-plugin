@@ -55,10 +55,27 @@ it('the migrated visual and presentation dependency graph has no cycles', () => 
       false,
     )
     if (finished.has(file)) return
-    for (const next of edges(file)) walk(next, [...trail, file])
+    // Integration infrastructure has its own auth-clean boundaries. This cycle
+    // check covers visual owners and their presentation support, including types.
+    for (const next of edges(file)) {
+      if (
+        /^components\/(atoms|molecules|organisms|templates|pages|auth-presentation|ui)\//.test(
+          path.relative(root, next),
+        )
+      ) {
+        walk(next, [...trail, file])
+      }
+    }
     finished.add(file)
   }
-  for (const level of ['atoms', 'molecules', 'auth-presentation']) {
+  for (const level of [
+    'atoms',
+    'molecules',
+    'organisms',
+    'templates',
+    'pages',
+    'auth-presentation',
+  ]) {
     for (const file of files(path.join(root, 'components', level))) walk(file, [])
   }
 })
@@ -85,4 +102,59 @@ it('modal and dispatcher integration consume definitive visual owners directly',
   expect(
     readFileSync(path.join(root, 'components/organisms/AuthModal/index.tsx'), 'utf8'),
   ).toContain("'use client'")
+})
+
+it('the final visual tree has no compatibility owners or style-specific pages', () => {
+  expect(readdirSync(path.join(root, 'components')).sort()).toEqual(
+    [
+      'AuthCardServer.tsx',
+      'AuthClientInit.tsx',
+      'AuthConfigContext.tsx',
+      'AuthPagesServer.tsx',
+      'AuthProvider.tsx',
+      'AuthProviderServer.tsx',
+      'AuthSignupConfig.tsx',
+      'atoms',
+      'auth-presentation',
+      'email',
+      'molecules',
+      'organisms',
+      'pages',
+      'templates',
+      'ui',
+    ].sort(),
+  )
+  expect(readdirSync(path.join(root, 'components/ui')).sort()).toEqual([
+    'locale.ts',
+    'theme.ts',
+    'translations.ts',
+  ])
+  expect(readdirSync(path.join(root, 'components/pages')).sort()).toEqual([
+    'AuthPages.tsx',
+    'ForgotPasswordPage.tsx',
+    'LoginPage.tsx',
+    'SetPasswordPage.tsx',
+    'SignupPage.tsx',
+    'VerifyOtpPage.tsx',
+  ])
+  expect(files(path.join(root, 'components/molecules')).some((file) => /Legacy/.test(file))).toBe(
+    false,
+  )
+})
+
+it('visual owners only compose their own or lower visual levels', () => {
+  const forbiddenByLevel: Record<string, RegExp> = {
+    organisms: /^components\/(templates|pages)\//,
+    templates: /^components\/pages\//,
+  }
+  for (const [level, forbidden] of Object.entries(forbiddenByLevel)) {
+    for (const file of files(path.join(root, 'components', level))) {
+      expect(
+        edges(file)
+          .map((target) => path.relative(root, target))
+          .filter((target) => forbidden.test(target)),
+        path.relative(root, file),
+      ).toEqual([])
+    }
+  }
 })

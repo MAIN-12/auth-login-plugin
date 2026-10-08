@@ -1,5 +1,5 @@
 import type { UiTranslations, DeepPartial } from '../../ui/translations'
-import type { AuthFormSlug } from '../../forms/index'
+import type { AuthFormSlug } from '../forms'
 
 export interface FormPropsContext {
   redirectTo: string
@@ -20,7 +20,7 @@ import type {
   ForgotPasswordFormProps,
   VerifyOtpFormProps,
   SetPasswordFormProps,
-} from '../../forms'
+} from '../forms'
 type FormProps = {
   login: LoginFormProps
   signup: SignupFormProps

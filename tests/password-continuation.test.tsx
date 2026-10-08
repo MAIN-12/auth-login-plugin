@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { beforeEach, afterEach, expect, it, vi } from 'vitest'
 import { AuthConfigProvider } from '../src/components/AuthConfigContext'
 import { AuthFlowContext } from '../src/auth/interface/react/AuthFlowContext'
-import { SetPasswordForm } from '../src/components/forms/SetPasswordForm'
+import { SetPasswordForm } from '../src/components/organisms/SetPasswordForm'
 import { storePasswordProof, readPasswordProof } from '../src/auth/interface/client/passwordProof'
 import { publicConfig } from './auth-test-config'
 vi.mock('next/navigation', () => ({
@@ -137,7 +137,7 @@ it('a pending completion uses one request even when its form is submitted again'
   expect(readPasswordProof(publicConfig)?.permit).toBe('opaque-proof')
 })
 it('repeated recovery submissions share one pending ownership request', async () => {
-  const { ForgotPasswordForm } = await import('../src/components/forms/ForgotPasswordForm')
+  const { ForgotPasswordForm } = await import('../src/components/organisms/ForgotPasswordForm')
   let resolve!: (response: Response) => void
   vi.mocked(fetch).mockReturnValue(
     new Promise<Response>((done) => {

@@ -155,12 +155,12 @@ it('the standalone public configuration preserves explicit Spanish while a sibli
   expect(host.querySelector('#es')?.textContent).toContain('Continuar')
   expect(host.querySelector('#en')?.textContent).toContain('Continue')
 })
-import { Input as HeroInput } from '../src/components/ui/hero'
+import { FormField as HeroInput } from '../src/components/molecules/adapters/hero'
 it('invalid HeroUI labels inherit the theme danger foreground without fixed colors', async () => {
   const host = await mount(
     <>
-      <HeroInput label="Invalid field" value="" error="Try again" />
-      <HeroInput label="Valid field" value="" />
+      <HeroInput id="invalid-field" label="Invalid field" value="" error="Try again" />
+      <HeroInput id="valid-field" label="Valid field" value="" />
     </>,
   )
   const labels = host.querySelectorAll<HTMLLabelElement>('label')
@@ -268,14 +268,21 @@ it('HeroUI server errors remain announced without blocking valid keyboard retry 
   const host = await mount(
     <>
       <HeroInput
+        id="disabled-field"
         label="Password retry"
         type="password"
         value="correct existing credential"
         error="Sign in failed"
         isRequired
       />
-      <HeroInput label="Required email" type="email" value="" isRequired />
-      <HeroInput label="Malformed email" type="email" value="not an email" isRequired />
+      <HeroInput id="required-email" label="Required email" type="email" value="" isRequired />
+      <HeroInput
+        id="malformed-email"
+        label="Malformed email"
+        type="email"
+        value="not an email"
+        isRequired
+      />
     </>,
   )
   const inputs = host.querySelectorAll<HTMLInputElement>('input')
@@ -285,7 +292,7 @@ it('HeroUI server errors remain announced without blocking valid keyboard retry 
   expect(inputs[1].checkValidity()).toBe(false)
   expect(inputs[2].checkValidity()).toBe(false)
 })
-import { AuthModal } from '../src/components/AuthModal'
+import { AuthModal } from '../src/components/organisms/AuthModal'
 it('native modal cycles Tab at enabled visible edges while preserving normal keys, Escape and trigger restoration', async () => {
   HTMLDialogElement.prototype.showModal = function () {
     this.open = true
@@ -373,7 +380,7 @@ it('password visibility has a comfortable target and localized keyboard toggle f
   expect(host.querySelectorAll('input[type="text"]')).toHaveLength(2)
 })
 
-import { Button as HeroButton } from '../src/components/ui/hero'
+import { Button as HeroButton } from '../src/components/atoms/adapters/hero'
 it.each([
   ['es', 'Cargando'],
   ['en', 'Loading'],

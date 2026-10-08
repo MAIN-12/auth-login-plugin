@@ -3,9 +3,11 @@ import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { AuthPresentationContext } from '../src/components/auth-presentation/AuthPresentationContext'
-import { AuthCardShell } from '../src/components/auth-card/AuthCardShell'
+import { AuthCardShell } from '../src/components/organisms/AuthCard/AuthCardShell'
 import AuthModalHero from '../src/components/organisms/AuthModal/AuthModalHero'
-import { Button, Input, OtpInput } from '../src/components/ui/hero'
+import { Button } from '../src/components/atoms/adapters/hero'
+import { FormField as Input } from '../src/components/molecules/adapters/hero'
+import { OtpInput } from '../src/components/molecules/OtpInput'
 import { useAuthThemeClasses } from '../src/components/ui/theme'
 
 let host: HTMLDivElement
@@ -41,7 +43,7 @@ describe('host HeroUI theme inheritance', () => {
     await render(
       <>
         <Button>Continue</Button>
-        <Input label="Email" value="bad" error="Invalid" />
+        <Input id="theme-email" label="Email" value="bad" error="Invalid" />
       </>,
     )
     expect(host.querySelector('button')?.getAttribute('style')).toBeNull()

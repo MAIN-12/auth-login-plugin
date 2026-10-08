@@ -23,7 +23,7 @@ import { AuthFlowContext } from '../auth/interface/react/AuthFlowContext'
 import { safeAuthRedirect } from '../auth/domain/redirect'
 import { AuthCard, type AuthCardWithSlugProps } from './organisms/AuthCard'
 import { AuthModal } from './organisms/AuthModal'
-import type { AuthFormSlug } from './forms'
+import type { AuthFormSlug } from './organisms/forms'
 import { createAuthServiceScope } from '../auth/interface/react/AuthServiceContext'
 import { getUiTranslations } from './ui/translations'
 
