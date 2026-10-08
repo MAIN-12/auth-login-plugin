@@ -1,5 +1,5 @@
 'use client'
-import React, { createContext, useContext, useMemo } from 'react'
+import React, { useContext, useMemo } from 'react'
 import {
   AuthServiceContext,
   createAuthServiceScope,
@@ -8,7 +8,8 @@ import {
 } from '../auth/interface/react/AuthServiceContext'
 import type { PublicAuthConfig } from '../auth/contracts/publicConfig'
 
-export const AuthConfigContext = createContext<PublicAuthConfig | null>(null)
+import { AuthConfigContext } from './auth-presentation/AuthConfigValue'
+export { AuthConfigContext } from './auth-presentation/AuthConfigValue'
 export function AuthConfigProvider({
   publicConfig,
   children,

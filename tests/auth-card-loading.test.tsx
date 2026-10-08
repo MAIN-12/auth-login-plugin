@@ -13,7 +13,7 @@ const loading = vi.hoisted(() => {
   })
   return { promise, release }
 })
-vi.mock('../src/components/ui/hero', async (importOriginal) => {
+vi.mock('../src/components/atoms/adapters/hero', async (importOriginal) => {
   await loading.promise
   return importOriginal()
 })
@@ -47,7 +47,8 @@ it('shows one loader until the complete HeroUI login card is ready', async () =>
 
   await act(async () => {
     loading.release()
-    await import('../src/components/ui/hero')
+    await import('../src/components/atoms/adapters/hero')
+    await import('../src/components/molecules/adapters/hero')
   })
   expect(host.querySelector('[role="status"]')).toBeNull()
   expect(host.querySelector('[data-auth-card-ready]')).toBeTruthy()

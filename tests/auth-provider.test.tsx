@@ -179,8 +179,9 @@ describe('modal authentication flow', () => {
     await import('../src/components/AuthModalHero')
     await mount({ style: 'hero-ui' })
     await open()
-    await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 100))
+    await vi.waitFor(async () => {
+      await act(async () => {})
+      expect(document.querySelector('[data-slot="modal-dialog"] input[type=email]')).toBeTruthy()
     })
     expect(document.querySelector('[data-slot="modal-dialog"]')).toBeTruthy()
     expect(

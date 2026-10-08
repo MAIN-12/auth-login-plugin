@@ -1,10 +1,10 @@
-import { LoginForm } from './LoginForm'
+import { LoginForm } from '../organisms/LoginForm'
 import { SignupForm } from './SignupForm'
 import { ForgotPasswordForm } from './ForgotPasswordForm'
 import { VerifyOtpForm } from './VerifyOtpForm'
 import { SetPasswordForm } from './SetPasswordForm'
 
-export { LoginForm, type LoginFormProps } from './LoginForm'
+export { LoginForm, type LoginFormProps } from '../organisms/LoginForm'
 export { SignupForm, type SignupFormProps } from './SignupForm'
 export { ForgotPasswordForm, type ForgotPasswordFormProps } from './ForgotPasswordForm'
 export { VerifyOtpForm, type VerifyOtpFormProps } from './VerifyOtpForm'
