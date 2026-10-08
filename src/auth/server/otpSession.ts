@@ -2,6 +2,7 @@ import { setAuthenticationEvidence, type AuthenticationEvidence } from './adminP
 import { randomUUID } from 'node:crypto'
 import { createClient, type Config as SQLiteConfig } from '@libsql/client'
 import { drizzle } from 'drizzle-orm/libsql'
+import type { SQL } from 'drizzle-orm'
 import {
   APIError,
   checkLoginPermission,
@@ -34,7 +35,7 @@ export interface DrizzleDatabase {
     { db: unknown; reject: () => Promise<void>; resolve: () => Promise<void> }
   >
   drizzle: { transaction<T>(work: (tx: unknown) => Promise<T>, options?: unknown): Promise<T> }
-  execute(args: { db: unknown; raw: string }): Promise<unknown>
+  execute(args: { db: unknown; raw?: string; sql?: SQL }): Promise<unknown>
 }
 
 /** OTP consumption commits before this adapter runs: failures burn proof rather than replay it.

@@ -9,7 +9,6 @@ const brevoAdapter = (): EmailAdapter => {
     sendEmail: async (message: SendEmailOptions): Promise<unknown> => {
       if (!process.env.BREVO_EMAILS_ACTIVE) {
         console.log('Brevo emails are not active')
-        console.log('Message:', message)
         return
       }
       try {

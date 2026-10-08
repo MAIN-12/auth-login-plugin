@@ -1,5 +1,6 @@
 import { initializeMethodPermitLedger, consumeMethodPermit } from './methodPermitLedger'
 import { createHmac, randomUUID } from 'node:crypto'
+import { sql } from 'drizzle-orm'
 import {
   checkLoginPermission,
   getFieldsToSign,
@@ -41,10 +42,13 @@ export async function credentialTransaction<T>(
   return nativeTransaction(db, async (tx) => {
     await db.execute({
       db: tx,
-      raw: `INSERT INTO ${table} (key) VALUES ('${key}') ON CONFLICT (key) DO NOTHING`,
+      sql: sql`INSERT INTO auth_login_credential_locks (key) VALUES (${key}) ON CONFLICT (key) DO NOTHING`,
     })
     if (db.name === 'postgres')
-      await db.execute({ db: tx, raw: `SELECT key FROM ${table} WHERE key = '${key}' FOR UPDATE` })
+      await db.execute({
+        db: tx,
+        sql: sql`SELECT key FROM auth_login_credential_locks WHERE key = ${key} FOR UPDATE`,
+      })
     const id = randomUUID()
     db.sessions[id] = {
       db: tx,
