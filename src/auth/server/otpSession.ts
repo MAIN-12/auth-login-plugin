@@ -2,7 +2,7 @@ import { setAuthenticationEvidence, type AuthenticationEvidence } from './adminP
 import { randomUUID } from 'node:crypto'
 import { createClient, type Config as SQLiteConfig } from '@libsql/client'
 import { drizzle } from 'drizzle-orm/libsql'
-import type { SQL } from 'drizzle-orm'
+import { sql, type SQL } from 'drizzle-orm'
 import {
   APIError,
   checkLoginPermission,
@@ -49,6 +49,7 @@ export async function createOtpSession(
   expectedVersion?: string,
   proof: AuthenticationEvidence = { method: 'otp' },
   assertOriginalAdminDenied?: (req: PayloadRequest) => Promise<void>,
+  assertChallengeCurrent?: () => Promise<void>,
 ) {
   const payload = req.payload
   const nativeCollection = payload.collections[collection]
@@ -112,6 +113,7 @@ export async function createOtpSession(
         // Hooks cannot redirect the proven identity, collection, request or transaction.
         if (args.req !== req || args.collection !== nativeCollection || args.overrideAccess)
           throw new APIError('AUTH_FAILED', 401)
+        await assertChallengeCurrent?.()
         const record = (await payload.db.findOne({
           collection,
           req,
@@ -219,6 +221,25 @@ export async function createOtpSession(
           if (changed !== undefined) result = changed as typeof result
         }
         if (!result.token || result.user?.id !== userID) throw new APIError('AUTH_FAILED', 401)
+        // Host hooks can mutate native evidence inside this same transaction. Recheck
+        // at the commit boundary; the earlier durable OTP burn cannot be undone.
+        if (proof.method === 'otp' && expectedVersion !== undefined) {
+          await assertChallengeCurrent?.()
+          const current = await payload.db.findOne<NativeUser>({
+            collection,
+            req,
+            where: { id: { equals: userID } },
+          })
+          if (
+            !current ||
+            current.id !== userID ||
+            current.email !== expectedEmail ||
+            current.deletedAt ||
+            current._verified !== true ||
+            credentialVersion(payload.secret, current) !== expectedVersion
+          )
+            throw new APIError('AUTH_FAILED', 401)
+        }
         return result
       } finally {
         delete db.sessions[transactionID]
@@ -251,13 +272,12 @@ export async function lockUserRow(
     db.name === 'postgres' && db.schemaName
       ? `${quote(db.schemaName)}.${quote(tableName)}`
       : quote(tableName)
-  const id = `'${String(userID).replaceAll("'", "''")}'`
   await db.execute({
     db: tx,
-    raw:
+    sql:
       db.name === 'postgres'
-        ? `SELECT id FROM ${table} WHERE id = ${id} FOR UPDATE`
-        : `UPDATE ${table} SET id = id WHERE id = ${id}`,
+        ? sql`SELECT id FROM ${sql.raw(table)} WHERE id = ${userID} FOR UPDATE`
+        : sql`UPDATE ${sql.raw(table)} SET id = id WHERE id = ${userID}`,
   })
 }
 

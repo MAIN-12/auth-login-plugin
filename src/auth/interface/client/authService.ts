@@ -33,6 +33,17 @@ export function createAuthService(config: PublicAuthConfig, locale?: string) {
   ] as const
   const success = z.object({ success: z.literal(true) })
   const sent = success.extend({ context: z.string().min(1), retryAfter: z.number().nonnegative() })
+  const otpVerified = success.extend({
+    user: z.object({ id: z.union([z.string().min(1), z.number().finite()]) }),
+    exp: z
+      .number()
+      .finite()
+      .refine((exp) => exp > Date.now() / 1000),
+  })
+  const otpSent = success.extend({
+    context: z.string().regex(/^[a-f0-9]{64}$/),
+    retryAfter: z.number().finite().int().positive(),
+  })
   const proof = success.extend({
     permit: z.string().min(1).max(2048),
     expiresAt: z.number().finite(),
@@ -155,11 +166,11 @@ export function createAuthService(config: PublicAuthConfig, locale?: string) {
     },
     sendOtp: (email: string, context?: string): Promise<SendOtpResponse> =>
       config.otpLogin
-        ? request('otp/send', { email, purpose: 'login', ...(context ? { context } : {}) }, sent)
+        ? request('otp/send', { email, purpose: 'login', ...(context ? { context } : {}) }, otpSent)
         : Promise.reject(new AuthRequestError('METHOD_DISABLED', 403)),
     verifyOtp: (email: string, otp: string, context: string): Promise<VerifyOtpResponse> =>
       config.otpLogin
-        ? request('otp/verify', { email, otp, context, purpose: 'login' }, success)
+        ? request('otp/verify', { email, otp, context, purpose: 'login' }, otpVerified)
         : Promise.reject(new AuthRequestError('METHOD_DISABLED', 403)),
     sendOwnership: (
       email: string,

@@ -1,6 +1,6 @@
 ## Guías de arquitectura
 
-La autoridad local del plugin es [plugin-contracts.md](plugin-contracts.md). La adaptación auth-clean está aprobada únicamente para la tarea 01; [auth-clean-spec.md](architecture/auth-clean-spec.md) define su destino incremental. Las guías en `architecture/payload-clean/` son referencias históricas AOP, no contratos normativos de este paquete. No adoptar sus collections, aliases ni tipos generados literalmente.
+La autoridad local del plugin es [plugin-contracts.md](plugin-contracts.md). La adaptación auth-clean está aprobada únicamente para las tareas 01–02, cada una en su chat autorizado; [auth-clean-spec.md](architecture/auth-clean-spec.md) define su destino incremental. Las guías en `architecture/payload-clean/` son referencias históricas AOP, no contratos normativos de este paquete. No adoptar sus collections, aliases ni tipos generados literalmente.
 
 ## Vocabulario de arquitectura Payload
 

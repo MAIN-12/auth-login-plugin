@@ -142,3 +142,43 @@ Logger events include safe codes and server-generated correlation IDs. Failed re
 The goal is WCAG 2.2 AA for plugin surfaces. Automatic axe checks, viewport/style/locale/shell behavior and real keyboard/modal interaction have a maintained packed harness: `pnpm test:integration:acceptance`. Human verification must independently record screen-reader announcements, OTP positions/error association, focus order/trapping/restoration, Escape, zoom and mobile behavior for each variant. Do not mark a manual cell passed because Playwright or axe passed. These results do not certify the consuming application.
 
 **Concurrent SQLite host requirement:** configure `sqliteAdapter({ wal: true, busyTimeout: 1000, ... })` on every instance. The demonstrated two-process setup uses WAL plus a 1,000 ms native read busy timeout; default DELETE journal/zero timeout can fail native authentication/logout during overlapping OTP writes. The plugin does not silently change the host journal mode or retry authentication hooks. Local file/WAL requires a filesystem that supports SQLite shared-memory/locking; multi-host network filesystems are not established support.
+
+## Auth-clean task 02: OTP login policy and commit boundary
+
+The user authorized only task 02 in its dedicated chat. Login send/verify now use
+narrow commands and the same method gate for HTTP and trusted internal callers.
+The application OTP protocol depends on an atomic challenge/budget ledger, account
+evidence, a codec, mail delivery, clock and native-session capability; it imports
+no Node crypto, Payload, HTTP or ambient clock. Node codecs preserve HMAC inputs,
+AES-GCM formats/AAD, namespaces and generation binding. The Payload adapter selects
+explicit unknown/unverified/deleted/verified evidence. Missing or malformed evidence
+cannot become an eligible identity. Composition captures private options per instance;
+publicConfig receives no secrets or server capabilities.
+
+The durable reservation commits before delivery. Failed mail never resets cooldown,
+quota, expiry or attempts, and accepted never asserts delivery or account existence.
+Verification commits its irreversible burn before opening the separate native session
+transaction. Session writes and transactional host-hook writes commit or roll back
+together; the already committed burn does not roll back with them. The adapter locks
+the proven account, rechecks email, credential version, verification/deletion and
+cutover generation under the native transaction, including after asynchronous hooks.
+A failed hook/session cannot resurrect a proof. SQLite retries acquisition only before
+the callback begins; incompatible existing transactions fail without implicit commit.
+SQL account locks use bound values and trusted, quoted adapter table identifiers.
+Request transaction/session/proven markers are cleaned by the native adapter; the
+request-bound login adapter restores temporary user/evidence and keeps token/user/exp
+in a private, consumable receipt outside application. HTTP materializes that receipt
+and preserves cookie/CORS/lifetime/token-removal behavior with no-store responses.
+
+OTP React verification lives in interface/react and uses the shared HTTP client;
+its application hook path is a compatibility re-export for task 06. The legacy
+domain/otp path delegates via contracts/otpCompatibility to the one protocol owner.
+That bridge preserves ownership callers pending task 03; those callers and other
+legacy modules are not declared portable. No ownership authorization, API/schema,
+proof TTL or public export changes are introduced. Compatible code rollback retains
+consumption/revocation history rather than restoring grants.
+
+Direct and HTTP/client/React doubles demonstrate ordering, interleaved consumption,
+cleanup, evidence changes and filtered secrets; they do not certify multiprocess
+locks, physical database rollback or browser cookies. Existing historical SQL/HTTP
+fixtures remain in test:unit; task 02 adds no DB/E2E suite and runs no Chromium.

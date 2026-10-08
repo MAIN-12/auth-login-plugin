@@ -2,7 +2,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:
 import type { PayloadRequest } from 'payload'
 import { createClient, type Config as SQLiteConfig } from '@libsql/client'
 
-import type { OtpStateAccess, OtpStore } from '../domain/otp'
+import type { OtpStateAccess, OtpStore } from '../infrastructure/payload/otpLedger'
 interface SQLResult {
   rows: Array<Record<string, unknown>>
 }

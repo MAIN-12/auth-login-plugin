@@ -10,3 +10,13 @@ export type Outcome<T> = { ok: true; value: T } | { ok: false; code: AuthErrorCo
 export interface PasswordLoginResult {
   principal: Principal
 }
+
+export interface OtpSendCommand {
+  email: string
+  purpose: 'login'
+  context?: string
+}
+export interface OtpVerifyCommand extends OtpSendCommand {
+  context: string
+  otp: string
+}

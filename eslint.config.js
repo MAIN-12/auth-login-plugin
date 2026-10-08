@@ -71,6 +71,7 @@ export default [
       'src/auth/application/models.ts',
       'src/auth/domain/errors.ts',
       'src/auth/domain/passwordLoginRules.ts',
+      'src/auth/domain/otpRules.ts',
     ],
     rules: {
       'no-restricted-imports': [

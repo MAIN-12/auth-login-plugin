@@ -34,6 +34,10 @@ export function setAuthenticationEvidence(req: PayloadRequest, value: Authentica
   })
   evidence.set(req.payload, requests)
 }
+/** Remove temporary evidence when a request-bound native adapter leaves its scope. */
+export function clearAuthenticationEvidence(req: PayloadRequest) {
+  evidence.get(req.payload)?.delete(req.headers)
+}
 export function getAuthenticationEvidence(req: PayloadRequest) {
   const proof = evidence.get(req.payload)?.get(req.headers)
   return proof &&

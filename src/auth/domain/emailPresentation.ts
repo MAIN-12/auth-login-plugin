@@ -48,3 +48,8 @@ export function resolveEmailColors(colors?: Partial<EmailColors>): EmailColors {
   }
   return Object.freeze(result)
 }
+
+/** Browser locale is explicit; unsupported values retain the instance fallback. */
+export function selectEmailLocale(locale: string | null, fallback: 'es' | 'en'): 'es' | 'en' {
+  return locale === 'es' || locale === 'en' ? locale : fallback
+}
