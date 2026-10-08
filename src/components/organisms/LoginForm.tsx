@@ -16,11 +16,11 @@ import {
   authRoute,
 } from '../../auth/interface/react/AuthFlowContext'
 import { Button, Divider } from '../atoms'
-import { GoogleIcon } from '../atoms/GoogleIcon'
 import { FormField } from '../molecules/FormField'
 import { PasswordField } from '../molecules/PasswordField'
 import { AuthErrorNotice } from '../molecules/AuthErrorNotice'
 import { useLoginFlow } from '../../auth/interface/react/hooks/useLoginFlow'
+import { GoogleAuthButton } from '../molecules/GoogleAuthButton'
 import type { AuthLocalizationProps } from '../auth-presentation/types'
 
 export interface LoginFormProps extends AuthLocalizationProps {
@@ -101,16 +101,15 @@ function LoginFormContent({
         <div className="animate-[fadeIn_0.3s_ease-out]">
           {showGoogleOAuth && config.googleOAuthEnabled && (
             <>
-              <Button
+              <GoogleAuthButton
                 fullWidth
                 variant="secondary"
                 size="lg"
                 className="mb-4 [--button-fg:var(--foreground)]"
                 onPress={handleGoogleLogin}
               >
-                <GoogleIcon />
                 {t.continueWithGoogle}
-              </Button>
+              </GoogleAuthButton>
               {(config.passwordLogin || config.otpLogin) && (
                 <div className="flex items-center gap-4 my-4">
                   <Divider className="flex-1" />

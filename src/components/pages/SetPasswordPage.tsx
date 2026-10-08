@@ -1,21 +1,43 @@
 'use client'
-
-import { useAuthPresentation } from '../auth-presentation/AuthPresentationContext'
-
-import SetPasswordPageTailwind from './SetPasswordPageTailwind'
-import SetPasswordPageHero from './SetPasswordPageHero'
-import type { AuthLayoutConfig } from '../AuthLayout'
-import type { AuthCardConfig } from '../AuthCard'
-
+import React from 'react'
+import { SetPasswordForm } from '../organisms/SetPasswordForm'
+import { useAuthTranslations } from '../auth-presentation/AuthPresentationContext'
+import { AuthLayout, type AuthLayoutConfig } from '../templates/AuthLayout'
+import { AuthCard, type AuthCardConfig } from '../organisms/AuthCard'
 export interface SetPasswordPageProps extends AuthLayoutConfig, AuthCardConfig {
   redirectTo?: string
 }
-
 export default function SetPasswordPage(props: SetPasswordPageProps) {
-  const { style } = useAuthPresentation(props)
-  return style === 'hero-ui' ? (
-    <SetPasswordPageHero {...props} />
-  ) : (
-    <SetPasswordPageTailwind {...props} />
+  const {
+    redirectTo,
+    style,
+    logo,
+    poweredBy,
+    cardClassName,
+    removeBorder,
+    removeShadow,
+    mobileVariant,
+    backgroundClass,
+    texture,
+    locale,
+    messages,
+  } = props
+  const t = useAuthTranslations(locale, messages).setPassword
+  return (
+    <AuthLayout backgroundClass={backgroundClass} texture={texture}>
+      <AuthCard
+        style={style}
+        logo={logo}
+        title={t.title}
+        subtitle={t.subtitle}
+        poweredBy={poweredBy}
+        cardClassName={cardClassName}
+        removeBorder={removeBorder}
+        removeShadow={removeShadow}
+        mobileVariant={mobileVariant}
+      >
+        <SetPasswordForm redirectTo={redirectTo} locale={locale} messages={messages} />
+      </AuthCard>
+    </AuthLayout>
   )
 }

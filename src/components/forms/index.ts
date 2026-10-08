@@ -1,14 +1,14 @@
 import { LoginForm } from '../organisms/LoginForm'
-import { SignupForm } from './SignupForm'
-import { ForgotPasswordForm } from './ForgotPasswordForm'
+import { SignupForm } from '../organisms/SignupForm'
+import { ForgotPasswordForm } from '../organisms/ForgotPasswordForm'
 import { VerifyOtpForm } from '../organisms/VerifyOtpForm'
-import { SetPasswordForm } from './SetPasswordForm'
+import { SetPasswordForm } from '../organisms/SetPasswordForm'
 
 export { LoginForm, type LoginFormProps } from '../organisms/LoginForm'
-export { SignupForm, type SignupFormProps } from './SignupForm'
-export { ForgotPasswordForm, type ForgotPasswordFormProps } from './ForgotPasswordForm'
+export { SignupForm, type SignupFormProps } from '../organisms/SignupForm'
+export { ForgotPasswordForm, type ForgotPasswordFormProps } from '../organisms/ForgotPasswordForm'
 export { VerifyOtpForm, type VerifyOtpFormProps } from '../organisms/VerifyOtpForm'
-export { SetPasswordForm, type SetPasswordFormProps } from './SetPasswordForm'
+export { SetPasswordForm, type SetPasswordFormProps } from '../organisms/SetPasswordForm'
 
 export type AuthFormSlug = 'login' | 'signup' | 'forgot-password' | 'verify-otp' | 'set-password'
 

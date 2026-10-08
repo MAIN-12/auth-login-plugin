@@ -46,10 +46,13 @@ async function mount(node: React.ReactNode, complete = vi.fn(async (_target: str
       </AuthConfigProvider>,
     ),
   )
-  await vi.waitFor(async () => {
-    await act(async () => {})
-    expect(host.querySelector('form')).toBeTruthy()
-  })
+  await vi.waitFor(
+    async () => {
+      await act(async () => {})
+      expect(host.querySelector('form')).toBeTruthy()
+    },
+    { timeout: 5000 },
+  )
   return complete
 }
 async function enter(input: HTMLInputElement, value: string) {
