@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { mergeAuthPresentation } from '../src/components/auth-presentation/resolvePresentation'
-import { getUiTranslations } from '../src/components/ui/translations'
+import { mergeAuthPresentation } from '../src/configuration/authAppearance/resolveAppearance'
+import { getAuthAppearanceDefaults } from '../src/configuration/authAppearance/defaults'
+import { publicConfig } from './auth-test-config'
+import { getUiTranslations } from '../src/i18n/ui'
 
 describe('presentation precedence', () => {
   it('resolves explicit values above provider and fallback without mutation', () => {
@@ -35,5 +37,25 @@ describe('presentation precedence', () => {
     })
     expect(getUiTranslations('fr', resolved.messages).login.title).toBe('Bonjour')
     expect(shared.messages.es.login.title).toBe('Shared title')
+  })
+})
+
+describe('serializable appearance defaults', () => {
+  it('returns data, not a React logo, without mutating public settings', () => {
+    const config = Object.freeze({ ...publicConfig, locale: 'es', logoUrl: '/brand.svg' })
+    expect(getAuthAppearanceDefaults(config)).toEqual({
+      style: config.style,
+      locale: 'es',
+      logoUrl: '/brand.svg',
+    })
+    expect(getAuthAppearanceDefaults(config)).not.toHaveProperty('logo')
+    expect(config.logoUrl).toBe('/brand.svg')
+  })
+  it('retains standalone style and language defaults without invented branding', () => {
+    expect(getAuthAppearanceDefaults()).toEqual({
+      style: 'tailwind',
+      locale: 'en',
+      logoUrl: undefined,
+    })
   })
 })

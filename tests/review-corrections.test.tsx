@@ -4,7 +4,7 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import * as client from '../src/exports/client'
 import { publicConfig } from './auth-test-config'
-import { AuthConfigProvider } from '../src/components/AuthConfigContext'
+import { AuthConfigProvider } from '../src/auth/interface/react/providers/AuthConfigProvider'
 import { AuthFlowContext } from '../src/auth/interface/react/AuthFlowContext'
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -155,7 +155,7 @@ it('the standalone public configuration preserves explicit Spanish while a sibli
   expect(host.querySelector('#es')?.textContent).toContain('Continuar')
   expect(host.querySelector('#en')?.textContent).toContain('Continue')
 })
-import { FormField as HeroInput } from '../src/components/molecules/adapters/hero'
+import { FormField as HeroInput } from '../src/components/molecules/FormField/Hero'
 it('invalid HeroUI labels inherit the theme danger foreground without fixed colors', async () => {
   const host = await mount(
     <>
@@ -380,7 +380,7 @@ it('password visibility has a comfortable target and localized keyboard toggle f
   expect(host.querySelectorAll('input[type="text"]')).toHaveLength(2)
 })
 
-import { Button as HeroButton } from '../src/components/atoms/adapters/hero'
+import { Button as HeroButton } from '../src/components/atoms/Button/Hero'
 it.each([
   ['es', 'Cargando'],
   ['en', 'Loading'],

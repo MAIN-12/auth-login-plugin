@@ -2,7 +2,7 @@
 import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
-import { AuthConfigProvider } from '../src/components/AuthConfigContext'
+import { AuthConfigProvider } from '../src/auth/interface/react/providers/AuthConfigProvider'
 import { AuthFlowContext } from '../src/auth/interface/react/AuthFlowContext'
 import { VerifyOtpForm } from '../src/components/organisms/VerifyOtpForm'
 import { OtpInput } from '../src/components/molecules/OtpInput'
@@ -93,12 +93,12 @@ it('responsive card presentation mounts only one live form tree', async () => {
   )
   expect(host.querySelectorAll('form')).toHaveLength(1)
 })
-import { getFormBySlug, LoginForm } from '../src/components/organisms/forms'
+import { getFormBySlug, LoginForm } from '../src/components/organisms/AuthCard/forms'
 it('unrecognized or inherited form names recover to the login form', () => {
   expect(getFormBySlug('__proto__')).toBe(LoginForm)
   expect(getFormBySlug('constructor')).toBe(LoginForm)
 })
-import { Button as HeroButton } from '../src/components/atoms/adapters/hero'
+import { Button as HeroButton } from '../src/components/atoms/Button/Hero'
 it('HeroUI primary actions delegate their colors to the host theme', async () => {
   const host = await mount(<HeroButton variant="primary">Continue</HeroButton>)
   const button = host.querySelector('button')!

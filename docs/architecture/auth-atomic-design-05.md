@@ -122,3 +122,32 @@ no bloquea: el usuario entregó ticket y spec locales como autoridad explícita.
 El hash individual de 05 y resultado de hooks/Git se entregan en el chat;
 no se incluye un hash autorreferencial en este commit. Migración Atomic Design
 cerrada en el alcance aprobado, conservando los límites de validación anteriores.
+
+
+## Actualización de organización (2026-10-08)
+
+La estructura descrita arriba es evidencia histórica. Ahora `components` contiene
+solo atoms/molecules/organisms/templates/pages; cada componente tiene carpeta
+propia. Configuración visual pura está en `src/configuration/authAppearance`; contextos y
+hooks compartidos están en `src/contexts`, integración de sesión/configuración en
+`src/auth/interface/react/providers` y tokens en `src/theme`. Se eliminan las
+carpetas genéricas `ui` y `presentation`: la responsabilidad determina el destino.
+Las entradas RSC visuales son `server.tsx` junto a AuthCard y AuthPages. El logo
+por defecto y el boundary de carga visual son atoms; la señal de carga compartida
+es un contexto data-only sin dependencia del organismo AuthCard. La configuración
+pura entrega logoUrl; los adaptadores React renderizan AuthLogo, preservando
+`object-contain` en servidor y la precedencia componente > provider > defaults.
+
+`src/i18n/{ui,email,locale}.ts` centraliza traducciones y detección de idioma.
+La implementación de correo permanece activa en `src/auth/infrastructure/email`
+con los mismos exports públicos. El guard del grafo permite estos renderizadores
+puros en RSC, pero sigue bloqueando correo en cliente y dependencias servidor
+transitivas.
+
+`src/hoc/withAuthStyle/index.tsx` selecciona HeroUI/Tailwind por instancia,
+con override explícito y carga lazy de HeroUI. Las variantes viven junto a su
+componente; sus contratos ya no dependen del estilo Tailwind. Se conservan el
+fallback visual fuera de tarjeta, el Suspense/reveal único dentro de AuthCard y
+el fallback vacío de modal. `common.close` es configurable desde messages; el
+fallback regional español del cierre se preserva sin cambiar la política previa
+de lookup exacto para los otros textos.

@@ -5,9 +5,12 @@
 // ============================================================
 
 // Plugin client config initializer
-export { AuthConfigProvider, useAuthConfig } from '../components/AuthConfigContext'
+export {
+  AuthConfigProvider,
+  useAuthConfig,
+} from '../auth/interface/react/providers/AuthConfigProvider'
 export type { PublicAuthConfig } from '../auth/contracts/publicConfig'
-export { AuthClientInit } from '../components/AuthClientInit'
+export { AuthClientInit } from '../auth/interface/react/providers/AuthClientInit'
 
 // Auth hooks
 export { useLoginFlow } from '../auth/interface/react/hooks/useLoginFlow'
@@ -35,9 +38,9 @@ export {
 } from '../auth/domain/passwordRules'
 
 // UI translations / locale utilities
-export { getUiTranslations, uiTranslations } from '../components/ui/translations'
-export type { UiTranslations, DeepPartial } from '../components/ui/translations'
-export { detectClientLocale } from '../components/ui/locale'
+export { getUiTranslations, uiTranslations } from '../i18n/ui'
+export type { UiTranslations, DeepPartial } from '../i18n/ui'
+export { detectClientLocale } from '../i18n/locale'
 
 // Page components
 export { default as LoginPage } from '../components/pages/LoginPage'
@@ -68,17 +71,21 @@ export {
   ForgotPasswordForm,
   VerifyOtpForm,
   SetPasswordForm,
-} from '../components/organisms/forms'
+} from '../components/organisms/AuthCard/forms'
 export type {
   LoginFormProps,
   SignupFormProps,
   ForgotPasswordFormProps,
   VerifyOtpFormProps,
   SetPasswordFormProps,
-} from '../components/organisms/forms'
+} from '../components/organisms/AuthCard/forms'
 
 // Form registry (for advanced usage / extending)
-export { AUTH_FORMS, getFormBySlug, type AuthFormSlug } from '../components/organisms/forms'
+export {
+  AUTH_FORMS,
+  getFormBySlug,
+  type AuthFormSlug,
+} from '../components/organisms/AuthCard/forms'
 
 // Types
 export type {
@@ -107,25 +114,22 @@ export type {
 } from '../components/templates/AuthLayout'
 export type { PoweredByProps } from '../components/molecules/PoweredBy'
 
-export { AuthProvider, useAuth } from '../components/AuthProvider'
+export { AuthProvider, useAuth } from '../auth/interface/react/providers/AuthProvider'
 export type {
   AuthProviderProps,
   AuthContextValue,
   AuthUser,
   AuthStatus,
   OpenLoginOptions,
-} from '../components/AuthProvider'
+} from '../auth/interface/react/providers/AuthProvider'
 
 export type {
   AuthPresentationProps,
   AuthLocalizationProps,
   ResolvedAuthPresentation,
   PoweredByConfig,
-} from '../components/auth-presentation/types'
-export {
-  useAuthPresentation,
-  useAuthTranslations,
-} from '../components/auth-presentation/AuthPresentationContext'
+} from '../configuration/authAppearance/types'
+export { useAuthPresentation, useAuthTranslations } from '../contexts/AuthAppearanceContext'
 
 export type { CredentialCapabilities } from '../auth/domain/credentials'
 

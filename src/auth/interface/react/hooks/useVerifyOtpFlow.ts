@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useAuthNavigation, authRoute } from '../AuthFlowContext'
 import { useAuthService } from '../AuthServiceContext'
 import { storePasswordProof } from '../../client/passwordProof'
-import { useAuthConfig } from '../../../../components/AuthConfigContext'
+import { useAuthConfig } from '../providers/AuthConfigProvider'
 
 export interface UseVerifyOtpFlowOptions {
   email: string

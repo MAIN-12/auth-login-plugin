@@ -9,11 +9,15 @@ const externalServer =
 const externalImpure =
   /^(?:node:|payload(?:\/|$)|drizzle-orm(?:\/|$)|@libsql\/|react(?:\/|$)|react-dom(?:\/|$)|next(?:\/|$)|jose(?:\/|$)|oauth4webapi(?:\/|$)|crypto$)/
 const portableForbidden =
-  /^(?:auth\/(?:infrastructure|interface|composition|server|contracts)\/|components\/|endpoints\/|(?:config|otpOptions|googleOptions|adminOptions)\.)/
+  /^(?:auth\/(?:infrastructure|interface|composition|server|contracts)\/|components\/|(?:configuration|contexts|hoc|theme)\/|i18n\/|endpoints\/|(?:config|otpOptions|googleOptions|adminOptions)\.)/
 const serverImplementation =
   /^(?:auth\/(?:infrastructure|composition|server)\/|endpoints\/|index\.)/
-const clientEntry = /^(?:exports\/client\.|auth\/interface\/(?:client|react)\/|components\/)/
-const emailModule = /^components\/email\//
+const clientEntry =
+  /^(?:exports\/client\.|auth\/interface\/(?:client|react)\/|components\/|(?:configuration|contexts|hoc|theme)\/|i18n\/)/
+// Server entries sit next to their client owner, but remain RSC-only modules.
+const reactServerEntry =
+  /^(?:components\/(?:organisms\/AuthCard|pages\/AuthPages)\/server\.tsx$|auth\/interface\/react\/providers\/AuthProviderServer\/)/
+const emailModule = /^auth\/infrastructure\/email\//
 
 function sources(directory) {
   if (!fs.existsSync(directory)) return []
@@ -99,8 +103,8 @@ export function inspectArchitecture(root, overrides = new Map()) {
     const pure = name.startsWith('auth/domain/') || name.startsWith('auth/application/')
     const domain = name.startsWith('auth/domain/')
     const http = name.startsWith('auth/interface/http/')
-    const rsc = name === 'exports/rsc.ts'
-    const client = clientEntry.test(name) && !emailModule.test(name)
+    const rsc = name === 'exports/rsc.ts' || reactServerEntry.test(name)
+    const client = clientEntry.test(name) && !emailModule.test(name) && !reactServerEntry.test(name)
     const proxy = name === 'proxy.ts'
     if (!pure && !http && !client && !rsc && !proxy) continue
     const visited = new Set()
@@ -139,7 +143,9 @@ export function inspectArchitecture(root, overrides = new Map()) {
         }
         if (
           (client || rsc || proxy) &&
-          ((edge.local && serverImplementation.test(target)) ||
+          ((edge.local &&
+            serverImplementation.test(target) &&
+            !(rsc && emailModule.test(target))) ||
             (!edge.local &&
               (externalServer.test(target) || isBuiltin(target)) &&
               !(
@@ -152,7 +158,7 @@ export function inspectArchitecture(root, overrides = new Map()) {
           report(file, 'runtime-boundary', next)
           continue
         }
-        if (client && emailModule.test(target)) {
+        if (client && (emailModule.test(target) || (edge.local && reactServerEntry.test(target)))) {
           report(file, 'runtime-boundary', next)
           continue
         }

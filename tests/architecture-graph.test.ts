@@ -218,3 +218,43 @@ it('published entrypoints use explicit exports and only authService owns client 
   }
   walk(path.resolve('src/exports/client.ts'))
 })
+
+it.each(['contexts', 'configuration', 'hoc', 'theme'])(
+  '%s support cannot hide server state from the browser graph',
+  (directory) => {
+    fixture(
+      {
+        [`src/${directory}/bridge.ts`]: "export type { Port } from '../auth/server/ledger'",
+        'src/auth/server/ledger.ts': 'export interface Port { consume(): void }',
+      },
+      (root) => {
+        expect(
+          inspectArchitecture(root).map((finding: { rule: string }) => finding.rule),
+        ).toContain('runtime-boundary')
+      },
+    )
+  },
+)
+
+it.each([
+  'components/organisms/AuthCard/server.tsx',
+  'components/pages/AuthPages/server.tsx',
+  'auth/interface/react/providers/AuthProviderServer/index.tsx',
+])('preserves RSC isolation for colocated server entry %s', (serverEntry) => {
+  fixture(
+    {
+      ['src/' + serverEntry]: 'export const server = 1',
+      'src/exports/rsc.ts': `export { server } from '../${serverEntry.replace(/\.tsx$/, '')}'`,
+      'src/exports/client.ts': `export { server } from '../${serverEntry.replace(/\.tsx$/, '')}'`,
+    },
+    (root) => {
+      const findings = inspectArchitecture(root)
+      expect(
+        findings.filter((finding: { file: string }) => finding.file.endsWith('exports/rsc.ts')),
+      ).toEqual([])
+      expect(
+        findings.filter((finding: { file: string }) => finding.file.endsWith('exports/client.ts')),
+      ).toHaveLength(1)
+    },
+  )
+})

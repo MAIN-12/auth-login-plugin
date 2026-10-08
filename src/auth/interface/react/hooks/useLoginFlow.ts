@@ -6,7 +6,7 @@ import { useState, useCallback, useRef } from 'react'
 import { useAuthNavigation, authRoute } from '../AuthFlowContext'
 import type { LoginStep } from '../../../contracts/clientModels'
 import { authErrorKey } from '../../client/authService'
-import { useAuthConfig } from '../../../../components/AuthConfigContext'
+import { useAuthConfig } from '../providers/AuthConfigProvider'
 
 export interface UseLoginFlowOptions {
   locale?: string

@@ -3,7 +3,7 @@ import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import { publicConfig } from './auth-test-config'
-import { AuthConfigProvider } from '../src/components/AuthConfigContext'
+import { AuthConfigProvider } from '../src/auth/interface/react/providers/AuthConfigProvider'
 import { AuthCard } from '../src/components/organisms/AuthCard'
 import { AuthProvider, useAuth, type AuthContextValue } from '../src/exports/client'
 
@@ -14,7 +14,7 @@ const loading = vi.hoisted(() => {
   })
   return { promise, release, imports: 0 }
 })
-vi.mock('../src/components/atoms/adapters/hero', async (importOriginal) => {
+vi.mock('../src/components/atoms/Button/Hero', async (importOriginal) => {
   loading.imports++
   await loading.promise
   return importOriginal()
@@ -79,8 +79,17 @@ it('shows one loader until the complete HeroUI login card is ready', async () =>
 
   await act(async () => {
     loading.release()
-    await import('../src/components/atoms/adapters/hero')
-    await import('../src/components/molecules/adapters/hero')
+    await import('../src/components/atoms/Button/Hero')
+    await import('../src/components/atoms/Input/Hero')
+    await import('../src/components/atoms/Card/Hero')
+    await import('../src/components/atoms/CardHeader/Hero')
+    await import('../src/components/atoms/CardContent/Hero')
+    await import('../src/components/atoms/CardFooter/Hero')
+    await import('../src/components/atoms/CardTitle/Hero')
+    await import('../src/components/atoms/CardDescription/Hero')
+    await import('../src/components/atoms/Divider/Hero')
+    await import('../src/components/atoms/Spinner/Hero')
+    await import('../src/components/molecules/FormField/Hero')
   })
   expect(host.querySelector('[role="status"]')).toBeNull()
   expect(host.querySelector('[data-auth-card-ready]')).toBeTruthy()

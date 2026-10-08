@@ -2,11 +2,15 @@
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AuthProvider, useAuth, type AuthContextValue } from '../src/components/AuthProvider'
-import { AuthProvider as ServerAuthProvider } from '../src/components/AuthProviderServer'
+import {
+  AuthProvider,
+  useAuth,
+  type AuthContextValue,
+} from '../src/auth/interface/react/providers/AuthProvider'
+import { AuthProvider as ServerAuthProvider } from '../src/auth/interface/react/providers/AuthProviderServer'
 import { AuthCard, AuthPages, AuthClientInit, useAuthConfig } from '../src/exports/client'
-import { AuthCard as ServerAuthCard } from '../src/components/AuthCardServer'
-import ServerAuthPages from '../src/components/AuthPagesServer'
+import { AuthCard as ServerAuthCard } from '../src/components/organisms/AuthCard/server'
+import ServerAuthPages from '../src/components/pages/AuthPages/server'
 import { AuthLayout } from '../src/components/templates/AuthLayout'
 import { PoweredBy } from '../src/components/molecules/PoweredBy'
 import {
@@ -15,19 +19,16 @@ import {
   ForgotPasswordForm,
   VerifyOtpForm,
   SetPasswordForm,
-} from '../src/components/organisms/forms'
+} from '../src/components/organisms/AuthCard/forms'
 import LoginPage from '../src/components/pages/LoginPage'
 import SignupPage from '../src/components/pages/SignupPage'
 import ForgotPasswordPage from '../src/components/pages/ForgotPasswordPage'
 import VerifyOtpPage from '../src/components/pages/VerifyOtpPage'
 import SetPasswordPage from '../src/components/pages/SetPasswordPage'
-import {
-  useAuthPresentation,
-  useAuthTranslations,
-} from '../src/components/auth-presentation/AuthPresentationContext'
-import { getUiTranslations } from '../src/components/ui/translations'
+import { useAuthPresentation, useAuthTranslations } from '../src/contexts/AuthAppearanceContext'
+import { getUiTranslations } from '../src/i18n/ui'
 import { publicConfig } from './auth-test-config'
-import { AuthConfigProvider } from '../src/components/AuthConfigContext'
+import { AuthConfigProvider } from '../src/auth/interface/react/providers/AuthConfigProvider'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -96,6 +97,32 @@ afterEach(async () => {
 })
 
 describe('shared presentation', () => {
+  it('renders the default logo atom with the existing client and server dimensions/classes', async () => {
+    await render(<AuthCard slug="login" mobileVariant="modal" />)
+    const client = host.querySelector('img[src="/plugin-logo.svg"]')!
+    expect(client.getAttribute('alt')).toBe('')
+    expect(client.getAttribute('width')).toBe('180')
+    expect(client.getAttribute('height')).toBe('42')
+    expect(client.classList.contains('object-contain')).toBe(false)
+
+    await render(await ServerAuthCard({ publicConfig, slug: 'login', mobileVariant: 'modal' }))
+    const server = host.querySelector('img[src="/plugin-logo.svg"]')!
+    expect(server.getAttribute('alt')).toBe('')
+    expect(server.getAttribute('width')).toBe('180')
+    expect(server.getAttribute('height')).toBe('42')
+    expect(server.classList.contains('object-contain')).toBe(true)
+  })
+  it('does not render an invented default logo when public settings have no logo URL', async () => {
+    await render(
+      await ServerAuthCard({
+        publicConfig: { ...publicConfig, logoUrl: undefined },
+        slug: 'login',
+        mobileVariant: 'modal',
+        poweredBy: { enabled: false },
+      }),
+    )
+    expect(host.querySelector('img')).toBeNull()
+  })
   it('inherits undefined modal branding and disables explicit null logos and false attribution', async () => {
     await render(
       <AuthProvider
@@ -493,7 +520,7 @@ describe('configured style renders actual controls', () => {
     'uses %s controls from server plugin settings',
     async (style) => {
       const styledConfig = { ...publicConfig, style }
-      await import('../src/components/atoms/adapters/hero')
+      await import('../src/components/atoms/Button/Hero')
       const content = await ServerAuthProvider({
         publicConfig: styledConfig,
         initialUser: null,

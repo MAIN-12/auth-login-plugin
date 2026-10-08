@@ -3,7 +3,7 @@ import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { expect, it, vi } from 'vitest'
 import { publicConfig } from './auth-test-config'
-import { AuthConfigProvider } from '../src/components/AuthConfigContext'
+import { AuthConfigProvider } from '../src/auth/interface/react/providers/AuthConfigProvider'
 import { AuthFlowContext } from '../src/auth/interface/react/AuthFlowContext'
 import { useLoginFlow } from '../src/auth/interface/react/hooks/useLoginFlow'
 vi.mock('next/navigation', () => ({

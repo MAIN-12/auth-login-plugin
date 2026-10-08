@@ -1,14 +1,14 @@
 'use client'
 
-import { AuthConfigContext } from '../../AuthConfigContext'
+import { AuthConfigContext } from '../../../contexts/AuthConfigContext'
 import React, { Suspense } from 'react'
 import { AuthCardLoadingContext, AuthLoadingIndicator } from './AuthLoadingBoundary'
 import { AuthCardReveal } from './AuthCardReveal'
-import type { AuthPresentationProps } from '../../auth-presentation/types'
+import type { AuthPresentationProps } from '../../../configuration/authAppearance/types'
 import {
   AuthPresentationContext,
   useAuthPresentation,
-} from '../../auth-presentation/AuthPresentationContext'
+} from '../../../contexts/AuthAppearanceContext'
 import { AuthCardShell, FormRenderer } from './collaborators'
 
 export interface AuthCardConfig extends AuthPresentationProps {

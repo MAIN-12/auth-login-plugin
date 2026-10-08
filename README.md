@@ -19,6 +19,25 @@ indicators use HeroUI semantic tokens. Explicit caller classes still take preced
 The `tailwind` adapter retains its standalone light palette; email colors remain
 configured separately.
 
+## Source organization
+
+`src/components` contains only Atomic Design levels: `atoms`, `molecules`,
+`organisms`, `templates`, and `pages`. Each visual component owns its folder,
+including its neutral props and any `Hero.tsx` / `Tailwind.tsx` implementations.
+`src/hoc/withAuthStyle/index.tsx` selects the configured style per instance;
+HeroUI remains optional and lazy, and modal overrides retain their precedence.
+
+Pure visual settings live in `src/configuration/authAppearance`; data contexts and
+React settings hooks live in `src/contexts`, and tokens live in `src/theme`.
+Authentication/session integration belongs to `src/auth/interface/react/providers`.
+Server visual entries are `server.tsx` beside `AuthCard` and `AuthPages`; they are
+not providers. `AuthLogo` and `VisualLoadingBoundary` are atoms; the loading
+handshake stays in a data-only context, independent of `AuthCard`.
+All dictionaries and locale utilities live in `src/i18n/{ui,email,locale}.ts`,
+including overridable `common.close` modal copy. Email generation lives in
+`src/auth/infrastructure/email`, outside the visual tree. Public package
+entrypoints are unchanged; internal source paths are not supported API.
+
 ## Supported flow and explicit limits
 
 - Password login delegates to Payload's real local login operation: existing passwords, hooks, verification, lockouts and field-read filtering remain authoritative. Native `collection.access.read` controls `/me`/CRUD, not whether valid credentials can log in; use rejecting login hooks for host login policy.
@@ -252,7 +271,7 @@ if it fails, run `pnpm install` and stage the updated manifest and lockfile toge
 - `src/auth/application/ownershipVerification.ts`: purpose-specific account eligibility with explicit native account/evidence/principal/grant dependencies; no transport or Payload imports.
 - `src/auth/domain/proofBinding.ts`: shared named proof-reference codec; quotas preserve durable account identity rather than positional serialization.
 - `src/auth/server/sessionPolicy.ts` and `credentialEvidence.ts`: declared Payload-specific native storage/session seams; not a general portable authentication framework.
-- `src/components/AuthConfigContext.tsx`: isolated per-tree client settings. Client entrypoint must not import the server session/credential adapters.
+- `src/auth/interface/react/providers/AuthConfigProvider/index.tsx`: isolated per-tree client settings. Client entrypoint must not import the server session/credential adapters.
 - `src/exports/client.ts`, `rsc.ts`, `src/proxy.ts`: consumer surfaces; do not infer settings from another bundle's globals.
 
 ```bash

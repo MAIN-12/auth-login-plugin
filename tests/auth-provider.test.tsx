@@ -176,6 +176,25 @@ describe('session guard', () => {
 })
 
 describe('modal authentication flow', () => {
+  it('uses centralized regional and customized modal close copy, with explicit prop precedence', async () => {
+    await mount({ authCardProps: { locale: 'es-CO' } })
+    await open()
+    expect(host.querySelector('dialog button[aria-label="Cerrar"]')).toBeTruthy()
+    await act(async () => auth.closeLogin())
+    await mount({
+      authCardProps: { locale: 'es-CO', messages: { 'es-CO': { common: { close: 'Salir' } } } },
+    })
+    await open()
+    expect(host.querySelector('dialog button[aria-label="Salir"]')).toBeTruthy()
+    await act(async () => auth.closeLogin())
+    await mount({
+      closeLabel: 'Dismiss',
+      authCardProps: { locale: 'es-CO', messages: { 'es-CO': { common: { close: 'Salir' } } } },
+    })
+    await open()
+    expect(host.querySelector('dialog button[aria-label="Dismiss"]')).toBeTruthy()
+  })
+
   it('wraps keyboard focus and restores the opener and scroll after cancellation', async () => {
     const opener = document.createElement('button')
     host.append(opener)

@@ -2,13 +2,13 @@
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { AuthPresentationContext } from '../src/components/auth-presentation/AuthPresentationContext'
+import { AuthPresentationContext } from '../src/contexts/AuthAppearanceContext'
 import { AuthCardShell } from '../src/components/organisms/AuthCard/AuthCardShell'
 import AuthModalHero from '../src/components/organisms/AuthModal/AuthModalHero'
-import { Button } from '../src/components/atoms/adapters/hero'
-import { FormField as Input } from '../src/components/molecules/adapters/hero'
+import { Button } from '../src/components/atoms/Button/Hero'
+import { FormField as Input } from '../src/components/molecules/FormField/Hero'
 import { OtpInput } from '../src/components/molecules/OtpInput'
-import { useAuthThemeClasses } from '../src/components/ui/theme'
+import { useAuthThemeClasses } from '../src/theme'
 
 let host: HTMLDivElement
 let root: Root
@@ -25,6 +25,16 @@ afterEach(async () => {
   host.remove()
 })
 async function render(children: React.ReactNode, style: 'hero-ui' | 'tailwind' = 'hero-ui') {
+  await import('../src/components/atoms/Button/Hero')
+  await import('../src/components/atoms/Input/Hero')
+  await import('../src/components/atoms/Card/Hero')
+  await import('../src/components/atoms/CardHeader/Hero')
+  await import('../src/components/atoms/CardContent/Hero')
+  await import('../src/components/atoms/CardFooter/Hero')
+  await import('../src/components/atoms/CardTitle/Hero')
+  await import('../src/components/atoms/CardDescription/Hero')
+  await import('../src/components/atoms/Divider/Hero')
+  await import('../src/components/atoms/Spinner/Hero')
   await act(async () =>
     root.render(
       <AuthPresentationContext.Provider value={{ style, poweredBy: { enabled: false } }}>

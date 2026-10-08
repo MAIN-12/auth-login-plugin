@@ -2,7 +2,7 @@
 import { createContext, useContext, useMemo } from 'react'
 import type { PublicAuthConfig } from '../../contracts/publicConfig'
 import { createAuthService } from '../client/authService'
-import { useAuthConfig } from '../../../components/AuthConfigContext'
+import { useAuthConfig } from './providers/AuthConfigProvider'
 
 export type AuthService = ReturnType<typeof createAuthService>
 export function createAuthServiceScope(config: PublicAuthConfig) {

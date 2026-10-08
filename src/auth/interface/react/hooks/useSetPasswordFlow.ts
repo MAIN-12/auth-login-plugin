@@ -9,7 +9,7 @@ import {
   storePasswordProof,
   type ClientPasswordProof,
 } from '../../client/passwordProof'
-import { useAuthConfig } from '../../../../components/AuthConfigContext'
+import { useAuthConfig } from '../providers/AuthConfigProvider'
 import { evaluatePasswordStrength } from '../../../domain/passwordRules'
 export interface UseSetPasswordFlowOptions {
   redirectTo?: string

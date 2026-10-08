@@ -19,7 +19,7 @@ import {
   generateOtpEmail,
   generatePasswordResetEmail,
   generateWelcomeEmail,
-} from '../src/components/email'
+} from '../src/auth/infrastructure/email'
 it('exported email generators escape branding and names without showing OTP in previews', () => {
   const baseOptions = {
     projectName: '<Brand>',

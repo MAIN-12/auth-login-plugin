@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { authRoute, useAuthNavigation, useAuthSearchParams } from '../AuthFlowContext'
 import { useAuthService } from '../AuthServiceContext'
-import { useAuthConfig } from '../../../../components/AuthConfigContext'
+import { useAuthConfig } from '../providers/AuthConfigProvider'
 
 /** Existing signup continuation: prove ownership before establishing a password. */
 export function useSignupFlow(locale?: string) {

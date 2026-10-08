@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useAuthSearchParams, useAuthNavigation, authRoute } from '../AuthFlowContext'
 import { useAuthService } from '../AuthServiceContext'
-import { useAuthConfig } from '../../../../components/AuthConfigContext'
+import { useAuthConfig } from '../providers/AuthConfigProvider'
 
 /**
  * Forgot password flow: enter email → request generic ownership verification → redirect to verify-otp.
