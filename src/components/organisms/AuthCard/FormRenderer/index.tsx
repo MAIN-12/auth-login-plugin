@@ -66,7 +66,7 @@ export function FormRenderer({
   const resolvedLocale = presentation.locale
   const service = useAuthService(resolvedLocale)
   const passwordHandler = onPasswordLogin ?? service.login
-  const t = getUiTranslations(resolvedLocale, presentation.messages)
+  const t = getUiTranslations(resolvedLocale, presentation.messages, pluginConfig.locale ?? 'en')
   const normalizedSlug = (Array.isArray(slug) ? slug[0] : slug) as AuthFormSlug
   const base = (basePath ?? pluginConfig.authBasePath).replace(/\/$/, '')
 

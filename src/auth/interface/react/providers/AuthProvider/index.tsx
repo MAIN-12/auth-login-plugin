@@ -244,7 +244,7 @@ export function AuthProvider({
   )
   const modalPresentation = mergeAuthPresentation(presentation, authCardProps)
   const modalLocale = modalPresentation.locale ?? presentation.locale
-  const t = getUiTranslations(modalLocale, modalPresentation.messages)
+  const t = getUiTranslations(modalLocale, modalPresentation.messages, publicConfig.locale ?? 'en')
 
   return (
     <AuthConfigProvider publicConfig={publicConfig} serviceScope={serviceScope}>

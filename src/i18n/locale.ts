@@ -3,10 +3,11 @@
  *
  * The plugin never imports next-intl, next-i18next, or any i18n library —
  * instead it reads the same conventional signals those libraries already
- * write, so `locale` "just works" automatically for consumers using them,
+ * write, so consumers can explicitly detect and pass their preferred locale,
  * while still defaulting sanely (`en`) for consumers with no i18n setup.
  *
- * Priority order:
+ * These are opt-in utilities, not automatic provider defaults.
+ * Priority order when the consumer chooses detection:
  *   1. Explicit `locale` prop passed to `<AuthPages />` (always wins, handled by caller)
  *   2. `NEXT_LOCALE` cookie — written by next-intl, next-i18next, and most
  *      i18n routing middlewares by convention
@@ -14,6 +15,8 @@
  *   4. `<html lang="...">` attribute (client-side only)
  *   5. Fallback: 'en'
  */
+
+export { normalizeAuthLocale, type SupportedAuthLocale } from '../auth/domain/locale'
 
 const SUPPORTED_FALLBACK = 'en'
 

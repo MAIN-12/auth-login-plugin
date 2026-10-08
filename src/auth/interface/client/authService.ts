@@ -1,3 +1,4 @@
+import { normalizeAuthLocale } from '../../../i18n/locale'
 import { AuthRequestError } from './authRequestError'
 export { AuthRequestError } from './authRequestError'
 import { createGoogleActions } from './googleActions'
@@ -58,8 +59,7 @@ export function createAuthService(config: PublicAuthConfig, locale?: string) {
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
-            'Accept-Language':
-              locale === 'es' || locale === 'en' ? locale : (config.locale ?? 'en'),
+            'Accept-Language': normalizeAuthLocale(locale, config.locale ?? 'en'),
           },
           ...(method === 'POST' ? { body: JSON.stringify(body) } : { cache: 'no-store' as const }),
         },

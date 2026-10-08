@@ -3,16 +3,30 @@ import config from '@payload-config'
 import { AuthProvider } from '@main12/auth-login/rsc'
 import Logo from '../../components/Logo'
 import DemoNavigation from '../../components/DemoNavigation'
+import { authPlugin } from '../../plugins'
+
+// Explicit host-app choice, not automatic browser/request detection.
+const locale = 'es-CO'
 
 export default async function FrontendLayout({ children }: { children: React.ReactNode }) {
   await config
 
   return (
-    <html lang="en">
+    <html lang={locale}>
       <body style={{ margin: 0, padding: 0 }}>
         <AuthProvider
+          publicConfig={authPlugin.publicConfig}
+          locale={locale}
           logo={<Logo />}
           messages={{
+            [locale]: {
+              login: {
+                title: 'Bienvenido de nuevo',
+                subtitle: 'Inicia sesión con tu correo para continuar.',
+                noAccount: '¿No tienes cuenta?',
+                signUpLink: 'Regístrate',
+              },
+            },
             en: {
               login: {
                 title: 'Welcome Back',

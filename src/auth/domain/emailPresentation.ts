@@ -1,3 +1,5 @@
+import { normalizeAuthLocale } from './locale'
+
 export interface EmailColors {
   primary: string
   primaryText: string
@@ -51,5 +53,5 @@ export function resolveEmailColors(colors?: Partial<EmailColors>): EmailColors {
 
 /** Browser locale is explicit; unsupported values retain the instance fallback. */
 export function selectEmailLocale(locale: string | null, fallback: 'es' | 'en'): 'es' | 'en' {
-  return locale === 'es' || locale === 'en' ? locale : fallback
+  return normalizeAuthLocale(locale, fallback)
 }

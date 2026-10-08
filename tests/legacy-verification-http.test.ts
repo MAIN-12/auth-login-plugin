@@ -84,7 +84,7 @@ afterAll(async () => {
   await payload?.destroy()
   if (dir) await rm(dir, { recursive: true, force: true })
 })
-const request = (path: string, body?: unknown, cookie?: string) =>
+const request = (path: string, body?: unknown, cookie?: string, locale?: string) =>
   handleEndpoints({
     config,
     payloadInstanceCacheKey: key,
@@ -93,6 +93,7 @@ const request = (path: string, body?: unknown, cookie?: string) =>
       headers: {
         ...(body === undefined ? {} : { 'content-type': 'application/json' }),
         ...(cookie ? { cookie } : {}),
+        ...(locale ? { 'Accept-Language': locale } : {}),
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     }),
@@ -294,3 +295,24 @@ it('native generation storage failure returns unavailable rather than an authent
     })
   }
 })
+
+it.each([
+  ['es-CO', 'es'],
+  ['fr', 'en'],
+])(
+  'uses request language %s for ownership email with installed fallback',
+  async (locale, expected) => {
+    html = ''
+    const response = await request(
+      '/auth/otp/send',
+      {
+        email: `locale-${locale.toLowerCase()}@example.com`,
+        purpose: 'signup',
+      },
+      undefined,
+      locale,
+    )
+    expect(response.status).toBe(200)
+    expect(html).toContain(`lang="${expected}"`)
+  },
+)

@@ -1,3 +1,4 @@
+import { authPlugin } from '../plugins'
 import Link from 'next/link'
 import { AuthLayout, AuthCard, type AuthTexture } from '@main12/auth-login/rsc'
 
@@ -31,7 +32,12 @@ export default function TextureBackgroundLoginDemo({
         ))}
       </nav>
       <div className="px-6 py-24">
-        <AuthCard slug="login" basePath="/auth" mobileVariant="card" />
+        <AuthCard
+          publicConfig={authPlugin.publicConfig}
+          slug="login"
+          basePath="/auth"
+          mobileVariant="card"
+        />
       </div>
     </AuthLayout>
   )

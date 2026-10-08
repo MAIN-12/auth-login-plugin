@@ -1,10 +1,12 @@
+import { normalizeAuthLocale, type SupportedAuthLocale } from './locale'
+
 /**
  * UI copy for the auth pages (login, signup, forgot-password, verify-otp, set-password).
  *
  * Built-in support for English (`en`) and Spanish (`es`) out of the box — no
  * configuration required. Consumers can override any subset of keys, and/or add
  * entirely new locales, via the `messages` prop on `<AuthPages />` / individual
- * page components. Missing keys always fall back to the built-in English copy.
+ * page components. Missing keys use the supported built-in language/fallback.
  */
 
 export interface UiTranslations {
@@ -302,29 +304,22 @@ function deepMerge<T>(base: T, override?: DeepPartial<T>): T {
  * overrides on top of the built-in dictionaries.
  *
  * Resolution order per key: `messages[locale]` → `messages.en` → built-in
- * `[locale]` → built-in `en`. Consumers may pass a partial override object —
+ * language → configured supported fallback (`en` by default). Consumers may pass a partial override object —
  * any key they don't specify falls back automatically.
  *
  * @param locale - Target locale, e.g. 'en', 'es', or any custom locale defined in `messages`.
  * @param messages - Optional map of locale -> partial translation overrides. Can also
  *   introduce brand-new locales not built into the plugin.
+ * @param fallback - Installation language for unsupported locale tags.
  */
 export function getUiTranslations(
   locale: string = 'en',
   messages?: Record<string, DeepPartial<UiTranslations>>,
+  fallback: SupportedAuthLocale = 'en',
 ): UiTranslations {
-  // Layer, in order: built-in en -> built-in locale -> consumer en override -> consumer locale override
-  // Preserve the modal's regional Spanish close label while keeping the
-  // existing exact-locale dictionary policy. Consumer message overrides win.
-  let result = locale.startsWith('es')
-    ? {
-        ...uiTranslations.en,
-        common: { ...uiTranslations.en.common, close: uiTranslations.es.common.close },
-      }
-    : uiTranslations.en
-  if (locale !== 'en' && uiTranslations[locale]) {
-    result = deepMerge(result, uiTranslations[locale] as DeepPartial<UiTranslations>)
-  }
+  // Regional tags use their built-in language; custom dictionaries retain exact lookup.
+  const supported = normalizeAuthLocale(locale, fallback)
+  let result = uiTranslations[supported]
   if (messages?.en) result = deepMerge(result, messages.en)
   if (locale !== 'en' && messages?.[locale]) result = deepMerge(result, messages[locale])
   return result

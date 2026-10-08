@@ -1,5 +1,7 @@
 'use client'
 import { createContext, useContext, useMemo } from 'react'
+import { useAuthPresentation } from '../../../contexts/AuthAppearanceContext'
+import { normalizeAuthLocale } from '../../../i18n/locale'
 import type { PublicAuthConfig } from '../../contracts/publicConfig'
 import { createAuthService } from '../client/authService'
 import { useAuthConfig } from './providers/AuthConfigProvider'
@@ -27,7 +29,7 @@ export function createAuthServiceScope(config: PublicAuthConfig) {
   return {
     config: snapshot,
     forLocale(locale?: string) {
-      const key = locale === 'es' || locale === 'en' ? locale : (snapshot.locale ?? 'en')
+      const key = normalizeAuthLocale(locale, snapshot.locale ?? 'en')
       let service = services.get(key)
       if (!service) {
         service = createAuthService(snapshot, key)
@@ -39,13 +41,12 @@ export function createAuthServiceScope(config: PublicAuthConfig) {
 }
 export type AuthServiceScope = ReturnType<typeof createAuthServiceScope>
 export const AuthServiceContext = createContext<AuthServiceScope | null>(null)
-/** UI base paths/branding do not change transport authority. Native routes and methods do. */
+/** Language, UI base paths and branding do not change transport authority. Native routes and methods do. */
 export function matchesAuthTransport(scope: AuthServiceScope, config: PublicAuthConfig) {
   return (
     scope.config.collection === config.collection &&
     scope.config.apiPrefix === config.apiPrefix &&
     scope.config.authEndpointPrefix === config.authEndpointPrefix &&
-    scope.config.locale === config.locale &&
     scope.config.passwordLogin === config.passwordLogin &&
     scope.config.otpLogin === config.otpLogin &&
     scope.config.googleOAuthEnabled === config.googleOAuthEnabled &&
@@ -56,12 +57,12 @@ export function matchesAuthTransport(scope: AuthServiceScope, config: PublicAuth
 export function useAuthService(locale?: string): AuthService {
   const config = useAuthConfig()
   const shared = useContext(AuthServiceContext)
-  return useMemo(
+  const presentation = useAuthPresentation({ locale })
+  const scope = useMemo(
     () =>
-      (shared && matchesAuthTransport(shared, config)
-        ? shared
-        : createAuthServiceScope(config)
-      ).forLocale(locale),
-    [shared, config, locale],
+      shared && matchesAuthTransport(shared, config) ? shared : createAuthServiceScope(config),
+    [shared, config],
   )
+  // Resolve against the current tree's default, not a shared scope's captured fallback.
+  return scope.forLocale(normalizeAuthLocale(presentation.locale, config.locale ?? 'en'))
 }

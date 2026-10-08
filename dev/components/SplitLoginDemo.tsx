@@ -1,3 +1,4 @@
+import { authPlugin } from '../plugins'
 import { AuthLayout, AuthCard } from '@main12/auth-login/rsc'
 
 /**
@@ -6,7 +7,7 @@ import { AuthLayout, AuthCard } from '@main12/auth-login/rsc'
  *
  * Uses the slug-based API — just pass `slug="login"` and the form is auto-selected
  * with shared branding and translations inherited from the layout provider.
- * The plugin signup setting is supplied internally by the server provider.
+ * Each RSC entry receives publicConfig; presentation inherits the layout provider.
  */
 export default async function SplitLoginDemo() {
   return (
@@ -23,7 +24,14 @@ export default async function SplitLoginDemo() {
 
         {/* Right: the auth card with login form auto-selected via slug */}
         <div className="flex items-center justify-center">
-          <AuthCard slug="login" removeShadow removeBorder redirectTo="/admin" basePath="/auth" />
+          <AuthCard
+            publicConfig={authPlugin.publicConfig}
+            slug="login"
+            removeShadow
+            removeBorder
+            redirectTo="/admin"
+            basePath="/auth"
+          />
         </div>
       </div>
     </AuthLayout>

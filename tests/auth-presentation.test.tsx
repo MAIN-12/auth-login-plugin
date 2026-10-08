@@ -448,7 +448,7 @@ describe('server defaults versus provider overrides', () => {
       expect(host.querySelector('img[src="/plugin-logo.svg"]')).toBeNull()
     },
   )
-  it('uses detected server language without a provider and honors explicit RSC overrides', async () => {
+  it('uses configured server language without a provider and honors explicit RSC overrides', async () => {
     document.documentElement.lang = 'es'
     await render(await ServerAuthCard({ publicConfig, slug: 'login', mobileVariant: 'modal' }))
     expect(host.querySelector('h1')?.textContent).toBe(getUiTranslations('en').login.title)

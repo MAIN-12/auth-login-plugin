@@ -563,3 +563,29 @@ it('logs sanitized OTP unavailability when real generation storage fails before 
     })
   }
 })
+
+it.each([
+  ['es-CO', 'es'],
+  ['en-US', 'en'],
+  ['fr', 'es'],
+])(
+  'uses request language %s for login email without changing the installed fallback',
+  async (locale, expected) => {
+    const email = `locale-${locale.toLowerCase()}@example.com`
+    await instances[0].payload.create({
+      collection: 'customers',
+      overrideAccess: true,
+      context: { authLoginCredentialProvisioning: true },
+      data: { email, password: 'unchanged existing password', _verified: true },
+      disableVerificationEmail: true,
+    })
+    const count = mail.length
+    const response = await request(0, '/access/otp/send', { email, purpose: 'login' }, undefined, {
+      'Accept-Language': locale,
+    })
+    expect(response.status).toBe(200)
+    expect(mail).toHaveLength(count + 1)
+    expect(mail.at(-1)).toContain(`lang="${expected}"`)
+    expect(options.otp.email.locale).toBe('es')
+  },
+)

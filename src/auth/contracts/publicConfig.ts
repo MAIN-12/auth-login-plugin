@@ -6,6 +6,7 @@ export interface PublicAuthConfig {
   readonly apiPrefix: string
   readonly authEndpointPrefix: string
   readonly authBasePath: string
+  /** Installation fallback; effective language belongs to the presentation/request scope. */
   readonly locale?: 'es' | 'en'
   readonly style: AuthStyle
   readonly logoUrl?: string

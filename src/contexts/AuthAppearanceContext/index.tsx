@@ -50,5 +50,6 @@ export function useAuthTranslations(
   messages?: AuthLocalizationProps['messages'],
 ) {
   const settings = useAuthPresentation({ locale, messages })
-  return getUiTranslations(settings.locale, settings.messages)
+  const config = useContext(AuthConfigContext)
+  return getUiTranslations(settings.locale, settings.messages, config?.locale ?? 'en')
 }

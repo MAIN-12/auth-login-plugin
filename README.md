@@ -92,12 +92,21 @@ The factory returns a callable Payload plugin and `authPlugin.publicConfig`: a f
 import { AuthProvider } from '@main12/auth-login/rsc'
 import { authPlugin } from './auth-plugin'
 
-export default function Layout({ children }) {
-  return <AuthProvider publicConfig={authPlugin.publicConfig}>{children}</AuthProvider>
+export default function Layout({ children }: { children: React.ReactNode }) {
+  // Explicit host-app language; config.locale remains the installation fallback (en).
+  return (
+    <AuthProvider publicConfig={authPlugin.publicConfig} locale="es-CO">
+      {children}
+    </AuthProvider>
+  )
 }
 ```
 
+The `dev/` implementation uses this pattern: one exported factory in `dev/plugins/index.ts`, an English fallback, and an explicit `es-CO` provider in `dev/app/(frontend)/layout.tsx`. Auth cards/pages inherit Spanish presentation while receiving the same factory's `publicConfig`. The demo enables password login by default; Google requires all three credentials/redirect URI variables. OTP, signup and recovery stay disabled until you provide the [server-side OTP configuration](#enable-secure-otp-server-only) and a production Payload email adapter. The demo has no external email-adapter dependency; provision a verified account through the trusted Local API shown above to exercise password login.
+
 The client export has the same explicit `publicConfig` prop. For standalone cards/forms use `<AuthConfigProvider publicConfig={...}>`; RSC `AuthCard` and `AuthPages` also require this prop. `AuthClientInit` is now an alias for this **tree provider**, not a render-time initializer. Presentation (`locale`, translations, React logo, style and attribution) remains scoped to provider/card overrides. React logo components belong on UI props, not serializable plugin configuration.
+
+Plugin `locale` is an immutable installation fallback, not the current language. Effective language follows local override → provider → plugin default → `en`; custom hooks and forms inherit it without rewriting configuration or changing transport scope. Regional ES/EN tags (`es-CO`, `en-US`) use their base built-in language and the same `Accept-Language`/email language. Unsupported languages use the installed fallback; exact custom `messages[locale]` overrides remain supported for UI. Locale detection is opt-in: pass the result explicitly from your host app, consistently for server and client.
 
 ```ts
 // proxy.ts — explicit configuration in separately bundled Next runtimes

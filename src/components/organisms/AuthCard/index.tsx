@@ -1,6 +1,5 @@
 'use client'
 
-import { AuthConfigContext } from '../../../contexts/AuthConfigContext'
 import React, { Suspense } from 'react'
 import { AuthCardLoadingContext, AuthLoadingIndicator } from './AuthLoadingBoundary'
 import { AuthCardReveal } from './AuthCardReveal'
@@ -47,17 +46,6 @@ function hasSlug(props: AuthCardProps): props is AuthCardWithSlugProps {
 
 export const AuthCard: React.FC<AuthCardProps> = (props) => {
   const presentation = useAuthPresentation(props)
-  const config = React.useContext(AuthConfigContext)
-  const scopedConfig = React.useMemo(
-    () =>
-      config
-        ? Object.freeze({
-            ...config,
-            locale: presentation.locale === 'es' ? ('es' as const) : ('en' as const),
-          })
-        : null,
-    [config, presentation.locale],
-  )
   const content = hasSlug(props) ? (
     <FormRenderer {...props} />
   ) : (
@@ -65,23 +53,21 @@ export const AuthCard: React.FC<AuthCardProps> = (props) => {
   )
 
   return (
-    <AuthConfigContext.Provider value={scopedConfig}>
-      <AuthPresentationContext.Provider value={presentation}>
-        <div
-          style={{
-            width: '100%',
-            minHeight: 'min(28rem, 70svh)',
-            display: 'grid',
-            alignItems: 'center',
-          }}
-        >
-          <Suspense fallback={<AuthLoadingIndicator />}>
-            <AuthCardLoadingContext.Provider value={true}>
-              <AuthCardReveal>{content}</AuthCardReveal>
-            </AuthCardLoadingContext.Provider>
-          </Suspense>
-        </div>
-      </AuthPresentationContext.Provider>
-    </AuthConfigContext.Provider>
+    <AuthPresentationContext.Provider value={presentation}>
+      <div
+        style={{
+          width: '100%',
+          minHeight: 'min(28rem, 70svh)',
+          display: 'grid',
+          alignItems: 'center',
+        }}
+      >
+        <Suspense fallback={<AuthLoadingIndicator />}>
+          <AuthCardLoadingContext.Provider value={true}>
+            <AuthCardReveal>{content}</AuthCardReveal>
+          </AuthCardLoadingContext.Provider>
+        </Suspense>
+      </div>
+    </AuthPresentationContext.Provider>
   )
 }

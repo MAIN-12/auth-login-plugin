@@ -24,3 +24,9 @@ pass defaults through a fallback boundary, never as explicit component overrides
 only when selected. `src/theme` owns tokens. `src/i18n` owns every dictionary.
 The data-only loading context stays independent of visual owners so atoms and the
 HOC never import `AuthCard` merely to participate in its shared loading boundary.
+
+Installation defaults stay immutable. Effective language lives in the appearance
+scope, including custom forms/hooks, and is resolved at the HTTP/email seam using
+the same ES/EN regional-tag normalizer. Unknown tags use the installed default;
+custom dictionary keys retain exact lookup. Changing language does not change
+transport scope. Host locale detection remains explicit, never automatic.
