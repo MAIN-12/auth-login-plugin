@@ -8,7 +8,7 @@ import {
   useAuth,
   type AuthContextValue,
   type AuthProviderProps,
-} from '../src/components/AuthProvider'
+} from '../src/exports/client'
 
 const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }))
 vi.mock('next/navigation', () => ({
@@ -98,6 +98,7 @@ afterEach(async () => {
   await act(async () => root.unmount())
   host.remove()
   vi.unstubAllGlobals()
+  document.body.style.overflow = ''
 })
 
 describe('session guard', () => {
@@ -175,8 +176,82 @@ describe('session guard', () => {
 })
 
 describe('modal authentication flow', () => {
+  it('wraps keyboard focus and restores the opener and scroll after cancellation', async () => {
+    const opener = document.createElement('button')
+    host.append(opener)
+    document.body.style.overflow = 'auto'
+    await mount({
+      authCardProps: { locale: 'en', showGoogleOAuth: false, poweredBy: { enabled: false } },
+    })
+    // Keep the opener outside the React tree, as in a consumer application.
+    document.body.append(opener)
+    opener.focus()
+    await open()
+    const dialog = document.querySelector('dialog')!
+    expect(dialog.getAttribute('aria-label')).toBe('Welcome Back')
+    const first = dialog.querySelector<HTMLButtonElement>('button[aria-label="Close"]')!
+    const last = dialog.querySelector<HTMLButtonElement>('button[type=submit]')!
+    first.focus()
+    await act(async () => {
+      first.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Tab',
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+    })
+    expect(document.activeElement).toBe(last)
+    await act(async () => {
+      last.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }),
+      )
+    })
+    expect(document.activeElement).toBe(first)
+    const cancel = new Event('cancel', { cancelable: true })
+    await act(async () => dialog.dispatchEvent(cancel))
+    expect(cancel.defaultPrevented).toBe(true)
+    expect(auth.isLoginOpen).toBe(false)
+    expect(document.activeElement).toBe(opener)
+    expect(document.body.style.overflow).toBe('auto')
+    opener.remove()
+    document.body.style.overflow = ''
+  })
+  it('repeated opening replaces the active workflow with one clean form and the latest destination', async () => {
+    await mount()
+    await act(async () => auth.openLogin({ redirectTo: '/old' }))
+    await enterEmail()
+    await act(async () => auth.openLogin({ redirectTo: '/latest' }))
+    expect(document.querySelectorAll('dialog form')).toHaveLength(1)
+    expect(document.querySelector<HTMLInputElement>('dialog input[type=email]')!.value).toBe('')
+    await enterEmail()
+    await fill('dialog input[type=password]', 'Correct-password-123!')
+    await submit()
+    expect(auth.isLoginOpen).toBe(false)
+    expect(router.push.mock.calls).toEqual([['/latest']])
+  })
+  it('keeps ownership navigation inside the modal and resets it when dismissed', async () => {
+    await mount({ publicConfig: { ...publicConfig, allowSignup: true, recovery: true } })
+    await open()
+    await click('dialog a[href*="signup"]')
+    expect(document.querySelector('dialog h1')?.textContent).toBe('Create Account')
+    expect(document.querySelectorAll('dialog form')).toHaveLength(1)
+    expect(router.push).not.toHaveBeenCalled()
+    await act(async () => auth.closeLogin())
+    await open()
+    await enterEmail()
+    await click('dialog a[href*="forgot-password"]')
+    expect(document.querySelector('dialog')?.textContent).toContain('Send Reset Code')
+    expect(document.querySelectorAll('dialog form')).toHaveLength(1)
+    expect(router.push).not.toHaveBeenCalled()
+    await act(async () => auth.closeLogin())
+    await open()
+    expect(document.querySelector('dialog input[type=password]')).toBeNull()
+    expect(document.querySelector<HTMLInputElement>('dialog input[type=email]')!.value).toBe('')
+  })
   it('renders and dismisses the real HeroUI v3 modal', async () => {
-    await import('../src/components/AuthModalHero')
+    await import('../src/components/organisms/AuthModal/AuthModalHero')
     await mount({ style: 'hero-ui' })
     await open()
     await vi.waitFor(async () => {
@@ -200,7 +275,7 @@ describe('modal authentication flow', () => {
   it.each(['modal-backdrop', 'modal-container'])(
     'dismisses clicks on the empty %s but not the form',
     async (slot) => {
-      await import('../src/components/AuthModalHero')
+      await import('../src/components/organisms/AuthModal/AuthModalHero')
       await mount({ style: 'hero-ui' })
       await open()
       await act(async () => {

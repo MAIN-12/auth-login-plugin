@@ -47,19 +47,19 @@ export { default as VerifyOtpPage } from '../components/pages/VerifyOtpPage'
 export { default as SetPasswordPage } from '../components/pages/SetPasswordPage'
 
 // Catch-all auth pages (single-file setup)
-export { default as AuthPages } from '../components/AuthPages'
-export type { AuthPagesProps } from '../components/AuthPages'
+export { default as AuthPages } from '../components/pages/AuthPages'
+export type { AuthPagesProps } from '../components/pages/AuthPages'
 
 // Layout & shared components
-export { AuthLayout } from '../components/AuthLayout'
-export { AuthCard } from '../components/AuthCard'
+export { AuthLayout } from '../components/templates/AuthLayout'
+export { AuthCard } from '../components/organisms/AuthCard'
 export type {
   AuthCardProps,
   AuthCardConfig,
   AuthCardWithSlugProps,
   AuthCardWithChildrenProps,
-} from '../components/AuthCard'
-export { PoweredBy } from '../components/PoweredBy'
+} from '../components/organisms/AuthCard'
+export { PoweredBy } from '../components/molecules/PoweredBy'
 
 // Form components (for custom compositions)
 export {
@@ -100,8 +100,12 @@ export type { SignupPageProps } from '../components/pages/SignupPage'
 export type { ForgotPasswordPageProps } from '../components/pages/ForgotPasswordPage'
 export type { VerifyOtpPageProps } from '../components/pages/VerifyOtpPage'
 export type { SetPasswordPageProps } from '../components/pages/SetPasswordPage'
-export type { AuthLayoutConfig, AuthLayoutProps, AuthTexture } from '../components/AuthLayout'
-export type { PoweredByProps } from '../components/PoweredBy'
+export type {
+  AuthLayoutConfig,
+  AuthLayoutProps,
+  AuthTexture,
+} from '../components/templates/AuthLayout'
+export type { PoweredByProps } from '../components/molecules/PoweredBy'
 
 export { AuthProvider, useAuth } from '../components/AuthProvider'
 export type {

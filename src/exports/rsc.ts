@@ -15,8 +15,12 @@ export type {
 } from '../components/AuthCardServer'
 
 // Layout component (can be used in server or client components)
-export { AuthLayout } from '../components/AuthLayout'
-export type { AuthLayoutConfig, AuthLayoutProps, AuthTexture } from '../components/AuthLayout'
+export { AuthLayout } from '../components/templates/AuthLayout'
+export type {
+  AuthLayoutConfig,
+  AuthLayoutProps,
+  AuthTexture,
+} from '../components/templates/AuthLayout'
 
 // Form components (for custom compositions — re-exported from client)
 export {

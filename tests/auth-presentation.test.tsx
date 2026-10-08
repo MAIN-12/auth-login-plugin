@@ -4,9 +4,8 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthProvider, useAuth, type AuthContextValue } from '../src/components/AuthProvider'
 import { AuthProvider as ServerAuthProvider } from '../src/components/AuthProviderServer'
-import { AuthCard } from '../src/components/AuthCard'
+import { AuthCard, AuthPages, AuthClientInit, useAuthConfig } from '../src/exports/client'
 import { AuthCard as ServerAuthCard } from '../src/components/AuthCardServer'
-import AuthPages from '../src/components/AuthPages'
 import ServerAuthPages from '../src/components/AuthPagesServer'
 import { AuthLayout } from '../src/components/AuthLayout'
 import { PoweredBy } from '../src/components/PoweredBy'
@@ -97,6 +96,38 @@ afterEach(async () => {
 })
 
 describe('shared presentation', () => {
+  it('inherits undefined modal branding and disables explicit null logos and false attribution', async () => {
+    await render(
+      <AuthProvider
+        publicConfig={publicConfig}
+        initialUser={null}
+        modalLogin
+        locale="es"
+        logo={<span>Parent brand</span>}
+        messages={sharedMessages}
+        poweredBy={{ enabled: true, linkUrl: 'https://example.com/credits' }}
+        authCardProps={{
+          locale: undefined,
+          logo: null,
+          poweredBy: { enabled: false },
+          messages: { es: { login: { title: 'Modal title' } } },
+        }}
+      >
+        <AuthCard slug="login" logo={undefined} mobileVariant="modal" />
+        <AuthProbe />
+      </AuthProvider>,
+    )
+    expect(host.textContent).toContain('Parent brand')
+    expect(host.querySelector('a[href="https://example.com/credits"]')).toBeTruthy()
+    await act(async () => auth.openLogin())
+    const dialog = document.querySelector('dialog')!
+    expect(dialog.querySelector('h1')?.textContent).toBe('Modal title')
+    expect(dialog.textContent).toContain('Shared subtitle')
+    expect(dialog.textContent).toContain('Shared continue')
+    expect(dialog.textContent).not.toContain('Parent brand')
+    expect(dialog.querySelector('img, a[href="https://example.com/credits"]')).toBeNull()
+    expect(dialog.querySelectorAll('form')).toHaveLength(1)
+  })
   it('shares branding and translated copy between a page and the login modal', async () => {
     await render(
       <AuthProvider
@@ -237,6 +268,83 @@ describe('shared presentation', () => {
 })
 
 describe('forms and standalone pages', () => {
+  it.each(['tailwind', 'hero-ui'] as const)(
+    '%s dispatcher preserves all five screens and unknown-slug fallback',
+    async (style) => {
+      const config = { ...publicConfig, allowSignup: true, recovery: true, otpLogin: true }
+      const screens = [
+        ['login', 'login'],
+        ['signup', 'signup'],
+        ['forgot-password', 'forgotPassword'],
+        ['verify-otp', 'verifyOtp'],
+        ['set-password', 'setPassword'],
+        ['unknown', 'login'],
+      ] as const
+      for (const [slug, section] of screens) {
+        await render(
+          <AuthClientInit publicConfig={config}>
+            <AuthPages
+              key={slug}
+              slug={[slug]}
+              style={style}
+              locale="en"
+              mobileVariant="modal"
+              texture="none"
+            />
+          </AuthClientInit>,
+        )
+        await vi.waitFor(
+          async () => {
+            await act(async () => {})
+            expect(host.querySelector('h1')?.textContent).toBe(
+              getUiTranslations('en')[section].title,
+            )
+          },
+          { timeout: 5000 },
+        )
+        expect(host.querySelectorAll('form').length).toBeLessThanOrEqual(1)
+        expect(host.querySelectorAll('input[type=email]').length).toBeLessThanOrEqual(1)
+      }
+    },
+  )
+  it.each(['tailwind', 'hero-ui'] as const)(
+    '%s custom content stays mounted once across responsive variants',
+    async (style) => {
+      let maximumLive = 0
+      let live = 0
+      function CustomForm() {
+        React.useEffect(() => {
+          live++
+          maximumLive = Math.max(maximumLive, live)
+          return () => {
+            live--
+          }
+        }, [])
+        return (
+          <form>
+            <input aria-label="Custom workflow" defaultValue="Keep my value" />
+          </form>
+        )
+      }
+      for (const mobileVariant of ['plain', 'card', 'modal'] as const) {
+        await render(
+          <AuthCard style={style} mobileVariant={mobileVariant} title="Custom title" logo={null}>
+            <CustomForm />
+          </AuthCard>,
+        )
+        await vi.waitFor(
+          async () => {
+            await act(async () => {})
+            expect(host.querySelectorAll('form')).toHaveLength(1)
+          },
+          { timeout: 5000 },
+        )
+        expect(live).toBe(1)
+        expect(maximumLive).toBe(1)
+        expect(host.querySelector('input')?.value).toBe('Keep my value')
+      }
+    },
+  )
   const cases: Array<[string, React.ReactNode, string]> = [
     ['login form', <LoginForm onPasswordLogin={login} />, getUiTranslations('es').login.continue],
     ['signup form', <SignupForm onSignup={signup} />, getUiTranslations('es').signup.createAccount],
@@ -264,6 +372,26 @@ describe('forms and standalone pages', () => {
 })
 
 describe('server defaults versus provider overrides', () => {
+  it('keeps initializer context scalar and excludes extra private caller fields', async () => {
+    let captured: unknown
+    function ConfigProbe() {
+      captured = useAuthConfig()
+      return null
+    }
+    const extended = {
+      ...publicConfig,
+      secret: 'private-test-secret',
+      providers: { google: { clientSecret: 'private-test-oauth' } },
+    }
+    await render(
+      <AuthClientInit publicConfig={extended}>
+        <ConfigProbe />
+      </AuthClientInit>,
+    )
+    expect(captured).toEqual(publicConfig)
+    expect(Object.isFrozen(captured)).toBe(true)
+    expect(JSON.stringify(captured)).not.toMatch(/private-test|clientSecret|providers/)
+  })
   it.each(['card', 'pages', 'custom card'] as const)(
     '%s retains provider language and branding across the server boundary',
     async (kind) => {

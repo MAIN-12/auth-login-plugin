@@ -2,7 +2,7 @@ import {
   AuthCard as AuthCardClient,
   type AuthCardWithSlugProps,
   type AuthCardWithChildrenProps,
-} from './AuthCard'
+} from './organisms/AuthCard'
 import type { PublicAuthConfig } from '../auth/contracts/publicConfig'
 import { AuthConfigProvider } from './AuthConfigContext'
 import { AuthSignupConfig } from './AuthSignupConfig'

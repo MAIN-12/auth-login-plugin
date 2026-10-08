@@ -4,7 +4,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { AuthPresentationContext } from '../src/components/auth-presentation/AuthPresentationContext'
 import { AuthCardShell } from '../src/components/auth-card/AuthCardShell'
-import AuthModalHero from '../src/components/AuthModalHero'
+import AuthModalHero from '../src/components/organisms/AuthModal/AuthModalHero'
 import { Button, Input, OtpInput } from '../src/components/ui/hero'
 import { useAuthThemeClasses } from '../src/components/ui/theme'
 

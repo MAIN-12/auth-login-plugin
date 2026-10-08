@@ -62,3 +62,27 @@ it('the migrated visual and presentation dependency graph has no cycles', () => 
     for (const file of files(path.join(root, 'components', level))) walk(file, [])
   }
 })
+
+it('modal and dispatcher integration consume definitive visual owners directly', () => {
+  const expected: Record<string, string[]> = {
+    'components/AuthProvider.tsx': [
+      'components/organisms/AuthModal/index.tsx',
+      'components/organisms/AuthCard/index.tsx',
+    ],
+    'components/AuthCardServer.tsx': ['components/organisms/AuthCard/index.tsx'],
+    'components/AuthPagesServer.tsx': ['components/pages/AuthPages.tsx'],
+    'exports/client.ts': [
+      'components/pages/AuthPages.tsx',
+      'components/organisms/AuthCard/index.tsx',
+      'components/templates/AuthLayout.tsx',
+    ],
+    'exports/rsc.ts': ['components/templates/AuthLayout.tsx'],
+  }
+  for (const [caller, targets] of Object.entries(expected)) {
+    const dependencies = edges(path.join(root, caller)).map((file) => path.relative(root, file))
+    for (const target of targets) expect(dependencies, caller).toContain(target)
+  }
+  expect(
+    readFileSync(path.join(root, 'components/organisms/AuthModal/index.tsx'), 'utf8'),
+  ).toContain("'use client'")
+})

@@ -1,5 +1,5 @@
-import AuthPagesClient from './AuthPages'
-import type { AuthPagesProps as ClientAuthPagesProps } from './AuthPages'
+import AuthPagesClient from './pages/AuthPages'
+import type { AuthPagesProps as ClientAuthPagesProps } from './pages/AuthPages'
 import type { PublicAuthConfig } from '../auth/contracts/publicConfig'
 import { AuthConfigProvider } from './AuthConfigContext'
 import { AuthSignupConfig } from './AuthSignupConfig'

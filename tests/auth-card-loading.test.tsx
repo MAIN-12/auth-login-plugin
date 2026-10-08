@@ -5,15 +5,17 @@ import { afterEach, expect, it, vi } from 'vitest'
 import { publicConfig } from './auth-test-config'
 import { AuthConfigProvider } from '../src/components/AuthConfigContext'
 import { AuthCard } from '../src/components/AuthCard'
+import { AuthProvider, useAuth, type AuthContextValue } from '../src/exports/client'
 
 const loading = vi.hoisted(() => {
   let release!: () => void
   const promise = new Promise<void>((resolve) => {
     release = resolve
   })
-  return { promise, release }
+  return { promise, release, imports: 0 }
 })
 vi.mock('../src/components/atoms/adapters/hero', async (importOriginal) => {
+  loading.imports++
   await loading.promise
   return importOriginal()
 })
@@ -23,9 +25,39 @@ vi.mock('next/navigation', () => ({
 }))
 let root: Root | undefined
 let host: HTMLDivElement | undefined
+let auth: AuthContextValue
+function Probe() {
+  auth = useAuth()
+  return null
+}
 afterEach(async () => {
   if (root) await act(async () => root!.unmount())
   host?.remove()
+})
+
+it('opens the complete Tailwind modal without loading the held optional HeroUI adapter', async () => {
+  Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+  HTMLDialogElement.prototype.showModal = function () {
+    this.open = true
+  }
+  HTMLDialogElement.prototype.close = function () {
+    this.open = false
+  }
+  host = document.createElement('div')
+  document.body.append(host)
+  root = createRoot(host)
+  await act(async () =>
+    root!.render(
+      <AuthProvider publicConfig={publicConfig} initialUser={null} modalLogin>
+        <Probe />
+      </AuthProvider>,
+    ),
+  )
+  await act(async () => auth.openLogin())
+  expect(host.querySelectorAll('dialog form')).toHaveLength(1)
+  expect(host.querySelector('dialog input[type=email]')).toBeTruthy()
+  expect(host.querySelector('[role="status"]')).toBeNull()
+  expect(loading.imports).toBe(0)
 })
 
 it('shows one loader until the complete HeroUI login card is ready', async () => {
