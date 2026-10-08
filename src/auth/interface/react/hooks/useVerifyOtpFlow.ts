@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useAuthNavigation, authRoute } from '../AuthFlowContext'
-import { createAuthService } from '../../client/authService'
+import { useAuthService } from '../AuthServiceContext'
 import { storePasswordProof } from '../../../application/services/passwordProof'
 import { useAuthConfig } from '../../../../components/AuthConfigContext'
 
@@ -27,6 +27,7 @@ export function useVerifyOtpFlow({
   locale,
 }: UseVerifyOtpFlowOptions) {
   const pluginConfig = useAuthConfig()
+  const service = useAuthService(locale)
   const router = useAuthNavigation()
 
   const submitting = useRef(false)
@@ -51,12 +52,12 @@ export function useVerifyOtpFlow({
     setError(null)
     try {
       if (purpose === 'verify-email') {
-        await createAuthService(pluginConfig, locale).verifyEmail(email, otp, context)
+        await service.verifyEmail(email, otp, context)
         router.push(authRoute(pluginConfig.authBasePath, 'login', {}, redirectTo))
         return
       }
       if (purpose !== 'login') {
-        const proof = await createAuthService(pluginConfig, locale).verifyOwnership(
+        const proof = await service.verifyOwnership(
           email,
           purpose === 'password-reset' ? 'recovery' : purpose,
           otp,
@@ -69,7 +70,7 @@ export function useVerifyOtpFlow({
         router.push(authRoute(pluginConfig.authBasePath, 'set-password', {}, redirectTo))
         return
       }
-      const data = await createAuthService(pluginConfig, locale).verifyOtp(email, otp, context)
+      const data = await service.verifyOtp(email, otp, context)
       if (data.success) {
         await router.complete(redirectTo)
       } else {
@@ -83,7 +84,7 @@ export function useVerifyOtpFlow({
       submitting.current = false
       setIsLoading(false)
     }
-  }, [otp, email, purpose, redirectTo, router, pluginConfig, context, locale])
+  }, [otp, email, purpose, redirectTo, router, pluginConfig, context, service])
 
   // Auto-verify when all 6 digits are entered
   useEffect(() => {
@@ -99,7 +100,6 @@ export function useVerifyOtpFlow({
     setIsResending(true)
     setError(null)
     try {
-      const service = createAuthService(pluginConfig, locale)
       const data = await (purpose === 'login'
         ? service.sendOtp(email, context)
         : service.sendOwnership(
@@ -118,7 +118,7 @@ export function useVerifyOtpFlow({
       submitting.current = false
       setIsResending(false)
     }
-  }, [email, purpose, resendCooldown, pluginConfig, context, locale])
+  }, [email, purpose, resendCooldown, context, service])
 
   return {
     otp,

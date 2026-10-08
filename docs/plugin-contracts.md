@@ -305,3 +305,47 @@ rechecks, safe mappings, SQL bindings, isolation and cleanup. They do not certif
 provider runtime, real popup/cookie handling, multiprocess uniqueness locks or
 physical database rollback. Historical fixtures remain; no new DB/E2E suite or
 Chromium run is part of task 04.
+
+### Auth-clean 05: capabilities, native lifecycle and Admin
+
+Capabilities is a no-argument own query built for the authenticated request and
+configured collection. Its repository selects only hash/salt/verification evidence
+for that principal and reduces it before returning to application: two explicit
+null credentials mean unavailable; omitted, partial or malformed credentials mean
+unknown. Neither a body nor React can select the account or grant authority.
+Privileged DB reads are owned by the Payload adapter, bypassing document read
+access solely to inspect the authenticated principal's hidden native evidence;
+this does not authorize other user resources. No generic overrideAccess is added.
+
+Refresh application sees only expiry. A single-use native adapter holds the native
+receipt/token privately, preserves the real request, invokes Payload refresh once,
+and clears receipt, temporary deadline and authentication evidence in disposal.
+The HTTP adapter keeps `/refresh-token`, its wire/cookie policy and native engine.
+The installed session hooks cap expiry by original session creation; the existing
+DB coordination keeps session deltas under the same row lock, so refresh cannot
+resurrect a logged-out session. Logout remains Payload's native endpoint/engine.
+Credential/email/session authority writes keep the shared hooks on every native
+transport. Trusted provisioning still requires Local API, overrideAccess and
+explicit context together. Host forwarding of REST/GraphQL flags remains denied.
+
+Plugin installation is composed in `auth/composition/plugin.ts`, including original
+hooks/access and native session coordination. Admin requires native authentication
+evidence, original host eligibility and explicit authorization. Each decision
+calls original eligibility once; false or throw denies, OTP/ownership/client flags
+do not grant Admin. Async host callbacks must retain the bound principal/evidence;
+resource access predicates are preserved, with rejected callbacks failing closed.
+Private Admin settings are copied/frozen and disabled factories remain inert.
+
+AuthProvider uses its tree's authService for native `/me` and logout, sharing the
+same service with capabilities and form actions at each explicit locale. Scopes
+are per tree/config; nested foreign transport configurations get their own scope.
+`/me` validates a present nullable user and a finite/nonempty ID, preserving host
+user fields. Duplicate in-flight session/logout requests share one transport;
+malformed/network failures do not become authentication and permit retry.
+
+Temporary compatibility modules `server/credentialEvidence`, `server/adminPolicy`,
+`server/sessionPolicy` and the refresh endpoint reexport remain for 06's caller
+inventory. Public entrypoints, overloads, options, routes, schema and cookies are
+preserved. A code rollback cannot restore revoked sessions/grants or lower epochs.
+Doubles prove policy and adapter coordination, not browser cookies, native DB
+multiprocess locks or deployment behavior; no new DB/E2E certification is claimed.

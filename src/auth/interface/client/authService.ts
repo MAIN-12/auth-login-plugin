@@ -91,8 +91,52 @@ export function createAuthService(config: PublicAuthConfig, locale?: string) {
     if (!parsed.success) throw new AuthRequestError('AUTH_UNAVAILABLE', 503)
     return parsed.data
   }
+  const sessionUser = z
+    .object({ id: z.union([z.string().min(1), z.number().finite()]), email: z.string().optional() })
+    .passthrough()
+  type SessionUser = z.infer<typeof sessionUser>
+  let sessionFlight: Promise<SessionUser | null> | undefined
+  let logoutFlight: Promise<void> | undefined
+  const session = (): Promise<SessionUser | null> => {
+    if (sessionFlight) return sessionFlight
+    sessionFlight = (async () => {
+      const response = await fetch(`${config.apiPrefix}/${config.collection}/me`, {
+        credentials: 'include',
+        cache: 'no-store',
+      })
+      if (response.status === 401) return null
+      if (!response.ok) throw new Error('Unable to load the current session')
+      let data: unknown
+      try {
+        data = await response.json()
+      } catch {
+        throw new Error('Unable to load the current session')
+      }
+      const parsed = z.object({ user: sessionUser.nullable() }).safeParse(data)
+      if (!parsed.success) throw new Error('Unable to load the current session')
+      return parsed.data.user
+    })().finally(() => {
+      sessionFlight = undefined
+    })
+    return sessionFlight
+  }
+  const logout = (): Promise<void> => {
+    if (logoutFlight) return logoutFlight
+    logoutFlight = (async () => {
+      const response = await fetch(`${config.apiPrefix}/${config.collection}/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      })
+      if (!response.ok) throw new Error('Logout failed')
+    })().finally(() => {
+      logoutFlight = undefined
+    })
+    return logoutFlight
+  }
   return {
     ...createGoogleActions(config, request),
+    session,
+    logout,
     sendOtp: (email: string, context?: string): Promise<SendOtpResponse> =>
       config.otpLogin
         ? request('otp/send', { email, purpose: 'login', ...(context ? { context } : {}) }, otpSent)

@@ -1,7 +1,9 @@
 'use client'
+
+import { useAuthService } from '../AuthServiceContext'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useAuthNavigation, useAuthSearchParams, authRoute } from '../AuthFlowContext'
-import { AuthRequestError, createAuthService } from '../../client/authService'
+import { AuthRequestError } from '../../client/authService'
 import {
   readPasswordProof,
   storePasswordProof,
@@ -19,6 +21,7 @@ export function useSetPasswordFlow({ redirectTo = '/', locale }: UseSetPasswordF
   const params = useAuthSearchParams()
   const destination = params.get('redirect') ?? redirectTo
   const config = useAuthConfig()
+  const service = useAuthService(locale)
   const [proof, setProof] = useState<ClientPasswordProof | null>(null)
   useEffect(() => {
     setProof(readPasswordProof(config))
@@ -61,7 +64,7 @@ export function useSetPasswordFlow({ redirectTo = '/', locale }: UseSetPasswordF
     setIsLoading(true)
     setError(null)
     try {
-      const granted = await createAuthService(config, locale).reauthenticate(currentPassword)
+      const granted = await service.reauthenticate(currentPassword)
       const continuation = { ...granted, purpose: 'reauth' as const }
       storePasswordProof(config, continuation)
       setProof(continuation)
@@ -72,14 +75,13 @@ export function useSetPasswordFlow({ redirectTo = '/', locale }: UseSetPasswordF
       inFlight.current = false
       setIsLoading(false)
     }
-  }, [config, currentPassword, locale])
+  }, [config, currentPassword, service])
   const handleOtpReauthenticate = useCallback(async () => {
     if (inFlight.current) return
     inFlight.current = true
     setIsLoading(true)
     setError(null)
     try {
-      const service = createAuthService(config, locale)
       const user = await service.principal()
       const sent = await service.sendOwnership(user.email, 'reauth')
       if (!sent.success) throw new Error(sent.code)
@@ -102,7 +104,7 @@ export function useSetPasswordFlow({ redirectTo = '/', locale }: UseSetPasswordF
       inFlight.current = false
       setIsLoading(false)
     }
-  }, [config, router, locale, destination])
+  }, [config, router, destination, service])
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
@@ -127,7 +129,7 @@ export function useSetPasswordFlow({ redirectTo = '/', locale }: UseSetPasswordF
       inFlight.current = true
       setIsLoading(true)
       try {
-        await createAuthService(config, locale).completePassword(proof, password)
+        await service.completePassword(proof, password)
         storePasswordProof(config, null)
         setProof(null)
         setPassword('')
@@ -152,7 +154,7 @@ export function useSetPasswordFlow({ redirectTo = '/', locale }: UseSetPasswordF
       router,
       destination,
       restartProof,
-      locale,
+      service,
     ],
   )
   return {

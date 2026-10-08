@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useCallback, useRef, useMemo } from 'react'
+import { useAuthService } from '../AuthServiceContext'
+
+import { useState, useCallback, useRef } from 'react'
 import { useAuthNavigation, authRoute } from '../AuthFlowContext'
 import type { LoginStep } from '../../../domain/types'
-import { authErrorKey, createAuthService } from '../../client/authService'
+import { authErrorKey } from '../../client/authService'
 import { useAuthConfig } from '../../../../components/AuthConfigContext'
 
 export interface UseLoginFlowOptions {
@@ -19,7 +21,7 @@ export interface UseLoginFlowOptions {
  */
 export function useLoginFlow({ redirectTo, onPasswordLogin, locale }: UseLoginFlowOptions) {
   const config = useAuthConfig()
-  const service = useMemo(() => createAuthService(config, locale), [config, locale])
+  const service = useAuthService(locale)
   const router = useAuthNavigation()
   const inFlight = useRef(false)
 

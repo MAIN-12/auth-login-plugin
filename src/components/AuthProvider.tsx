@@ -24,6 +24,7 @@ import { safeAuthRedirect } from '../auth/domain/redirect'
 import { AuthCard, type AuthCardWithSlugProps } from './AuthCard'
 import { AuthModal } from './AuthModal'
 import type { AuthFormSlug } from './forms'
+import { createAuthServiceScope } from '../auth/interface/react/AuthServiceContext'
 import { getUiTranslations } from './ui/translations'
 
 export interface AuthUser {
@@ -90,6 +91,12 @@ export function AuthProvider({
     { style, locale, messages, logo, poweredBy },
     publicConfig,
   )
+  const serviceScope = useMemo(() => createAuthServiceScope(publicConfig), [publicConfig])
+  const service = serviceScope.forLocale(presentation.locale)
+  const sessionFlight = useRef<{
+    service: typeof service
+    promise: Promise<AuthUser | null>
+  } | null>(null)
   const router = useRouter()
   const [user, setUser] = useState<AuthUser | null>(initialUser ?? null)
   const [status, setStatus] = useState<AuthStatus>(
@@ -107,33 +114,33 @@ export function AuthProvider({
   const sessionRequest = useRef(0)
   const base = basePath.replace(/\/$/, '')
 
-  const refreshSession = useCallback(async () => {
+  const refreshSession = useCallback(() => {
+    if (sessionFlight.current?.service === service) return sessionFlight.current.promise
     const request = ++sessionRequest.current
-    try {
-      const response = await fetch(`${publicConfig.apiPrefix}/${publicConfig.collection}/me`, {
-        credentials: 'include',
-        cache: 'no-store',
-      })
-      if (!response.ok && response.status !== 401)
-        throw new Error('Unable to load the current session')
-      const data = response.status === 401 ? { user: null } : await response.json()
-      const nextUser = data.user ?? null
-      if (request !== sessionRequest.current)
-        throw new Error('Session check was superseded; please retry')
-      setUser(nextUser)
-      setStatus(nextUser ? 'authenticated' : 'unauthenticated')
-      setError(null)
-      return nextUser as AuthUser | null
-    } catch (cause) {
-      const failure =
-        cause instanceof Error ? cause : new Error('Unable to load the current session')
-      if (request === sessionRequest.current) {
-        setError(failure)
-        setStatus('error')
+    const pending = (async () => {
+      try {
+        const nextUser = await service.session()
+        if (request !== sessionRequest.current)
+          throw new Error('Session check was superseded; please retry')
+        setUser(nextUser)
+        setStatus(nextUser ? 'authenticated' : 'unauthenticated')
+        setError(null)
+        return nextUser
+      } catch (cause) {
+        const failure =
+          cause instanceof Error ? cause : new Error('Unable to load the current session')
+        if (request === sessionRequest.current) {
+          setError(failure)
+          setStatus('error')
+        }
+        throw failure
       }
-      throw failure
-    }
-  }, [publicConfig.apiPrefix, publicConfig.collection])
+    })().finally(() => {
+      if (sessionFlight.current?.promise === pending) sessionFlight.current = null
+    })
+    sessionFlight.current = { service, promise: pending }
+    return pending
+  }, [service])
 
   useEffect(() => {
     if (initialUser === undefined) void refreshSession().catch(() => {})
@@ -183,11 +190,7 @@ export function AuthProvider({
 
   const logout = useCallback(async () => {
     ++sessionRequest.current
-    const response = await fetch(`${publicConfig.apiPrefix}/${publicConfig.collection}/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    })
-    if (!response.ok) throw new Error('Logout failed')
+    await service.logout()
     ++sessionRequest.current
     ++flowId.current
     setFlow(null)
@@ -195,7 +198,7 @@ export function AuthProvider({
     setStatus('unauthenticated')
     setError(null)
     router.refresh()
-  }, [router, publicConfig.apiPrefix, publicConfig.collection])
+  }, [router, service])
 
   const navigation = useMemo(() => {
     if (!flow) return null
@@ -244,7 +247,7 @@ export function AuthProvider({
   const t = getUiTranslations(modalLocale, modalPresentation.messages)
 
   return (
-    <AuthConfigProvider publicConfig={publicConfig}>
+    <AuthConfigProvider publicConfig={publicConfig} serviceScope={serviceScope}>
       <AuthSignupConfig enabled={publicConfig.allowSignup}>
         <AuthPresentationContext.Provider value={presentation}>
           <AuthContext.Provider value={value}>

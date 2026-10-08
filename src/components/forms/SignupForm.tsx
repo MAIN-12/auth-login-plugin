@@ -12,7 +12,7 @@ import {
   useAuthSearchParams,
 } from '../../auth/application/AuthFlowContext'
 import { useAuthConfig } from '../AuthConfigContext'
-import { createAuthService } from '../../auth/application/services/authService'
+import { useAuthService } from '../../auth/interface/react/AuthServiceContext'
 import { Button, Input, Divider } from '../ui/index'
 import type { AuthLocalizationProps } from '../auth-presentation/types'
 
@@ -32,7 +32,7 @@ export function SignupForm({
   messages,
 }: SignupFormProps) {
   const config = useAuthConfig()
-  const service = React.useMemo(() => createAuthService(config, locale), [config, locale])
+  const service = useAuthService(locale)
   const params = useAuthSearchParams()
   const navigation = useAuthNavigation()
   const redirectTo = params.get('redirect') || '/'

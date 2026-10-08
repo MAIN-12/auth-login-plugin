@@ -86,7 +86,7 @@ beforeEach(() => {
     this.open = false
   }
   fetchMock = vi.fn(async (url: string) => {
-    if (url === '/api/users/me') return Response.json({ user: authenticated ? user : null })
+    if (url.endsWith('/me')) return Response.json({ user: authenticated ? user : null })
     if (url === '/api/auth/login' || url === '/api/auth/otp/verify') authenticated = true
     if (url === '/api/users/logout') authenticated = false
     if (url === '/api/auth/check-email') return Response.json({ exists: true, hasPassword: true })
@@ -336,4 +336,27 @@ describe('server and UI instance isolation', () => {
       '/other/members/me',
     ])
   })
+})
+
+it('shares concurrent session checks and rejects malformed users without confirming authentication', async () => {
+  await mount({ initialUser: user })
+  let resolve!: (value: Response) => void
+  fetchMock.mockImplementationOnce(
+    () =>
+      new Promise<Response>((r) => {
+        resolve = r
+      }),
+  )
+  const first = auth.refreshSession()
+  expect(auth.refreshSession()).toBe(first)
+  await act(async () => {
+    resolve(Response.json({ user: { role: 'admin' } }))
+    await expect(first).rejects.toThrow('Unable to load')
+  })
+  expect(auth.user).toEqual(user)
+  expect(auth.status).toBe('error')
+  await act(async () => {
+    expect(await auth.refreshSession()).toBeNull()
+  })
+  expect(auth.status).toBe('unauthenticated')
 })

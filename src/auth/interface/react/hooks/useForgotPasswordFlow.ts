@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { useAuthSearchParams, useAuthNavigation, authRoute } from '../AuthFlowContext'
-import { createAuthService } from '../../client/authService'
+import { useAuthService } from '../AuthServiceContext'
 import { useAuthConfig } from '../../../../components/AuthConfigContext'
 
 /**
@@ -11,6 +11,7 @@ import { useAuthConfig } from '../../../../components/AuthConfigContext'
 export function useForgotPasswordFlow(locale?: string) {
   const router = useAuthNavigation()
   const config = useAuthConfig()
+  const service = useAuthService(locale)
   const params = useAuthSearchParams()
 
   const inFlight = useRef(false)
@@ -29,7 +30,7 @@ export function useForgotPasswordFlow(locale?: string) {
       setError(null)
 
       try {
-        const data = await createAuthService(config, locale).sendOwnership(email, 'recovery')
+        const data = await service.sendOwnership(email, 'recovery')
         if (data.success) {
           router.push(
             authRoute(
@@ -54,7 +55,7 @@ export function useForgotPasswordFlow(locale?: string) {
         setIsLoading(false)
       }
     },
-    [email, router, config, params, locale],
+    [email, router, config, params, service],
   )
 
   return { email, error, isLoading, setEmail, handleSubmit }
