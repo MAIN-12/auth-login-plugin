@@ -1,13 +1,13 @@
 import compromised from './password-blocklist.json' with { type: 'json' }
 import type { PasswordStrengthResult } from './types'
 
-const blocked = new Set(compromised)
+const blocked = new Set(compromised.map((password) => password.toLowerCase()))
 export const MIN_PASSWORD_LENGTH = 15
-export const MIN_CRITERIA_COUNT = 1
 
 /**
  * Compatibility display flags/score are descriptive only, not composition requirements.
- * Validity uses Unicode length, the input bound and the exact-match local corpus.
+ * Validity uses Unicode length, the input bound and case-insensitive corpus membership.
+ * Lowercasing is only for membership; the owner-chosen credential remains unchanged.
  */
 export function evaluatePasswordStrength(password: string): PasswordStrengthResult {
   const hasMinLength = Array.from(password).length >= MIN_PASSWORD_LENGTH
@@ -26,7 +26,7 @@ export function evaluatePasswordStrength(password: string): PasswordStrengthResu
     hasLowercase,
     hasNumber,
     hasSpecial,
-    isValid: hasMinLength && password.length <= 1024 && !blocked.has(password),
+    isValid: hasMinLength && password.length <= 1024 && !blocked.has(password.toLowerCase()),
   }
 }
 

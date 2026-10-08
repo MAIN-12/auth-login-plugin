@@ -62,10 +62,11 @@ it('Signup establishes only an owner-chosen phrase after verification, never pre
   expect(
     await flow.complete('signup', {
       permit: grant.permit,
-      password: 'the river carries quiet dreams',
+      password: '  The River Carries Quiet Dreams  ',
     }),
   ).toEqual({ success: true })
   expect(writes).toHaveLength(1)
+  expect(writes[0]).toMatchObject({ password: '  The River Carries Quiet Dreams  ' })
 })
 it('a limited recovery grant is opaque, purpose-bound, expires at ten minutes and rejects weak passwords', async () => {
   let now = 1000
@@ -103,14 +104,45 @@ it('a limited recovery grant is opaque, purpose-bound, expires at ten minutes an
   ).rejects.toThrow('AUTH_FAILED')
   expect(calls).toBe(0)
 })
+it.each(['momsanaladventure', 'MOMSANALADVENTURE', 'MomsAnalAdventure'])(
+  'new passwords reject case variants of a long compromised corpus entry: %s',
+  async (password) => {
+    const writes: unknown[] = []
+    const flow = fixture({
+      secret: 's'.repeat(32),
+      collection: 'customers',
+      signup: true,
+      recovery: false,
+      password: true,
+      commit: async (permit, credential) => {
+        writes.push({ permit, credential })
+        return { success: true }
+      },
+    })
+    const grant = flow.grant({
+      purpose: 'signup',
+      email: 'owner@example.com',
+      account: null,
+      version: '',
+    })
+    await expect(flow.complete('signup', { permit: grant.permit, password })).rejects.toThrow(
+      'INVALID_INPUT',
+    )
+    expect(writes).toEqual([])
+  },
+)
 it('new passwords reject the versioned compromised corpus and count Unicode characters, not artificial composition', async () => {
+  const writes: string[] = []
   const flow = fixture({
     secret: 's'.repeat(32),
     collection: 'customers',
     signup: true,
     recovery: false,
     password: true,
-    commit: async () => ({ success: true }),
+    commit: async (_permit, credential) => {
+      writes.push(credential)
+      return { success: true }
+    },
   })
   const grant = flow.grant({
     purpose: 'signup',
@@ -130,6 +162,7 @@ it('new passwords reject the versioned compromised corpus and count Unicode char
       password: 'a long lowercase quiet phrase',
     }),
   ).toEqual({ success: true })
+  expect(writes).toEqual(['a long lowercase quiet phrase'])
 })
 it('reauthentication is limited to five minutes, one collection and the selected method', async () => {
   let now = 1000

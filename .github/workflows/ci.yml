@@ -20,3 +20,5 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test:unit
+      # Packed-package smoke only; database/browser acceptance remains separate.
+      - run: pnpm test:consumer
