@@ -12,4 +12,4 @@ export {
   Spinner,
 } from '../atoms/adapters/hero'
 export { LegacyHeroField as Input } from '../molecules/LegacyHeroField'
-export { OtpInput } from './tailwind'
+export { OtpInput } from '../molecules/OtpInput'
