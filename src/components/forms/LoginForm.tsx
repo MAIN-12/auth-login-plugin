@@ -10,9 +10,13 @@ import { useAuthThemeClasses } from '../ui/theme'
 import { authErrorMessage } from '../ui/translations'
 import React from 'react'
 import { AuthLoadingBoundary } from '../auth-card/AuthLoadingBoundary'
-import { useAuthSearchParams, AuthLink, authRoute } from '../../auth/application/AuthFlowContext'
+import {
+  useAuthSearchParams,
+  AuthLink,
+  authRoute,
+} from '../../auth/interface/react/AuthFlowContext'
 import { Button, Input, Divider } from '../ui/index'
-import { useLoginFlow } from '../../auth/application/hooks/useLoginFlow'
+import { useLoginFlow } from '../../auth/interface/react/hooks/useLoginFlow'
 import type { AuthLocalizationProps } from '../auth-presentation/types'
 
 export interface LoginFormProps extends AuthLocalizationProps {

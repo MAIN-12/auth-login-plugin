@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useAllowSignup } from '../AuthSignupConfig'
-import { createAuthService } from '../../auth/application/services/authService'
+import { createAuthService } from '../../auth/interface/client/authService'
 import { useAuthConfig, AuthConfigProvider } from '../AuthConfigContext'
 import { useAuthPresentation } from '../auth-presentation/AuthPresentationContext'
 import { getUiTranslations, type DeepPartial, type UiTranslations } from '../ui/translations'
@@ -53,7 +53,6 @@ export function FormRenderer({
 }: FormRendererProps) {
   const allowSignup = useAllowSignup()
   const pluginConfig = useAuthConfig()
-  const passwordHandler = onPasswordLogin ?? createAuthService(pluginConfig).login
   const signupHandler =
     onSignup ??
     (async () => {
@@ -62,6 +61,11 @@ export function FormRenderer({
 
   const presentation = useAuthPresentation({ locale, messages })
   const resolvedLocale = presentation.locale
+  const service = useMemo(
+    () => createAuthService(pluginConfig, resolvedLocale),
+    [pluginConfig, resolvedLocale],
+  )
+  const passwordHandler = onPasswordLogin ?? service.login
   const t = getUiTranslations(resolvedLocale, presentation.messages)
   const normalizedSlug = (Array.isArray(slug) ? slug[0] : slug) as AuthFormSlug
   const base = (basePath ?? pluginConfig.authBasePath).replace(/\/$/, '')

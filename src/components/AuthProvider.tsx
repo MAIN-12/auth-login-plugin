@@ -19,7 +19,7 @@ import {
   useAuthPresentation,
 } from './auth-presentation/AuthPresentationContext'
 import { mergeAuthPresentation } from './auth-presentation/resolvePresentation'
-import { AuthFlowContext } from '../auth/application/AuthFlowContext'
+import { AuthFlowContext } from '../auth/interface/react/AuthFlowContext'
 import { safeAuthRedirect } from '../auth/domain/redirect'
 import { AuthCard, type AuthCardWithSlugProps } from './AuthCard'
 import { AuthModal } from './AuthModal'

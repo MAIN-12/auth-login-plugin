@@ -399,8 +399,8 @@ it('respects rejecting native login hooks without publishing internal exceptions
       disableVerificationEmail: true,
     })
     const response = await request('/access/login', { email, password: 'real hook-test password' })
-    expect(response.status).toBe(401)
-    expect(await response.json()).toEqual({ success: false, code: 'AUTH_FAILED' })
+    expect(response.status).toBe(503)
+    expect(await response.json()).toEqual({ success: false, code: 'AUTH_UNAVAILABLE' })
     expect(response.headers.get('set-cookie')).toBeNull()
   }
 })

@@ -1,10 +1,10 @@
+import { createPasswordLoginEndpoint } from './auth/composition/passwordLogin'
 import { createAdminPolicy } from './auth/server/adminPolicy'
 import { createGoogleEndpoints } from './endpoints/googleEndpoints'
 import type { Config } from 'payload'
 import { resolveAuthConfig, type AuthLoginPluginOptions, type PublicAuthConfig } from './config'
 import {
   createAuthEndpoints,
-  createPasswordLoginEndpoint,
   createRefreshEndpoint,
   authFailureResponse,
 } from './endpoints/authEndpoints'

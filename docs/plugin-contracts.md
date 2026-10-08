@@ -82,6 +82,47 @@ The detailed [account migration guide](migration.md) records the same ownership/
 
 Migration acceptance uses disposable real databases. It does not certify that a consumer has stopped every writer, applied a production migration or rehearsed disaster recovery. [Issue06 traceability](../tests/evidence/issue06-traceability.md) distinguishes historical proof, current-candidate checks and pending gates.
 
+## Auth-clean task 01 approval and contract inventory
+
+The user explicitly authorized implementation of task 01 on 2026-10-08. This approves
+only the password-login slice of [the plugin adaptation](architecture/auth-clean-spec.md),
+not tasks 02–06. Existing security/product contracts above remain authoritative.
+The copied AOP collection layout, aliases and generated entity types are historical
+examples: this plugin owns auth policy under `src/auth`, and configures the host's
+collection without importing a generated host model. Relative imports and explicit
+package exports remain the package convention.
+
+Preserved contracts: `authLoginPlugin` enabled/disabled overloads and publicConfig;
+`createPasswordLoginEndpoint(settings, path?)` and `createAuthEndpoints(settings,
+otpOptions?, assertPublicAccount?)`; POST configured auth prefix `/login` and native
+collection `/login`; strict `{ email, password }`, normalized email, 1–1024 password
+characters, 254 email characters and 4096 HTTP body bytes. Legacy short passwords
+remain valid inputs. Success keeps `{ success, user, exp, capabilities, token? }`,
+Payload cookie prefix/options/lifetime, CORS and removeTokenFromResponses. Expected
+failures retain 400 INVALID_INPUT, 401 AUTH_FAILED, 403 METHOD_DISABLED/ORIGIN_DENIED
+and a server-generated X-Auth-Request-ID. Unexpected native failures deliberately
+close as 503 AUTH_UNAVAILABLE under the approved slice requirement.
+
+Native login is called once with the real request; native hooks, verification,
+lockout and session coordination remain authoritative. No password hashing, JWT,
+proof/schema/TTL change or alternate session engine is introduced. New internal
+results carry only a principal; native user/token/exp remain in a request-bound
+adapter receipt. Direct invocation is a trusted internal server seam, never a
+public caller-selected collection or principal.
+
+Temporary shims (retirement owner: auth-clean task 06): legacy `domain/login.ts`
+(error/operation compatibility only), application `services/authService`,
+`hooks/useLoginFlow`, and `AuthFlowContext`; endpoint login factory compatibility.
+These shims are explicitly transitional, not claims that the legacy folders are
+pure. Unmigrated OTP, ownership, Google and session paths retain their existing
+owners until their own tickets. Only new login rules/use-case modules are pure.
+
+Rollback means reverting compatible code; it never restores revoked sessions or
+consumed proofs. Doubles prove delegation, mapping, isolation and cleanup protocols,
+not native lock behavior, physical transaction rollback or browser cookie handling.
+Historical SQLite/HTTP tests stay in test:unit and are reported separately from
+isolated use-case evidence; no Chromium/E2E or new DB acceptance suites are required.
+
 ## Dependency seams and evidence
 
 - `src/auth/domain`: no React/Next/Payload, HTTP adapters, components, application services or implicit environment reads. Server cryptography in existing domain modules is deliberate; this is not a claim of browser portability.

@@ -10,7 +10,7 @@ export type { PublicAuthConfig } from '../config'
 export { AuthClientInit } from '../components/AuthClientInit'
 
 // Auth hooks
-export { useLoginFlow } from '../auth/application/hooks/useLoginFlow'
+export { useLoginFlow } from '../auth/interface/react/hooks/useLoginFlow'
 export { useVerifyOtpFlow } from '../auth/application/hooks/useVerifyOtpFlow'
 export { useForgotPasswordFlow } from '../auth/application/hooks/useForgotPasswordFlow'
 export { useSetPasswordFlow } from '../auth/application/hooks/useSetPasswordFlow'
@@ -25,7 +25,7 @@ export {
   setUserPassword,
   signup,
   initiateGoogleLogin,
-} from '../auth/application/services/authService'
+} from '../auth/interface/client/authService'
 
 // Domain utilities
 export {
@@ -92,7 +92,7 @@ export type {
   PasswordStrengthResult,
 } from '../auth/domain/types'
 
-export type { UseLoginFlowOptions } from '../auth/application/hooks/useLoginFlow'
+export type { UseLoginFlowOptions } from '../auth/interface/react/hooks/useLoginFlow'
 export type { UseVerifyOtpFlowOptions } from '../auth/application/hooks/useVerifyOtpFlow'
 export type { UseSetPasswordFlowOptions } from '../auth/application/hooks/useSetPasswordFlow'
 
