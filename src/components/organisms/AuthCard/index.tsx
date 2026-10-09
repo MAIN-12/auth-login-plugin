@@ -1,0 +1,73 @@
+'use client'
+
+import React, { Suspense } from 'react'
+import { AuthCardLoadingContext, AuthLoadingIndicator } from './AuthLoadingBoundary'
+import { AuthCardReveal } from './AuthCardReveal'
+import type { AuthPresentationProps } from '../../../configuration/authAppearance/types'
+import {
+  AuthPresentationContext,
+  useAuthPresentation,
+} from '../../../contexts/AuthAppearanceContext'
+import { AuthCardShell, FormRenderer } from './collaborators'
+
+export interface AuthCardConfig extends AuthPresentationProps {
+  cardClassName?: string
+  removeBorder?: boolean
+  removeShadow?: boolean
+  mobileVariant?: 'plain' | 'card' | 'modal'
+}
+
+export interface AuthCardWithSlugProps extends AuthCardConfig {
+  slug: string | string[]
+  redirectTo?: string
+  onPasswordLogin?: (credentials: { email: string; password: string }) => Promise<void>
+  onSignup?: (data: { name: string; email: string }) => Promise<void>
+  basePath?: string
+  showGoogleOAuth?: boolean
+  passwordLogin?: boolean
+  otpLogin?: boolean
+  footer?: React.ReactNode
+  title?: string
+  subtitle?: string
+}
+
+export interface AuthCardWithChildrenProps extends AuthCardConfig {
+  children: React.ReactNode
+  footer?: React.ReactNode
+  title?: string
+  subtitle?: string
+}
+
+export type AuthCardProps = AuthCardWithSlugProps | AuthCardWithChildrenProps
+
+function hasSlug(props: AuthCardProps): props is AuthCardWithSlugProps {
+  return 'slug' in props && props.slug !== undefined
+}
+
+export const AuthCard: React.FC<AuthCardProps> = (props) => {
+  const presentation = useAuthPresentation(props)
+  const content = hasSlug(props) ? (
+    <FormRenderer {...props} />
+  ) : (
+    <AuthCardShell {...props}>{props.children}</AuthCardShell>
+  )
+
+  return (
+    <AuthPresentationContext.Provider value={presentation}>
+      <div
+        style={{
+          width: '100%',
+          minHeight: 'min(28rem, 70svh)',
+          display: 'grid',
+          alignItems: 'center',
+        }}
+      >
+        <Suspense fallback={<AuthLoadingIndicator />}>
+          <AuthCardLoadingContext.Provider value={true}>
+            <AuthCardReveal>{content}</AuthCardReveal>
+          </AuthCardLoadingContext.Provider>
+        </Suspense>
+      </div>
+    </AuthPresentationContext.Provider>
+  )
+}

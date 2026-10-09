@@ -5,33 +5,42 @@
 // ============================================================
 
 // Plugin client config initializer
-export { initClientConfig } from '../config'
-export { AuthClientInit } from '../components/AuthClientInit'
-export type { AuthClientInitProps } from '../components/AuthClientInit'
+export {
+  AuthConfigProvider,
+  useAuthConfig,
+} from '../auth/interface/react/providers/AuthConfigProvider'
+export type { PublicAuthConfig } from '../auth/contracts/publicConfig'
+export { AuthClientInit } from '../auth/interface/react/providers/AuthClientInit'
 
 // Auth hooks
-export { useLoginFlow } from '../auth/application/hooks/useLoginFlow'
-export { useVerifyOtpFlow } from '../auth/application/hooks/useVerifyOtpFlow'
-export { useForgotPasswordFlow } from '../auth/application/hooks/useForgotPasswordFlow'
-export { useSetPasswordFlow } from '../auth/application/hooks/useSetPasswordFlow'
+export { useLoginFlow } from '../auth/interface/react/hooks/useLoginFlow'
+export { useVerifyOtpFlow } from '../auth/interface/react/hooks/useVerifyOtpFlow'
+export { useForgotPasswordFlow } from '../auth/interface/react/hooks/useForgotPasswordFlow'
+export { useSetPasswordFlow } from '../auth/interface/react/hooks/useSetPasswordFlow'
 
 // Auth service functions (client-side fetch wrappers)
 export {
+  createAuthService,
+  AuthRequestError,
   checkEmail,
   sendOtp,
   verifyOtp,
   setUserPassword,
   signup,
   initiateGoogleLogin,
-} from '../auth/application/services/authService'
+} from '../auth/interface/client/authService'
 
 // Domain utilities
-export { evaluatePasswordStrength, isPasswordValid, MIN_PASSWORD_LENGTH } from '../auth/domain/passwordRules'
+export {
+  evaluatePasswordStrength,
+  isPasswordValid,
+  MIN_PASSWORD_LENGTH,
+} from '../auth/domain/passwordRules'
 
 // UI translations / locale utilities
-export { getUiTranslations, uiTranslations } from '../components/ui/translations'
-export type { UiTranslations, DeepPartial } from '../components/ui/translations'
-export { detectClientLocale } from '../components/ui/locale'
+export { getUiTranslations, uiTranslations } from '../i18n/ui'
+export type { UiTranslations, DeepPartial } from '../i18n/ui'
+export { detectClientLocale } from '../i18n/locale'
 
 // Page components
 export { default as LoginPage } from '../components/pages/LoginPage'
@@ -41,21 +50,42 @@ export { default as VerifyOtpPage } from '../components/pages/VerifyOtpPage'
 export { default as SetPasswordPage } from '../components/pages/SetPasswordPage'
 
 // Catch-all auth pages (single-file setup)
-export { default as AuthPages } from '../components/AuthPages'
-export type { AuthPagesProps } from '../components/AuthPages'
+export { default as AuthPages } from '../components/pages/AuthPages'
+export type { AuthPagesProps } from '../components/pages/AuthPages'
 
 // Layout & shared components
-export { AuthLayout } from '../components/AuthLayout'
-export { AuthCard } from '../components/AuthCard'
-export type { AuthCardProps, AuthCardConfig, AuthCardWithSlugProps, AuthCardWithChildrenProps } from '../components/AuthCard'
-export { PoweredBy } from '../components/PoweredBy'
+export { AuthLayout } from '../components/templates/AuthLayout'
+export { AuthCard } from '../components/organisms/AuthCard'
+export type {
+  AuthCardProps,
+  AuthCardConfig,
+  AuthCardWithSlugProps,
+  AuthCardWithChildrenProps,
+} from '../components/organisms/AuthCard'
+export { PoweredBy } from '../components/molecules/PoweredBy'
 
 // Form components (for custom compositions)
-export { LoginForm, SignupForm, ForgotPasswordForm, VerifyOtpForm, SetPasswordForm } from '../components/forms/index'
-export type { LoginFormProps, SignupFormProps, ForgotPasswordFormProps, VerifyOtpFormProps, SetPasswordFormProps } from '../components/forms/index'
+export {
+  LoginForm,
+  SignupForm,
+  ForgotPasswordForm,
+  VerifyOtpForm,
+  SetPasswordForm,
+} from '../components/organisms/AuthCard/forms'
+export type {
+  LoginFormProps,
+  SignupFormProps,
+  ForgotPasswordFormProps,
+  VerifyOtpFormProps,
+  SetPasswordFormProps,
+} from '../components/organisms/AuthCard/forms'
 
 // Form registry (for advanced usage / extending)
-export { AUTH_FORMS, getFormBySlug, type AuthFormSlug } from '../components/forms/index'
+export {
+  AUTH_FORMS,
+  getFormBySlug,
+  type AuthFormSlug,
+} from '../components/organisms/AuthCard/forms'
 
 // Types
 export type {
@@ -66,23 +96,43 @@ export type {
   VerifyOtpResponse,
   SetPasswordResponse,
   SignupResponse,
-  PasswordStrengthResult,
-} from '../auth/domain/types'
+} from '../auth/contracts/clientModels'
 
-export type { UseLoginFlowOptions } from '../auth/application/hooks/useLoginFlow'
-export type { UseVerifyOtpFlowOptions } from '../auth/application/hooks/useVerifyOtpFlow'
-export type { UseSetPasswordFlowOptions } from '../auth/application/hooks/useSetPasswordFlow'
+export type { UseLoginFlowOptions } from '../auth/interface/react/hooks/useLoginFlow'
+export type { UseVerifyOtpFlowOptions } from '../auth/interface/react/hooks/useVerifyOtpFlow'
+export type { UseSetPasswordFlowOptions } from '../auth/interface/react/hooks/useSetPasswordFlow'
 
 export type { LoginPageProps } from '../components/pages/LoginPage'
 export type { SignupPageProps } from '../components/pages/SignupPage'
 export type { ForgotPasswordPageProps } from '../components/pages/ForgotPasswordPage'
 export type { VerifyOtpPageProps } from '../components/pages/VerifyOtpPage'
 export type { SetPasswordPageProps } from '../components/pages/SetPasswordPage'
-export type { AuthLayoutConfig, AuthLayoutProps, AuthTexture } from '../components/AuthLayout'
-export type { PoweredByProps } from '../components/PoweredBy'
+export type {
+  AuthLayoutConfig,
+  AuthLayoutProps,
+  AuthTexture,
+} from '../components/templates/AuthLayout'
+export type { PoweredByProps } from '../components/molecules/PoweredBy'
 
-export { AuthProvider, useAuth } from '../components/AuthProvider'
-export type { AuthProviderProps, AuthContextValue, AuthUser, AuthStatus, OpenLoginOptions } from '../components/AuthProvider'
+export { AuthProvider, useAuth } from '../auth/interface/react/providers/AuthProvider'
+export type {
+  AuthProviderProps,
+  AuthContextValue,
+  AuthUser,
+  AuthStatus,
+  OpenLoginOptions,
+} from '../auth/interface/react/providers/AuthProvider'
 
-export type { AuthPresentationProps, AuthLocalizationProps, ResolvedAuthPresentation, PoweredByConfig } from '../components/auth-presentation/types'
-export { useAuthPresentation, useAuthTranslations } from '../components/auth-presentation/AuthPresentationContext'
+export type {
+  AuthPresentationProps,
+  AuthLocalizationProps,
+  ResolvedAuthPresentation,
+  PoweredByConfig,
+} from '../configuration/authAppearance/types'
+export { useAuthPresentation, useAuthTranslations } from '../contexts/AuthAppearanceContext'
+
+export type { CredentialCapabilities } from '../auth/domain/credentials'
+
+export type { AuthErrorCode, AuthErrorResponse } from '../auth/contracts/errors'
+
+export type { PasswordStrengthResult } from '../auth/domain/types'

@@ -1,7 +1,5 @@
 import { sqliteAdapter } from '@payloadcms/db-sqlite'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
-import { brevoAdapter } from '@main12/brevo-adapter'
-// import brevoAdapter from './utilities/brevoAdapter'
 
 import path from 'path'
 import { buildConfig } from 'payload'
@@ -28,7 +26,9 @@ export default buildConfig({
       slug: 'users',
       auth: {
         tokenExpiration: 7200, // 2 hours
-        verify: false,
+        useSessions: true,
+        verify: true,
+        removeTokenFromResponses: true,
         maxLoginAttempts: 5,
       },
       fields: [
@@ -41,7 +41,7 @@ export default buildConfig({
     client: { url: 'file:./dev.db' },
   }),
   editor: lexicalEditor(),
-  email: brevoAdapter(),
+  // Configure a production email adapter before opting into OTP/signup/recovery.
   plugins,
   secret: process.env.PAYLOAD_SECRET || 'dev-secret-key-change-me',
   typescript: {

@@ -1,0 +1,829 @@
+import assert from 'node:assert/strict'
+import {
+  requiredHeader,
+  type BrowserAcceptanceOptions,
+  type FixtureMessage,
+  type FixtureSnapshot,
+  type FixtureUser,
+  type OidcProvider,
+} from './browser-support.ts'
+import { request as httpRequest } from 'node:http'
+
+// Public native HTTP/Chromium seams of the packed consumer; no auth/storage mocks.
+export async function verifyOauthAcceptance({
+  browser,
+  origin,
+  origin2,
+  provider,
+  database,
+  onPage,
+}: BrowserAcceptanceOptions & { provider: OidcProvider }) {
+  for (const base of [origin, origin2])
+    assert.equal(
+      (await fetch(`${base}/backend/customers/me`, { signal: AbortSignal.timeout(180000) })).status,
+      200,
+    )
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  onPage?.(page)
+  const [response] = await Promise.all([
+    page.waitForResponse((response) => response.url().includes('/oauth/google/callback'), {
+      timeout: 120000,
+    }),
+    page.goto(
+      `${origin}/backend/access/oauth/google?returnTo=${encodeURIComponent('/?item=1#payment')}`,
+      { timeout: 120000 },
+    ),
+  ])
+  if (response.status() !== 303)
+    console.log(
+      JSON.stringify({
+        callbackURLOrigin: new URL(response.url()).origin,
+        callbackCookieNames: (await response.request().allHeaders()).cookie
+          ?.split(';')
+          .map((value) => value.trim().split('=')[0]),
+        storedCookieNames: (await context.cookies()).map((cookie) => cookie.name),
+        providerExchanges: provider.exchanges.length,
+      }),
+    )
+  assert.equal(
+    response.status(),
+    303,
+    response.status() === 303 ? undefined : await response.text(),
+  )
+  await page.waitForURL(`${origin}/?item=1#payment`)
+  const cookie = (await context.cookies()).find((cookie) => cookie.name === 'consumer-token')
+  assert.ok(cookie?.httpOnly)
+  assert.equal(cookie.sameSite, 'Lax')
+  const me = await (
+    await fetch(`${origin2}/backend/customers/me`, {
+      headers: { origin: origin2, cookie: `consumer-token=${cookie.value}` },
+    })
+  ).json()
+  assert.equal(me.user.email, 'google-public@example.com')
+  assert.ok(provider.exchanges.at(-1)!.hasVerifier)
+  assert.ok((await (await fetch(`${origin}/fixture`)).json()).hooks.includes('afterLogin:google'))
+  console.log(
+    `OAuth acceptance ${database}: Chromium legitimate PKCE signed callback, preserved query/hash, native cross-process session GREEN`,
+  )
+  const bases = [origin, origin2]
+  const verified = ['Chromium legitimate signed callback and native session']
+  const mark = (label: string) => {
+    verified.push(label)
+    console.log(`OAuth acceptance ${database}: ${label}`)
+  }
+  const post = (base: string, path: string, body: unknown, cookie?: string) =>
+    fetch(`${base}${path}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: base, ...(cookie ? { cookie } : {}) },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120000),
+    })
+  const control = async (body: unknown) => {
+    for (const base of bases) assert.equal((await post(base, '/fixture', body)).status, 200)
+  }
+  const users = async (email: string): Promise<FixtureUser[]> =>
+    (await (await fetch(`${origin}/fixture?email=${encodeURIComponent(email)}`)).json()).users
+  const appCookie = (response: Response) =>
+    response.headers
+      .getSetCookie()
+      .find((value) => value.startsWith('consumer-token='))
+      ?.split(';')[0]
+  const rejectionIDs = new Map<string, 'callback' | 'generic'>()
+  // Node HTTP's wrapped Response has no .url; retain its actual requested route
+  // separately without changing the received body/status/headers or logging secrets.
+  const responseURLs = new WeakMap<Response, string>()
+  const rejected = async (response: Response | { callback: string; bound: string }) => {
+    assert.ok(response instanceof Response, 'expected rejected HTTP response')
+    assert.ok(
+      [400, 401, 403].includes(response.status),
+      `${response.status}: ${await response.clone().text()}`,
+    )
+    assert.equal(appCookie(response), undefined)
+    const requestId = response.headers.get('x-auth-request-id')
+    if (requestId) {
+      assert.match(
+        requestId,
+        /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/,
+      )
+      const route = new URL(response.url || responseURLs.get(response)!).pathname
+      rejectionIDs.set(requestId, route.endsWith('/oauth/google/callback') ? 'callback' : 'generic')
+    }
+  }
+  const currentUser = async (value: string) =>
+    (
+      await (
+        await fetch(`${origin2}/backend/customers/me`, {
+          headers: { origin: origin2, cookie: value },
+        })
+      ).json()
+    ).user
+  const begin = async (base = origin, returnTo = '/', nativeCookie?: string) => {
+    const start = await fetch(
+      `${base}/backend/access/oauth/google?returnTo=${encodeURIComponent(returnTo)}`,
+      {
+        redirect: 'manual',
+        headers: { origin: base, ...(nativeCookie ? { cookie: nativeCookie } : {}) },
+      },
+    )
+    assert.equal(start.status, 303, await start.clone().text())
+    const bound = start.headers
+      .getSetCookie()
+      .map((value) => value.split(';')[0])
+      .join('; ')
+    const authorization = await fetch(requiredHeader(start, 'location'), { redirect: 'manual' })
+    assert.equal(authorization.status, 302)
+    return { callback: requiredHeader(authorization, 'location'), bound }
+  }
+  const finish = (
+    flow: Response | { callback: string; bound: string },
+    base = origin,
+    bound?: string,
+    extra = {},
+  ) => {
+    assert.ok(!(flow instanceof Response), 'expected accepted OAuth flow')
+    bound ??= flow.bound
+    const url = new URL(flow.callback)
+    // Two independent Next processes sit behind one configured public callback host.
+    // Undici fetch ignores Host overrides; Node HTTP sends the literal public Host.
+    return new Promise<Response>((resolve, reject) => {
+      const request = httpRequest(
+        `${base}${url.pathname}${url.search}`,
+        { headers: { host: url.host, cookie: bound, ...extra } },
+        (incoming) => {
+          const chunks: Buffer[] = []
+          incoming.on('data', (chunk) => chunks.push(chunk))
+          incoming.on('end', () => {
+            const headers = new Headers()
+            for (let index = 0; index < incoming.rawHeaders.length; index += 2)
+              headers.append(incoming.rawHeaders[index], incoming.rawHeaders[index + 1])
+            const response = new Response(Buffer.concat(chunks), {
+              status: incoming.statusCode,
+              headers,
+            })
+            responseURLs.set(response, `${base}${url.pathname}${url.search}`)
+            resolve(response)
+          })
+        },
+      )
+      request.on('error', reject)
+      request.setTimeout(120000, () =>
+        request.destroy(new Error('OAuth callback native HTTP timed out')),
+      )
+      request.end()
+    })
+  }
+  let now = Date.now()
+  const tick = async (ms: number) => {
+    now += ms
+    await control({ now })
+  }
+  await control({ now })
+  const nativeCookie = `consumer-token=${cookie.value}`
+  const initialUser = await currentUser(nativeCookie)
+  assert.equal(initialUser.role, 'customer')
+  assert.equal((await users('google-public@example.com')).length, 1)
+  await rejected(await fetch(provider.callbacks[0], { redirect: 'manual' }))
+  await rejected(
+    await fetch(`${origin}/backend/access/oauth/google/callback?code=attacker`, {
+      redirect: 'manual',
+    }),
+  )
+  const correlation = await begin()
+  await rejected(await finish(correlation, origin2, ''))
+  const attacker = await begin()
+  await rejected(
+    await finish(
+      correlation,
+      origin2,
+      `${correlation.bound.split('=')[0]}=${attacker.bound.split('=')[1]}`,
+    ),
+  )
+  const altered = new URL(correlation.callback)
+  altered.searchParams.set('state', 'a'.repeat(43))
+  await rejected(await finish({ ...correlation, callback: altered.href }))
+  await rejected(await finish(correlation, origin, correlation.bound, { host: 'attacker.invalid' }))
+  const correlated = await finish(correlation, origin2)
+  assert.equal(correlated.status, 303, await correlated.clone().text())
+  assert.equal((await currentUser(appCookie(correlated)!)).id, initialUser.id)
+  await rejected(await finish(correlation, origin))
+  const concurrent = await begin()
+  const consumed = await Promise.all(bases.map((base) => finish(concurrent, base)))
+  assert.deepEqual(consumed.map((result) => result.status).sort(), [303, 401])
+  assert.equal(consumed.filter((result) => appCookie(result)!).length, 1)
+  provider.configure({ sub: 'cross-browser-new', email: 'cross-browser-new@example.com' })
+  const browserBound = await begin()
+  const otherBrowser = await browser.newContext()
+  const otherPage = await otherBrowser.newPage()
+  onPage?.(otherPage)
+  assert.equal((await otherPage.goto(browserBound.callback))!.status(), 401)
+  assert.equal(
+    (await otherBrowser.cookies()).some((cookie) => cookie.name === 'consumer-token'),
+    false,
+  )
+  assert.equal((await users('cross-browser-new@example.com')).length, 0)
+  await otherBrowser.close()
+  assert.equal(
+    (await finish(browserBound)).status,
+    303,
+    'foreign browser does not consume legitimate initiator correlation',
+  )
+  provider.configure({ sub: 'google-public-1', email: 'google-public@example.com' })
+  const expired = await begin()
+  await tick(600001)
+  await rejected(await finish(expired, origin2))
+  now = Date.now()
+  await control({ now })
+  mark(
+    'missing/tampered/cross-browser/replayed/expired state and wrong public Host reject; same correlation crosses processes and exactly one race wins',
+  )
+
+  for (const mode of [
+    'authorization',
+    'code',
+    'nonce',
+    'issuer',
+    'audience',
+    'signature',
+    'expired-token',
+  ]) {
+    const email = `rejected-${mode}@example.com`
+    provider.configure({ sub: `rejected-${mode}`, email }, mode)
+    const invalid = await begin()
+    await rejected(await finish(invalid))
+    assert.equal((await users(email)).length, 0)
+    await rejected(await finish(invalid, origin2))
+  }
+  provider.configure({ sub: 'collision', email: 'browser@example.com' })
+  await rejected(await finish(await begin()))
+  assert.equal((await users('browser@example.com')).length, 1)
+  provider.configure({ sub: 'closed-new', email: 'closed-new@example.com' })
+  await rejected(await finish(await begin(origin2), origin2))
+  assert.equal((await users('closed-new@example.com')).length, 0)
+  provider.configure({ sub: 'google-public-1', email: 'changed-provider-email@example.com' })
+  const existing = await finish(await begin(origin2), origin2)
+  assert.equal(existing.status, 303)
+  assert.equal((await currentUser(appCookie(existing)!)).id, initialUser.id)
+  assert.equal((await currentUser(appCookie(existing)!)).email, 'google-public@example.com')
+  assert.equal((await users('changed-provider-email@example.com')).length, 0)
+  mark(
+    'signed nonce/issuer/audience/signature/expiry and code failures burn state without provisioning; email collision never links; closed signup accepts existing stable subject only',
+  )
+  for (const returnTo of [
+    'https://attacker.invalid/path',
+    '//attacker.invalid',
+    '/%2f%2fattacker.invalid',
+    '/%5c%5cattacker.invalid',
+    '/%252f%252fattacker.invalid',
+  ]) {
+    const returned = await finish(await begin(origin, returnTo))
+    assert.equal(returned.status, 303)
+    assert.equal(requiredHeader(returned, 'location'), '/')
+  }
+  mark(
+    'external/protocol-relative/encoded return targets fall back locally; allowed query/hash preserved',
+  )
+  const login = async (email: string, password = 'actual-browser-test-password', base = origin) => {
+    const response = await post(base, '/backend/access/login', { email, password })
+    assert.equal(response.status, 200, await response.clone().text())
+    assert.equal('token' in (await response.clone().json()), false)
+    return appCookie(response)!
+  }
+  const reauth = async (value: string) => {
+    const response = await post(
+      origin,
+      '/backend/access/reauthenticate',
+      { password: 'actual-browser-test-password' },
+      value,
+    )
+    assert.equal(response.status, 200, await response.clone().text())
+    assert.equal(appCookie(response), undefined)
+    return (await response.json()).permit
+  }
+  const link = async (value: string, permit: string, confirm = true) => {
+    const response = await post(
+      origin,
+      '/backend/access/oauth/google/link',
+      { permit, confirm, returnTo: '/google-methods?linked=1#confirmed' },
+      value,
+    )
+    if (response.status !== 200) return response
+    const authorization = await fetch((await response.json()).url, { redirect: 'manual' })
+    assert.equal(authorization.status, 302)
+    return {
+      callback: requiredHeader(authorization, 'location'),
+      bound: `${value}; ${response.headers
+        .getSetCookie()
+        .map((header) => header.split(';')[0])
+        .join('; ')}`,
+    }
+  }
+  const local = await login('mail@example.com')
+  await rejected(await link(local, 'missing-permit'))
+  const stalePermit = await reauth(local)
+  await rejected(await link(local, stalePermit, false))
+  await tick(300001)
+  await rejected(await link(local, stalePermit))
+  now = Date.now()
+  await control({ now })
+  const localOther = await login('mail@example.com', undefined, origin2)
+  const wrongSid = await reauth(local)
+  await rejected(await link(localOther, wrongSid))
+  provider.configure({ sub: 'google-public-1', email: 'google-public@example.com' })
+  const conflict = await link(local, await reauth(local))
+  await rejected(await finish(conflict, origin2))
+  assert.equal((await currentUser(local)).email, 'mail@example.com')
+  const conflictLogin = await finish(await begin())
+  assert.equal((await currentUser(appCookie(conflictLogin)!)).id, initialUser.id)
+  provider.configure({ sub: 'revoked-link', email: 'mail@example.com' })
+  const revokedLink = await link(localOther, await reauth(localOther))
+  assert.equal((await post(origin2, '/backend/customers/logout', {}, localOther)).status, 200)
+  await rejected(await finish(revokedLink, origin2))
+  assert.equal(await currentUser(localOther), null)
+  provider.configure({ sub: 'concurrent-link-subject', email: 'concurrent-link@example.com' })
+  const competingCookies = await Promise.all(
+    ['race@example.com', 'attempts@example.com'].map((email) => login(email)),
+  )
+  const competingIDs = await Promise.all(
+    competingCookies.map(async (value) => (await currentUser(value)).id),
+  )
+  const competingFlows = await Promise.all(
+    competingCookies.map(async (value) => link(value, await reauth(value))),
+  )
+  const competingResults = await Promise.all(
+    competingFlows.map((flow, index) => finish(flow, bases[index])),
+  )
+  assert.deepEqual(competingResults.map((result) => result.status).sort(), [303, 401])
+  const winner = competingResults.findIndex((result) => result.status === 303)
+  assert.equal(
+    (await currentUser(appCookie(await finish(await begin()))!)).id,
+    competingIDs[winner],
+  )
+  mark(
+    'concurrent independent-process same-subject linking accepts one owner and denies the other; authoritative subsequent login selects the winner',
+  )
+  mark(
+    'explicit linking requires recent five-minute proof and exact SID; conflicts preserve owner and revoked SID cannot link after authorization',
+  )
+
+  const localBrowser = await browser.newContext()
+  const localPage = await localBrowser.newPage()
+  onPage?.(localPage)
+  await localBrowser.addCookies([
+    {
+      name: 'consumer-token',
+      value: local.split('=')[1],
+      url: origin,
+      httpOnly: true,
+      sameSite: 'Lax',
+    },
+  ])
+  provider.configure({ sub: 'linked-local-mail', email: 'mail@example.com' })
+  await localPage.goto(`${origin}/google-methods`)
+  await localPage.getByLabel('Password', { exact: true }).fill('actual-browser-test-password')
+  await localPage.getByRole('button', { name: 'Verify password', exact: true }).click()
+  await localPage.getByTestId('google-method-status').filter({ hasText: 'verified' }).waitFor()
+  const [linkedCallback] = await Promise.all([
+    localPage.waitForResponse((response) => response.url().includes('/oauth/google/callback')),
+    localPage.getByRole('button', { name: 'Link Google explicitly', exact: true }).click(),
+  ])
+  assert.equal(linkedCallback.status(), 303)
+  await localPage.waitForURL(`${origin}/google-methods?linked=1#confirmed`)
+  assert.equal(
+    (await localBrowser.cookies()).find((cookie) => cookie.name === 'consumer-token')!.value,
+    local.split('=')[1],
+    'linking does not issue another native session',
+  )
+  const linkedLogin = await finish(await begin(origin2), origin2)
+  assert.equal(linkedLogin.status, 303)
+  assert.equal((await currentUser(appCookie(linkedLogin)!)).email, 'mail@example.com')
+  provider.configure({ sub: 'conflicting-second-subject', email: 'mail@example.com' })
+  await rejected(await finish(await link(local, await reauth(local))))
+  await localBrowser.close()
+  mark(
+    'Chromium public linkGoogle action performs explicit password proof, real cross-site provider callback and preserves existing session; account identity cannot be overwritten',
+  )
+
+  provider.configure({ sub: 'google-public-1', email: 'google-public@example.com' })
+  const googleContext = await browser.newContext()
+  const googlePage = await googleContext.newPage()
+  onPage?.(googlePage)
+  await googleContext.addCookies([
+    { name: 'consumer-token', value: cookie.value, url: origin, httpOnly: true, sameSite: 'Lax' },
+  ])
+  await googlePage.goto(`${origin}/google-methods`)
+  const [missingPopup, missingResponse] = await Promise.all([
+    googlePage.waitForEvent('popup'),
+    googleContext.waitForEvent('response', {
+      predicate: (response) => response.url().includes('/oauth/google/callback'),
+    }),
+    googlePage.getByRole('button', { name: 'Verify Google', exact: true }).click(),
+  ])
+  assert.equal(
+    missingResponse.status(),
+    401,
+    'absence of provider auth_time is not recent authentication evidence',
+  )
+  await missingPopup.close()
+  await googlePage.getByTestId('google-method-status').filter({ hasText: 'rejected' }).waitFor()
+  now = Date.now()
+  await control({ now })
+  provider.configure({
+    sub: 'google-public-1',
+    email: 'google-public@example.com',
+    recent: true,
+    authTime: Math.floor(now / 1000),
+  })
+  const popupEvent = googlePage.waitForEvent('popup')
+  await googlePage.getByRole('button', { name: 'Verify Google', exact: true }).click()
+  const popup = await popupEvent
+  await googlePage.getByTestId('google-method-status').filter({ hasText: 'verified' }).waitFor()
+  if (!popup.isClosed()) await popup.waitForEvent('close')
+  assert.equal(
+    (await googleContext.cookies()).find((cookie) => cookie.name === 'consumer-token')!.value,
+    cookie.value,
+  )
+  const newPassword = 'owner adds a memorable passphrase'
+  await googlePage.getByLabel('Password', { exact: true }).fill(newPassword)
+  const added = googlePage.waitForResponse((response) =>
+    response.url().endsWith('/access/set-password'),
+  )
+  await googlePage.getByRole('button', { name: 'Add password explicitly', exact: true }).click()
+  assert.equal((await added).status(), 200)
+  await googlePage
+    .getByTestId('google-method-status')
+    .filter({ hasText: 'password-added' })
+    .waitFor()
+  assert.equal(await currentUser(nativeCookie), null)
+  await login('google-public@example.com', newPassword)
+  await googleContext.close()
+  mark(
+    'Chromium Google-only popup reauthentication rejects missing auth_time, accepts signed fresh evidence via exact-origin opener, then explicit password addition rotates/revokes old SID',
+  )
+  provider.configure({ sub: 'google-public-1', email: 'google-public@example.com', amr: ['pwd'] })
+  const publicResponse = await finish(await begin())
+  const publicCookie = appCookie(publicResponse)!
+  assert.equal(publicResponse.status, 303)
+  await control({ adminEligible: true })
+  const protectedGet = (value?: string) =>
+    fetch(`${origin2}/backend/administrative-records`, {
+      headers: { origin: origin2, ...(value ? { cookie: value } : {}) },
+    })
+  const graphql = (value?: string) =>
+    post(
+      origin2,
+      '/backend/graphql',
+      { query: 'query { AdministrativeRecords { docs { id name } } }' },
+      value,
+    )
+  const deniedGraphql = async (value?: string) => {
+    const response = await graphql(value)
+    const result = await response.json()
+    assert.ok(result.errors?.length, JSON.stringify(result))
+    assert.ok(!result.data?.AdministrativeRecords?.docs?.length)
+  }
+  for (const value of [undefined, publicCookie]) {
+    await rejected(await protectedGet(value))
+    await rejected(
+      await post(origin, '/backend/administrative-records', { name: 'unauthorized' }, value),
+    )
+    await deniedGraphql(value)
+    assert.equal((await post(origin, '/fixture', { localAccess: 'native' }, value)).status, 403)
+    if (value)
+      assert.equal(
+        (await post(origin, '/fixture', { localAccess: 'copied-principal' }, value)).status,
+        403,
+      )
+  }
+  const publicUser = await currentUser(publicCookie)
+  const elevation = await fetch(`${origin}/backend/customers/${publicUser.id}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', origin, cookie: publicCookie },
+    body: JSON.stringify({ role: 'admin' }),
+  })
+  assert.ok([200, 400, 401, 403].includes(elevation.status))
+  assert.equal(
+    (await currentUser(publicCookie)).role,
+    'customer',
+    'consumer field policy prevents public role updates',
+  )
+  const access = async (value: string) => {
+    const response = await fetch(`${origin}/backend/access`, { headers: { origin, cookie: value } })
+    assert.equal(response.status, 200)
+    return Boolean((await response.json()).canAccessAdmin)
+  }
+  assert.equal(await access(publicCookie), false)
+  const adminCookie = await login('browser@example.com')
+  assert.equal(await access(adminCookie), true)
+  const allowedRecords = await protectedGet(adminCookie)
+  assert.equal(allowedRecords.status, 200, await allowedRecords.clone().text())
+  const recordID = (await allowedRecords.json()).docs[0].id
+  const allowedGraphql = await (await graphql(adminCookie)).json()
+  assert.ok(
+    allowedGraphql.data?.AdministrativeRecords?.docs?.length,
+    JSON.stringify(allowedGraphql),
+  )
+  assert.equal(
+    (await post(origin2, '/fixture', { localAccess: 'native' }, adminCookie)).status,
+    200,
+  )
+  assert.equal(
+    (await post(origin, '/fixture', { localAccess: 'copied-principal' }, adminCookie)).status,
+    403,
+    'exact native principal identity cannot be replaced even when fields match',
+  )
+  assert.equal(
+    (await post(origin, '/fixture', { localAccess: 'user-only' }, adminCookie)).status,
+    403,
+    'Local API user object is not verified method evidence',
+  )
+  for (const method of ['PATCH', 'DELETE']) {
+    await rejected(
+      await fetch(`${origin}/backend/administrative-records/${recordID}`, {
+        method,
+        headers: { 'content-type': 'application/json', origin, cookie: publicCookie },
+        ...(method === 'PATCH' ? { body: JSON.stringify({ name: 'unauthorized mutation' }) } : {}),
+      }),
+    )
+  }
+  await control({ denyProtectedRead: true })
+  await rejected(await protectedGet(adminCookie))
+  await deniedGraphql(adminCookie)
+  await control({ denyProtectedRead: false, adminEligible: false })
+  assert.equal(await access(adminCookie), false)
+  await rejected(await protectedGet(adminCookie))
+  await control({ adminEligible: true, adminUnavailable: true })
+  assert.equal(await access(adminCookie), false)
+  await rejected(await protectedGet(adminCookie))
+  await deniedGraphql(adminCookie)
+  assert.equal(
+    (await post(origin2, '/fixture', { localAccess: 'native' }, adminCookie)).status,
+    403,
+  )
+  const maintenance = await post(origin, '/fixture', { localAccess: 'trusted' })
+  assert.equal(maintenance.status, 200)
+  assert.ok((await maintenance.json()).count > 0)
+  await control({ adminUnavailable: false })
+  for (const mode of ['denyOriginalAdmin', 'failOriginalAdmin']) {
+    await control({ [mode]: true })
+    assert.equal(await access(adminCookie), false)
+    await rejected(await protectedGet(adminCookie))
+    await deniedGraphql(adminCookie)
+    assert.equal(
+      (await post(origin2, '/fixture', { localAccess: 'native' }, adminCookie)).status,
+      403,
+    )
+    assert.equal((await post(origin, '/fixture', { localAccess: 'trusted' })).status, 200)
+    await control({ [mode]: false })
+    assert.equal((await protectedGet(adminCookie)).status, 200)
+  }
+  mark(
+    'public sessions cannot Admin or protected REST CRUD/GraphQL/Local API; eligible verified administrator succeeds; existing read denial, unmet/unavailable policy and missing Local evidence fail closed; explicit trusted maintenance preserved',
+  )
+
+  if (process.env.AUTH_CONSUMER_OTP === '1') {
+    const response = await post(origin, '/backend/access/otp/send', {
+      email: 'browser@example.com',
+      purpose: 'login',
+    })
+    assert.equal(response.status, 200)
+    const proof = await response.json()
+    const inbox = (await (await fetch(`${origin}/fixture`)).json()).inbox
+    const digits = String(
+      inbox.filter((message: FixtureMessage) => message.to === 'browser@example.com').at(-1).html,
+    ).match(/\b(\d{6})\b/)![1]
+    await rejected(
+      await post(origin2, '/backend/access/otp/verify', {
+        email: 'browser@example.com',
+        purpose: 'login',
+        context: proof.context,
+        otp: digits,
+      }),
+    )
+    const publicRequest = await post(origin, '/backend/access/otp/send', {
+      email: 'mail@example.com',
+      purpose: 'login',
+    })
+    assert.equal(publicRequest.status, 200)
+    const publicProof = await publicRequest.json()
+    const publicInbox = (await (await fetch(`${origin}/fixture`)).json()).inbox
+    const publicDigits = String(
+      publicInbox.filter((message: FixtureMessage) => message.to === 'mail@example.com').at(-1)
+        .html,
+    ).match(/\b(\d{6})\b/)![1]
+    const publicOtp = await post(origin2, '/backend/access/otp/verify', {
+      email: 'mail@example.com',
+      purpose: 'login',
+      context: publicProof.context,
+      otp: publicDigits,
+    })
+    assert.equal(publicOtp.status, 200, await publicOtp.clone().text())
+    const publicOtpCookie = appCookie(publicOtp)!
+    assert.equal((await currentUser(publicOtpCookie)).email, 'mail@example.com')
+    assert.equal(await access(publicOtpCookie), false)
+    await rejected(await protectedGet(publicOtpCookie))
+    await deniedGraphql(publicOtpCookie)
+    mark(
+      'native OTP proof alone cannot issue an administrator application session even when consumer policy would otherwise allow the role',
+    )
+  }
+  await control({ injectPublicAdmin: true, maskPublicAdminRole: true, adminEligible: false })
+  provider.configure({ sub: 'public-admin-injection', email: 'public-admin-injection@example.com' })
+  await rejected(await finish(await begin()))
+  assert.equal((await users('public-admin-injection@example.com')).length, 0)
+  await control({ injectPublicAdmin: false, maskPublicAdminRole: false, adminEligible: true })
+  const ordinary = await finish(await begin())
+  assert.equal(ordinary.status, 303)
+  assert.equal((await currentUser(appCookie(ordinary)!)).role, 'customer')
+  assert.equal(await access(appCookie(ordinary)!), false)
+  mark(
+    'original Admin eligibility rejects public provisioning and rolls account back even when composed policy masks eligibility; same identity later provisions ordinary customer only',
+  )
+
+  provider.configure({ sub: 'google-public-1', email: 'google-public@example.com', amr: ['pwd'] })
+  await control({ denyRoleRead: true })
+  const restricted = await finish(await begin())
+  assert.equal(
+    restricted.status,
+    303,
+    'native login applies field read pipeline, not collection CRUD read gate',
+  )
+  const restrictedCookie = appCookie(restricted)!
+  assert.equal((await currentUser(restrictedCookie)).role, undefined)
+  await control({ denyAccountRead: true })
+  await rejected(
+    await fetch(`${origin}/backend/customers/me`, {
+      headers: { origin, cookie: restrictedCookie },
+    }),
+  )
+  await rejected(
+    await fetch(`${origin}/backend/customers/${initialUser.id}`, {
+      headers: { origin, cookie: restrictedCookie },
+    }),
+  )
+  await control({ denyAccountRead: false, denyRoleRead: false })
+  assert.equal((await currentUser(publicCookie)).email, 'google-public@example.com')
+  const fixtureState = await (await fetch(`${origin}/fixture`)).json()
+  assert.ok(fixtureState.hooks.includes('afterLogin:google'))
+  assert.ok(fixtureState.hooks.includes('afterRead'))
+  const claims = (value: string) =>
+    JSON.parse(Buffer.from(value.split('=')[1].split('.')[1], 'base64url').toString('utf8'))
+  const initial = claims(publicCookie)
+  const session = (await users('google-public@example.com'))[0].sessions.find(
+    (session: FixtureUser['sessions'][number]) => session.id === initial.sid,
+  )
+  const refreshed = await post(origin2, '/backend/customers/refresh-token', {}, publicCookie)
+  assert.equal(refreshed.status, 200, await refreshed.clone().text())
+  const refreshedCookie = appCookie(refreshed)!
+  const refreshedClaims = claims(refreshedCookie)
+  assert.equal(refreshedClaims.sid, initial.sid)
+  assert.equal(refreshedClaims.authLoginMethod, 'google')
+  assert.deepEqual(refreshedClaims.authAmr, ['pwd'])
+  assert.ok(refreshedClaims.exp <= Math.floor(new Date(session!.createdAt).getTime() / 1000) + 600)
+  assert.equal('token' in (await refreshed.json()), false)
+  assert.equal(
+    (
+      await post(
+        origin,
+        '/backend/customers/refresh-token',
+        {},
+        refreshedCookie.replace('consumer-token=', 'wrong-prefix-token='),
+      )
+    ).status,
+    401,
+  )
+  const crossOrigin = await fetch(`${origin}/backend/customers/refresh-token`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      origin: 'https://attacker.invalid',
+      cookie: refreshedCookie,
+    },
+    body: '{}',
+  })
+  assert.ok([401, 403].includes(crossOrigin.status))
+  assert.equal((await post(origin2, '/backend/customers/logout', {}, refreshedCookie)).status, 200)
+  assert.equal(await currentUser(publicCookie), null)
+  assert.equal(await currentUser(refreshedCookie), null)
+  await rejected(await post(origin, '/backend/customers/refresh-token', {}, refreshedCookie))
+  await control({ sessionLifetime: 1 })
+  const shortResponse = await finish(await begin())
+  assert.equal(shortResponse.status, 303)
+  const shortCookie = appCookie(shortResponse)!
+  assert.ok(claims(shortCookie).exp <= claims(shortCookie).iat + 1)
+  await control({ sessionLifetime: 600 })
+  await new Promise((resolve) => setTimeout(resolve, 1500))
+  assert.equal(await currentUser(shortCookie), null)
+  await rejected(await post(origin, '/backend/customers/refresh-token', {}, shortCookie))
+  for (const value of ['consumer-token=fake', refreshedCookie, shortCookie]) {
+    const canonical = await fetch(
+      `${origin}/login?returnTo=${encodeURIComponent('/checkout?item=1#payment')}`,
+      { redirect: 'manual', headers: { cookie: value } },
+    )
+    assert.equal(canonical.status, 307)
+    assert.equal(new URL(requiredHeader(canonical, 'location'), origin).pathname, '/auth/login')
+    assert.equal(
+      new URL(requiredHeader(canonical, 'location'), origin).searchParams.get('returnTo'),
+      '/checkout?item=1#payment',
+    )
+    const route = await fetch(
+      `${origin}/auth/login?returnTo=${encodeURIComponent('/checkout?item=1#payment')}`,
+      { redirect: 'manual', headers: { cookie: value } },
+    )
+    assert.equal(route.status, 200)
+    assert.ok((await route.text()).includes('Continue with Google'))
+  }
+  for (const source of await page
+    .locator('script[src]')
+    .evaluateAll((nodes) => nodes.map((node) => (node as HTMLScriptElement).src))) {
+    const javascript = await (await fetch(source)).text()
+    for (const secret of [
+      'consumer-google-secret-private',
+      'consumer-only-private-secret-not-production',
+      'consumer-only-otp-secret-not-production',
+    ])
+      assert.ok(!javascript.includes(secret))
+  }
+  const logChunks = (
+    await Promise.all(
+      bases.map(
+        async (base: string) =>
+          ((await (await fetch(`${base}/fixture`)).json()) as FixtureSnapshot).logs,
+      ),
+    )
+  ).flat()
+  const logs = logChunks.join('')
+  const callbackEvents = logChunks
+    .flatMap((chunk) =>
+      chunk
+        .trim()
+        .split('\n')
+        .flatMap((line) => {
+          try {
+            return [JSON.parse(line)]
+          } catch {
+            return []
+          }
+        }),
+    )
+    .filter((event) => event.event === 'auth_login_google_callback_rejected')
+  assert.ok(rejectionIDs.size > 0)
+  const genericEvents = logChunks
+    .flatMap((chunk) =>
+      chunk
+        .trim()
+        .split('\n')
+        .flatMap((line) => {
+          try {
+            return [JSON.parse(line)]
+          } catch {
+            return []
+          }
+        }),
+    )
+    .filter((event) =>
+      ['auth.request.rejected', 'auth.infrastructure.failed'].includes(event.event),
+    )
+  for (const [requestId, kind] of rejectionIDs) {
+    if (kind === 'callback')
+      assert.ok(
+        callbackEvents.some((event) => event.requestId === requestId),
+        'callback failure header matches its sanitized callback rejection log',
+      )
+    else
+      assert.ok(
+        genericEvents.some((event) => event.correlation === requestId),
+        'generic failure header matches its sanitized generic rejection log',
+      )
+  }
+  for (const callback of provider.callbacks)
+    for (const key of ['state', 'code']) {
+      const value = new URL(callback).searchParams.get(key)
+      if (value) assert.ok(!logs.includes(value), `logs omit raw ${key}`)
+    }
+  for (const secret of [
+    'consumer-google-secret-private',
+    publicCookie.split('=')[1],
+    refreshedCookie.split('=')[1],
+  ])
+    assert.ok(!logs.includes(secret))
+  mark(
+    'native hooks/read access and custom cookies honored; refresh retains Google evidence and absolute cap, strict CSRF/wrong prefix rejected; logout revokes and short native expiry cannot refresh; invalid cookies do not block basePath login; client bundles/logs omit private secrets',
+  )
+  console.log(
+    JSON.stringify(
+      {
+        passed: true,
+        database,
+        instances: 2,
+        browser: 'Chromium',
+        provider: 'controlled OIDC, not live Google',
+        verified,
+      },
+      null,
+      2,
+    ),
+  )
+  await context.close()
+  return { passed: true, database, browser: 'Chromium', instances: 2, verified }
+}

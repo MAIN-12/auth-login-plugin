@@ -1,62 +1,115 @@
-import { afterEach, expect, it, vi } from 'vitest'
-import { generatePayloadCookie, loginOperation } from 'payload'
-import { verifyOtpEndpoint, setPasswordEndpoint } from '../src/endpoints/authEndpoints'
-import { hashOtp } from '../src/auth/domain/otp'
+import { expect, it } from 'vitest'
+import { authLoginPlugin } from '../src/index'
+it.each(['allowSignup', 'recovery'] as const)(
+  'requires ownership-proof configuration before enabling %s',
+  (flag) => {
+    expect(() =>
+      authLoginPlugin({
+        passwordLogin: true,
+        otpLogin: false,
+        providers: { google: false },
+        allowSignup: false,
+        recovery: false,
+        [flag]: true,
+      }),
+    ).toThrow('OTP requires')
+  },
+)
+it('requires a complete private Google configuration rather than the unsafe legacy provider', () => {
+  expect(() =>
+    authLoginPlugin({
+      passwordLogin: true,
+      otpLogin: false,
+      providers: { google: { enabled: true, clientId: 'test-id', clientSecret: 'secret' } },
+      allowSignup: false,
+      recovery: false,
+    }),
+  ).toThrow('Google requires')
+})
 
-vi.mock('payload', async (importOriginal) => ({
-  ...await importOriginal<typeof import('payload')>(),
-  loginOperation: vi.fn(),
-}))
-afterEach(() => vi.restoreAllMocks())
+it('requires a dedicated key and trusted server-origin resolver before enabling OTP', () => {
+  expect(() =>
+    authLoginPlugin({
+      passwordLogin: true,
+      otpLogin: true,
+      providers: { google: false },
+      allowSignup: false,
+      recovery: false,
+    }),
+  ).toThrow('OTP requires')
+})
 
-function request(authOverrides = {}) {
-  const auth = { cookies: { sameSite: 'None', domain: 'example.com', secure: true }, tokenExpiration: 3600, useSessions: true, ...authOverrides }
-  return {
-    json: async () => ({ email: ' User@Example.com ', otp: '123456' }),
-    headers: new Headers(),
+import type { PayloadRequest } from 'payload'
+import { resolveAuthConfig } from '../src/config'
+import { createGoogleEndpoints } from '../src/auth/composition/google'
+it('correlates callback rejection with a server-generated safe ID, never provider secrets', async () => {
+  const options = {
+    enabled: true,
+    clientId: 'private-client',
+    clientSecret: 'private-secret',
+    redirectURI: 'https://app.test/backend/access/oauth/google/callback',
+  }
+  const settings = resolveAuthConfig({
+    passwordLogin: true,
+    otpLogin: false,
+    providers: { google: options },
+    allowSignup: false,
+    recovery: false,
+  })
+  const events: unknown[] = []
+  const req = {
+    url: options.redirectURI + '?state=raw-state-secret&code=raw-code-secret',
+    headers: new Headers({
+      host: 'wrong.test',
+      cookie: 'private-cookie',
+      'X-Auth-Request-ID': 'caller-controlled',
+    }),
+    payload: { config: { cors: [] }, logger: { info: (event: unknown) => events.push(event) } },
+  } as unknown as PayloadRequest
+  const response = await createGoogleEndpoints(settings, options).at(-1)!.handler(req)
+  const requestId = response.headers.get('X-Auth-Request-ID')
+  expect(response.status).toBe(401)
+  expect(requestId).toMatch(/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/)
+  expect(events).toEqual([{ event: 'auth_login_google_callback_rejected', requestId }])
+  expect(JSON.stringify(events)).not.toMatch(
+    /raw-state-secret|raw-code-secret|private-cookie|private-secret|caller-controlled/,
+  )
+})
+
+it('keeps a callback rejection and cookie cleanup safe when the consumer logger throws', async () => {
+  const options = {
+    enabled: true,
+    clientId: 'private-client',
+    clientSecret: 'private-secret',
+    redirectURI: 'https://app.test/backend/access/oauth/google/callback',
+  }
+  const settings = resolveAuthConfig({
+    passwordLogin: true,
+    otpLogin: false,
+    providers: { google: options },
+    allowSignup: false,
+    recovery: false,
+  })
+  const state = 'a'.repeat(43)
+  const req = {
+    url: options.redirectURI + '?state=' + state + '&code=private-code',
+    headers: new Headers({ host: 'app.test' }),
     payload: {
-      config: { cookiePrefix: 'custom', cors: [] },
-      collections: { users: { config: { slug: 'users', auth } } },
-      find: vi.fn().mockResolvedValueOnce({ docs: [{ id: 'otp', hash: hashOtp('123456'), expiresAt: new Date(Date.now() + 60000).toISOString() }] }).mockResolvedValueOnce({ docs: [{ id: 'user', hasPassword: true }] }),
-      update: vi.fn().mockResolvedValue({}),
-      delete: vi.fn().mockResolvedValue({}),
+      config: { cors: [] },
+      logger: {
+        info: () => {
+          throw new Error('private logging failure')
+        },
+      },
     },
-  } as any
-}
-
-it.each([true, false])('uses native cookie configuration and forwards the request with sessions=%s', async (useSessions) => {
-  vi.useFakeTimers()
-  try {
-    const req = request({ useSessions })
-    vi.mocked(loginOperation).mockResolvedValue({ user: { id: 'user' } as any, token: 'signed-token' })
-    const result = await verifyOtpEndpoint.handler(req)
-    expect(result.status).toBe(200)
-    expect(loginOperation).toHaveBeenCalledWith(expect.objectContaining({ req, collection: req.payload.collections.users, data: { email: 'user@example.com', password: expect.any(String) } }))
-    expect(result.headers.get('set-cookie')).toBe(generatePayloadCookie({ collectionAuthConfig: req.payload.collections.users.config.auth, cookiePrefix: 'custom', token: 'signed-token' }))
-    expect(await result.json()).toMatchObject({ success: true, token: 'signed-token' })
-  } finally { vi.useRealTimers() }
-})
-
-it('keeps the cookie while suppressing tokens in JSON when configured', async () => {
-  const req = request({ removeTokenFromResponses: true })
-  vi.mocked(loginOperation).mockResolvedValue({ user: { id: 'user' } as any, token: 'signed-token' })
-  const result = await verifyOtpEndpoint.handler(req)
-  expect(result.headers.get('set-cookie')).toContain('custom-token=signed-token')
-  expect(await result.json()).not.toHaveProperty('token')
-})
-
-it('forwards the current session when setting a password', async () => {
-  const req = request()
-  req.user = { id: 'user', collection: 'users', _sid: 'current-session' }
-  req.json = async () => ({ password: 'long-password', confirmPassword: 'long-password' })
-  expect((await setPasswordEndpoint.handler(req)).status).toBe(200)
-  expect(req.payload.update).toHaveBeenCalledWith(expect.objectContaining({ req, id: 'user', collection: 'users' }))
-})
-
-it('rejects a user from a different auth collection', async () => {
-  const req = request()
-  req.user = { id: 'user', collection: 'admins' }
-  req.json = async () => ({ password: 'long-password', confirmPassword: 'long-password' })
-  expect((await setPasswordEndpoint.handler(req)).status).toBe(401)
-  expect(req.payload.update).not.toHaveBeenCalled()
+  } as unknown as PayloadRequest
+  // Missing storage rejects before provider traffic, after extracting the correlation state.
+  const response = await createGoogleEndpoints(settings, options).at(-1)!.handler(req)
+  expect(response.status).toBe(503)
+  expect(await response.json()).toEqual({ success: false, code: 'AUTH_UNAVAILABLE' })
+  expect(response.headers.get('X-Auth-Request-ID')).toMatch(
+    /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/,
+  )
+  expect(response.headers.get('Set-Cookie')).toContain('Max-Age=0')
+  expect(response.headers.get('Set-Cookie')).toContain(settings.collection + '-oauth-' + state)
 })

@@ -1,13 +1,20 @@
 // @vitest-environment happy-dom
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { pluginConfig } from '../src/config'
-import { getUiTranslations } from '../src/components/ui/translations'
+import { publicConfig } from './auth-test-config'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { AuthProvider, useAuth, type AuthContextValue, type AuthProviderProps } from '../src/components/AuthProvider'
+import {
+  AuthProvider,
+  useAuth,
+  type AuthContextValue,
+  type AuthProviderProps,
+} from '../src/exports/client'
 
 const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }))
-vi.mock('next/navigation', () => ({ useRouter: () => router, useSearchParams: () => new URLSearchParams('email=unrelated@example.com&redirect=/wrong') }))
+vi.mock('next/navigation', () => ({
+  useRouter: () => router,
+  useSearchParams: () => new URLSearchParams('email=unrelated@example.com&redirect=/wrong'),
+}))
 
 let root: Root
 let host: HTMLDivElement
@@ -15,11 +22,28 @@ let auth: AuthContextValue
 let authenticated: boolean
 let fetchMock: ReturnType<typeof vi.fn>
 const user = { id: 42, email: 'member@example.com' }
-function Probe() { auth = useAuth(); return <p>Current page content</p> }
-async function mount(props: Partial<AuthProviderProps> = {}) {
-  await act(async () => root.render(<AuthProvider modalLogin initialUser={null} authCardProps={{ showGoogleOAuth: false, locale: 'en' }} {...props}><Probe /></AuthProvider>))
+function Probe() {
+  auth = useAuth()
+  return <p>Current page content</p>
 }
-async function open() { await act(async () => auth.openLogin()) }
+async function mount(props: Partial<AuthProviderProps> = {}) {
+  await act(async () =>
+    root.render(
+      <AuthProvider
+        publicConfig={publicConfig}
+        modalLogin
+        initialUser={null}
+        authCardProps={{ showGoogleOAuth: false, locale: 'en' }}
+        {...props}
+      >
+        <Probe />
+      </AuthProvider>,
+    ),
+  )
+}
+async function open() {
+  await act(async () => auth.openLogin())
+}
 async function fill(selector: string, value: string) {
   const input = document.querySelector<HTMLInputElement>(selector)!
   expect(input).toBeTruthy()
@@ -29,62 +53,95 @@ async function fill(selector: string, value: string) {
     input.dispatchEvent(new Event('change', { bubbles: true }))
   })
 }
-async function submit() { await act(async () => { document.querySelector('dialog form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })) }) }
-async function click(selector: string) { await act(async () => { document.querySelector<HTMLElement>(selector)!.click() }) }
-async function enterEmail() { await fill('dialog input[type=email]', user.email); await submit() }
-async function enterOtp() { for (let i = 0; i < 6; i++) await fill('dialog input[inputmode=numeric]:nth-child(' + (i + 1) + ')', String(i + 1)) }
+async function submit() {
+  await act(async () => {
+    document
+      .querySelector('dialog form')!
+      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+  })
+}
+async function click(selector: string) {
+  await act(async () => {
+    document.querySelector<HTMLElement>(selector)!.click()
+  })
+}
+async function enterEmail() {
+  await fill('dialog input[type=email]', user.email)
+  await submit()
+}
 
 beforeEach(() => {
   Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
   vi.clearAllMocks()
   authenticated = false
-  pluginConfig.allowSignup = true
   window.history.replaceState({}, '', '/products?category=books#details')
   host = document.createElement('div')
   document.body.append(host)
   root = createRoot(host)
   // happy-dom does not implement the browser's native dialog top layer.
-  HTMLDialogElement.prototype.showModal = function () { this.open = true }
-  HTMLDialogElement.prototype.close = function () { this.open = false }
+  HTMLDialogElement.prototype.showModal = function () {
+    this.open = true
+  }
+  HTMLDialogElement.prototype.close = function () {
+    this.open = false
+  }
   fetchMock = vi.fn(async (url: string) => {
-    if (url === '/api/users/me') return Response.json({ user: authenticated ? user : null })
-    if (url === '/api/users/login' || url === '/api/auth/otp/verify') authenticated = true
+    if (url.endsWith('/me')) return Response.json({ user: authenticated ? user : null })
+    if (url === '/api/auth/login' || url === '/api/auth/otp/verify') authenticated = true
     if (url === '/api/users/logout') authenticated = false
     if (url === '/api/auth/check-email') return Response.json({ exists: true, hasPassword: true })
     return Response.json({ success: true, isNewUser: false })
   })
   vi.stubGlobal('fetch', fetchMock)
 })
-afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals() })
+afterEach(async () => {
+  await act(async () => root.unmount())
+  host.remove()
+  vi.unstubAllGlobals()
+  document.body.style.overflow = ''
+})
 
 describe('session guard', () => {
   it('validates the server session before allowing a protected action', async () => {
     authenticated = true
     await mount()
     let result = false
-    await act(async () => { result = await auth.isLoggedIn() })
+    await act(async () => {
+      result = await auth.isLoggedIn()
+    })
     expect(result).toBe(true)
     expect(auth.user).toEqual(user)
     expect(auth.status).toBe('authenticated')
     expect(auth.isLoginOpen).toBe(false)
-    expect(fetchMock).toHaveBeenCalledWith('/api/users/me', { credentials: 'include', cache: 'no-store' })
+    expect(fetchMock).toHaveBeenCalledWith('/api/users/me', {
+      credentials: 'include',
+      cache: 'no-store',
+    })
   })
   it('opens the modal for an expired session, including the isLogedin alias', async () => {
     await mount({ initialUser: user })
-    await act(async () => { expect(await auth.isLogedin()).toBe(false) })
+    await act(async () => {
+      expect(await auth.isLogedin()).toBe(false)
+    })
     expect(auth.status).toBe('unauthenticated')
     expect(auth.isLoginOpen).toBe(true)
     expect(router.push).not.toHaveBeenCalled()
   })
   it('navigates to the configured login page when modal mode is disabled', async () => {
     await mount({ modalLogin: false, basePath: '/account' })
-    await act(async () => { expect(await auth.isLoggedIn()).toBe(false) })
-    expect(router.push).toHaveBeenCalledWith('/account/login?redirect=%2Fproducts%3Fcategory%3Dbooks%23details')
+    await act(async () => {
+      expect(await auth.isLoggedIn()).toBe(false)
+    })
+    expect(router.push).toHaveBeenCalledWith(
+      '/account/login?redirect=%2Fproducts%3Fcategory%3Dbooks%23details',
+    )
   })
   it('does not treat a network failure as a confirmed logout', async () => {
     await mount({ initialUser: user })
     fetchMock.mockRejectedValueOnce(new Error('Offline'))
-    await act(async () => { await expect(auth.isLoggedIn()).rejects.toThrow('Offline') })
+    await act(async () => {
+      await expect(auth.isLoggedIn()).rejects.toThrow('Offline')
+    })
     expect(auth.user).toEqual(user)
     expect(auth.status).toBe('error')
     expect(auth.isLoginOpen).toBe(false)
@@ -101,83 +158,192 @@ describe('session guard', () => {
   it('rejects stale session checks after logout', async () => {
     await mount({ initialUser: user })
     let resolve!: (value: Response) => void
-    fetchMock.mockImplementationOnce(() => new Promise<Response>(r => { resolve = r }))
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((r) => {
+          resolve = r
+        }),
+    )
     const pending = auth.isLoggedIn()
     const rejection = expect(pending).rejects.toThrow('superseded')
     await act(async () => auth.logout())
-    await act(async () => { resolve(Response.json({ user })); await rejection })
+    await act(async () => {
+      resolve(Response.json({ user }))
+      await rejection
+    })
     expect(auth.user).toBeNull()
   })
 })
 
 describe('modal authentication flow', () => {
+  it('uses centralized regional and customized modal close copy, with explicit prop precedence', async () => {
+    await mount({ authCardProps: { locale: 'es-CO' } })
+    await open()
+    expect(host.querySelector('dialog button[aria-label="Cerrar"]')).toBeTruthy()
+    await act(async () => auth.closeLogin())
+    await mount({
+      authCardProps: { locale: 'es-CO', messages: { 'es-CO': { common: { close: 'Salir' } } } },
+    })
+    await open()
+    expect(host.querySelector('dialog button[aria-label="Salir"]')).toBeTruthy()
+    await act(async () => auth.closeLogin())
+    await mount({
+      closeLabel: 'Dismiss',
+      authCardProps: { locale: 'es-CO', messages: { 'es-CO': { common: { close: 'Salir' } } } },
+    })
+    await open()
+    expect(host.querySelector('dialog button[aria-label="Dismiss"]')).toBeTruthy()
+  })
+
+  it('wraps keyboard focus and restores the opener and scroll after cancellation', async () => {
+    const opener = document.createElement('button')
+    host.append(opener)
+    document.body.style.overflow = 'auto'
+    await mount({
+      authCardProps: { locale: 'en', showGoogleOAuth: false, poweredBy: { enabled: false } },
+    })
+    // Keep the opener outside the React tree, as in a consumer application.
+    document.body.append(opener)
+    opener.focus()
+    await open()
+    const dialog = document.querySelector('dialog')!
+    expect(dialog.getAttribute('aria-label')).toBe('Welcome Back')
+    const first = dialog.querySelector<HTMLButtonElement>('button[aria-label="Close"]')!
+    const last = dialog.querySelector<HTMLButtonElement>('button[type=submit]')!
+    first.focus()
+    await act(async () => {
+      first.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Tab',
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+    })
+    expect(document.activeElement).toBe(last)
+    await act(async () => {
+      last.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }),
+      )
+    })
+    expect(document.activeElement).toBe(first)
+    const cancel = new Event('cancel', { cancelable: true })
+    await act(async () => dialog.dispatchEvent(cancel))
+    expect(cancel.defaultPrevented).toBe(true)
+    expect(auth.isLoginOpen).toBe(false)
+    expect(document.activeElement).toBe(opener)
+    expect(document.body.style.overflow).toBe('auto')
+    opener.remove()
+    document.body.style.overflow = ''
+  })
+  it('repeated opening replaces the active workflow with one clean form and the latest destination', async () => {
+    await mount()
+    await act(async () => auth.openLogin({ redirectTo: '/old' }))
+    await enterEmail()
+    await act(async () => auth.openLogin({ redirectTo: '/latest' }))
+    expect(document.querySelectorAll('dialog form')).toHaveLength(1)
+    expect(document.querySelector<HTMLInputElement>('dialog input[type=email]')!.value).toBe('')
+    await enterEmail()
+    await fill('dialog input[type=password]', 'Correct-password-123!')
+    await submit()
+    expect(auth.isLoginOpen).toBe(false)
+    expect(router.push.mock.calls).toEqual([['/latest']])
+  })
+  it('keeps ownership navigation inside the modal and resets it when dismissed', async () => {
+    await mount({ publicConfig: { ...publicConfig, allowSignup: true, recovery: true } })
+    await open()
+    await click('dialog a[href*="signup"]')
+    expect(document.querySelector('dialog h1')?.textContent).toBe('Create Account')
+    expect(document.querySelectorAll('dialog form')).toHaveLength(1)
+    expect(router.push).not.toHaveBeenCalled()
+    await act(async () => auth.closeLogin())
+    await open()
+    await enterEmail()
+    await click('dialog a[href*="forgot-password"]')
+    expect(document.querySelector('dialog')?.textContent).toContain('Send Reset Code')
+    expect(document.querySelectorAll('dialog form')).toHaveLength(1)
+    expect(router.push).not.toHaveBeenCalled()
+    await act(async () => auth.closeLogin())
+    await open()
+    expect(document.querySelector('dialog input[type=password]')).toBeNull()
+    expect(document.querySelector<HTMLInputElement>('dialog input[type=email]')!.value).toBe('')
+  })
   it('renders and dismisses the real HeroUI v3 modal', async () => {
-    await import('../src/components/AuthModalHero')
-    await mount({ style: 'hero-ui' }); await open()
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)) })
+    await import('../src/components/organisms/AuthModal/AuthModalHero')
+    await mount({ style: 'hero-ui' })
+    await open()
+    await vi.waitFor(async () => {
+      await act(async () => {})
+      expect(document.querySelector('[data-slot="modal-dialog"] input[type=email]')).toBeTruthy()
+    })
     expect(document.querySelector('[data-slot="modal-dialog"]')).toBeTruthy()
-    expect(document.querySelector('[data-slot="modal-dialog"] input[type=email]')?.classList.contains('input')).toBe(true)
-    expect(document.querySelector('[data-slot="modal-dialog"] button[type=submit]')?.classList.contains('button')).toBe(true)
+    expect(
+      document
+        .querySelector('[data-slot="modal-dialog"] input[type=email]')
+        ?.classList.contains('input'),
+    ).toBe(true)
+    expect(
+      document
+        .querySelector('[data-slot="modal-dialog"] button[type=submit]')
+        ?.classList.contains('button'),
+    ).toBe(true)
     await click('[data-slot="modal-close-trigger"]')
     expect(auth.isLoginOpen).toBe(false)
   })
-  it.each(['modal-backdrop', 'modal-container'])('dismisses clicks on the empty %s but not the form', async slot => {
-    await import('../src/components/AuthModalHero')
-    await mount({ style: 'hero-ui' }); await open()
-    await act(async () => { await new Promise(resolve => setTimeout(resolve, 100)) })
-    await click('[data-slot="modal-dialog"] input[type=email]')
-    expect(auth.isLoginOpen).toBe(true)
-    await click(`[data-slot="${slot}"]`)
-    expect(auth.isLoginOpen).toBe(false)
-    expect(auth.status).toBe('unauthenticated')
-    expect(router.push).not.toHaveBeenCalled()
-  })
+  it.each(['modal-backdrop', 'modal-container'])(
+    'dismisses clicks on the empty %s but not the form',
+    async (slot) => {
+      await import('../src/components/organisms/AuthModal/AuthModalHero')
+      await mount({ style: 'hero-ui' })
+      await open()
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 100))
+      })
+      await click('[data-slot="modal-dialog"] input[type=email]')
+      expect(auth.isLoginOpen).toBe(true)
+      await click(`[data-slot="${slot}"]`)
+      expect(auth.isLoginOpen).toBe(false)
+      expect(auth.status).toBe('unauthenticated')
+      expect(router.push).not.toHaveBeenCalled()
+    },
+  )
   it('completes password login on the current page and ignores unrelated page query parameters', async () => {
-    await mount(); await open(); await enterEmail()
-    await fill('dialog input[type=password]', 'Correct-password-123!'); await submit()
+    await mount()
+    await open()
+    await enterEmail()
+    await fill('dialog input[type=password]', 'Correct-password-123!')
+    await submit()
     expect(auth.status).toBe('authenticated')
     expect(document.querySelector('dialog')).toBeNull()
-    expect(window.location.pathname + window.location.search + window.location.hash).toBe('/products?category=books#details')
+    expect(window.location.pathname + window.location.search + window.location.hash).toBe(
+      '/products?category=books#details',
+    )
     expect(router.push).not.toHaveBeenCalled()
     expect(router.refresh).toHaveBeenCalled()
   })
   it('honors an explicit local destination after successful login', async () => {
-    await mount(); await act(async () => auth.openLogin({ redirectTo: '/checkout?step=2' })); await enterEmail()
-    await fill('dialog input[type=password]', 'Correct-password-123!'); await submit()
+    await mount()
+    await act(async () => auth.openLogin({ redirectTo: '/checkout?step=2' }))
+    await enterEmail()
+    await fill('dialog input[type=password]', 'Correct-password-123!')
+    await submit()
     expect(router.push).toHaveBeenCalledWith('/checkout?step=2')
   })
-  it('keeps signup and OTP verification inside the modal', async () => {
-    await mount(); await open(); await click('dialog a[href="/auth/signup"]')
-    await fill('dialog input[type=text]', 'Test Member')
-    await fill('dialog input[type=email]', user.email); await submit()
-    expect(document.querySelectorAll('dialog input[inputmode=numeric]').length).toBe(6)
-    await enterOtp()
-    expect(auth.status).toBe('authenticated')
-    expect(document.querySelector('dialog')).toBeNull()
-    expect(router.push).not.toHaveBeenCalled()
-  })
-  it('keeps password recovery, OTP, and setting a password inside the modal', async () => {
-    await mount(); await open(); await enterEmail(); await click('dialog a[href="/forgot-password"]')
-    await enterEmail(); await enterOtp()
-    expect(document.querySelectorAll('dialog input[type=password]').length).toBe(2)
-    await fill('dialog input[type=password]', 'New-password-123!')
-    const inputs = document.querySelectorAll('dialog input[type=password]')
-    inputs[1].setAttribute('data-confirm', 'true')
-    await fill('dialog input[data-confirm]', 'New-password-123!'); await submit()
-    expect(auth.status).toBe('authenticated')
-    expect(document.querySelector('dialog')).toBeNull()
-    expect(router.push).not.toHaveBeenCalled()
-  })
-  it('supports OTP-only login and hides disabled signup', async () => {
-    pluginConfig.allowSignup = false
-    await mount({ authCardProps: { passwordLogin: false, otpLogin: true, showGoogleOAuth: false } })
+  it('does not offer the disabled signup, recovery, Google or OTP paths', async () => {
+    await mount()
     await open()
-    expect(document.querySelector('dialog a[href="/auth/signup"]')).toBeNull()
-    await enterEmail(); await enterOtp()
-    expect(auth.status).toBe('authenticated')
+    await enterEmail()
+    expect(document.querySelector('dialog a[href*="signup"]')).toBeNull()
+    expect(document.querySelector('dialog a[href*="forgot-password"]')).toBeNull()
+    expect(document.querySelector('dialog input[type=password]')).toBeTruthy()
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/auth/check-email', expect.anything())
+    expect(fetchMock).not.toHaveBeenCalledWith('/api/auth/otp/send', expect.anything())
   })
   it('resets form state after dismissal and restores scroll', async () => {
-    await mount(); await open(); await enterEmail()
+    await mount()
+    await open()
+    await enterEmail()
     expect(document.body.style.overflow).toBe('hidden')
     await click('dialog button[aria-label="Close"]')
     expect(document.body.style.overflow).toBe('')
@@ -185,36 +351,107 @@ describe('modal authentication flow', () => {
     expect(document.querySelector<HTMLInputElement>('dialog input[type=email]')!.value).toBe('')
   })
   it('does not close a newly opened modal when an older request completes', async () => {
-    await mount(); await open(); await enterEmail()
+    await mount()
+    await open()
+    await enterEmail()
     let resolve!: (value: Response) => void
-    fetchMock.mockImplementationOnce(() => new Promise<Response>(r => { resolve = r }))
-    await fill('dialog input[type=password]', 'Correct-password-123!'); await submit()
-    await act(async () => auth.closeLogin()); await open()
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((r) => {
+          resolve = r
+        }),
+    )
+    await fill('dialog input[type=password]', 'Correct-password-123!')
+    await submit()
+    await act(async () => auth.closeLogin())
+    await open()
     authenticated = true
-    await act(async () => { resolve(Response.json({ success: true })) })
+    await act(async () => {
+      resolve(Response.json({ success: true }))
+    })
     expect(auth.isLoginOpen).toBe(true)
   })
 })
 
+describe('public method selection', () => {
+  it('advances unknown and existing email identities identically without a public lookup', async () => {
+    await mount()
+    await open()
+    await fill('dialog input[type=email]', 'unknown@example.com')
+    await submit()
+    expect(document.querySelector('dialog input[type=password]')).toBeTruthy()
+    expect(fetchMock.mock.calls.map((call) => call[0])).not.toContain('/api/auth/check-email')
+  })
+})
+describe('server and UI instance isolation', () => {
+  it('keeps collection paths and branding separate across sibling tree render order', async () => {
+    const contexts: Record<string, AuthContextValue> = {}
+    function InstanceProbe({ id }: { id: string }) {
+      contexts[id] = useAuth()
+      return <span>{id}</span>
+    }
+    const first = {
+      ...publicConfig,
+      collection: 'customers',
+      apiPrefix: '/backend',
+      logoUrl: '/first.svg',
+    }
+    const second = {
+      ...publicConfig,
+      collection: 'members',
+      apiPrefix: '/other',
+      logoUrl: '/second.svg',
+    }
+    const tree = (reverse: boolean) =>
+      (reverse ? ['second', 'first'] : ['first', 'second']).map((id) => (
+        <AuthProvider
+          key={id}
+          publicConfig={id === 'first' ? first : second}
+          initialUser={null}
+          modalLogin
+        >
+          <InstanceProbe id={id} />
+        </AuthProvider>
+      ))
+    await act(async () => root.render(tree(false)))
+    await act(async () => contexts.first.openLogin())
+    expect(document.querySelector('dialog img')?.getAttribute('src')).toBe('/first.svg')
+    await act(async () => contexts.first.closeLogin())
+    await act(async () => contexts.second.openLogin())
+    expect(document.querySelector('dialog img')?.getAttribute('src')).toBe('/second.svg')
+    await act(async () => contexts.second.closeLogin())
+    fetchMock.mockClear()
+    await act(async () => root.render(tree(true)))
+    await act(async () => {
+      await contexts.first.refreshSession()
+      await contexts.second.refreshSession()
+    })
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      '/backend/customers/me',
+      '/other/members/me',
+    ])
+  })
+})
 
-describe('email lookup failures', () => {
-  it.each([
-    ['server failure', 500, { error: 'Failed to check email' }],
-    ['invalid success response', 200, { error: 'Unexpected response' }],
-  ])('does not report a missing account on %s', async (_name, status, body) => {
-    await mount(); await open()
-    fetchMock.mockResolvedValueOnce(Response.json(body, { status: status as number }))
-    await enterEmail()
-    const text = document.querySelector('dialog')!.textContent
-    expect(text).toContain(getUiTranslations('en').errors.genericError)
-    expect(text).not.toContain(getUiTranslations('en').errors.noAccountFound)
-    expect(document.querySelector('dialog input[type=email]')).toBeTruthy()
-    expect(fetchMock).not.toHaveBeenCalledWith('/api/auth/otp/send', expect.anything())
+it('shares concurrent session checks and rejects malformed users without confirming authentication', async () => {
+  await mount({ initialUser: user })
+  let resolve!: (value: Response) => void
+  fetchMock.mockImplementationOnce(
+    () =>
+      new Promise<Response>((r) => {
+        resolve = r
+      }),
+  )
+  const first = auth.refreshSession()
+  expect(auth.refreshSession()).toBe(first)
+  await act(async () => {
+    resolve(Response.json({ user: { role: 'admin' } }))
+    await expect(first).rejects.toThrow('Unable to load')
   })
-  it('reports a missing account only after a successful negative lookup', async () => {
-    await mount(); await open()
-    fetchMock.mockResolvedValueOnce(Response.json({ exists: false, hasPassword: false, authProvider: null }))
-    await enterEmail()
-    expect(document.querySelector('dialog')!.textContent).toContain(getUiTranslations('en').errors.noAccountFound)
+  expect(auth.user).toEqual(user)
+  expect(auth.status).toBe('error')
+  await act(async () => {
+    expect(await auth.refreshSession()).toBeNull()
   })
+  expect(auth.status).toBe('unauthenticated')
 })

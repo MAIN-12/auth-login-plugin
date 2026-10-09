@@ -2,24 +2,48 @@
 // RSC (React Server Components) exports for @main12/auth-login/rsc
 // ============================================================
 
-// Server component auth pages (reads plugin config automatically)
-export { default as AuthPages } from '../components/AuthPagesServer'
-export type { AuthPagesProps } from '../components/AuthPagesServer'
+// Server component auth pages (requires explicit publicConfig)
+export { default as AuthPages } from '../components/pages/AuthPages/server'
+export type { AuthPagesProps } from '../components/pages/AuthPages/server'
 
-// Server component auth card (reads plugin config automatically)
-export { AuthCard } from '../components/AuthCardServer'
-export type { AuthCardProps, AuthCardWithSlugProps, AuthCardWithChildrenProps } from '../components/AuthCardServer'
+// Server component auth card (requires explicit publicConfig)
+export { AuthCard } from '../components/organisms/AuthCard/server'
+export type {
+  AuthCardProps,
+  AuthCardWithSlugProps,
+  AuthCardWithChildrenProps,
+} from '../components/organisms/AuthCard/server'
 
 // Layout component (can be used in server or client components)
-export { AuthLayout } from '../components/AuthLayout'
-export type { AuthLayoutConfig, AuthLayoutProps, AuthTexture } from '../components/AuthLayout'
+export { AuthLayout } from '../components/templates/AuthLayout'
+export type {
+  AuthLayoutConfig,
+  AuthLayoutProps,
+  AuthTexture,
+} from '../components/templates/AuthLayout'
 
 // Form components (for custom compositions — re-exported from client)
-export { LoginForm, SignupForm, ForgotPasswordForm, VerifyOtpForm, SetPasswordForm } from '../components/forms/index'
-export type { LoginFormProps, SignupFormProps, ForgotPasswordFormProps, VerifyOtpFormProps, SetPasswordFormProps } from '../components/forms/index'
+export {
+  LoginForm,
+  SignupForm,
+  ForgotPasswordForm,
+  VerifyOtpForm,
+  SetPasswordForm,
+} from '../components/organisms/AuthCard/forms'
+export type {
+  LoginFormProps,
+  SignupFormProps,
+  ForgotPasswordFormProps,
+  VerifyOtpFormProps,
+  SetPasswordFormProps,
+} from '../components/organisms/AuthCard/forms'
 
 // Form registry (for advanced usage / extending)
-export { AUTH_FORMS, getFormBySlug, type AuthFormSlug } from '../components/forms/index'
+export {
+  AUTH_FORMS,
+  getFormBySlug,
+  type AuthFormSlug,
+} from '../components/organisms/AuthCard/forms'
 
 // Email template system (server-only — uses Node APIs)
 export {
@@ -33,22 +57,17 @@ export {
   generateWelcomeEmail,
   generatePasswordResetEmail,
   generatePasswordChangedEmail,
-} from '../components/email/index'
+} from '../auth/infrastructure/email'
 
-export type {
-  BaseTemplateOptions,
-} from '../components/email/baseTemplate'
+export type { BaseTemplateOptions } from '../auth/infrastructure/email/baseTemplate'
 
 export type {
   EmailColors,
   SocialLink,
   SocialPlatform,
-} from '../components/email/constants'
+} from '../auth/infrastructure/email/constants'
 
-export type {
-  SupportedLanguage,
-  EmailTranslations,
-} from '../components/email/translations'
+export type { SupportedLanguage, EmailTranslations } from '../i18n/email'
 
 export type {
   OtpEmailParams,
@@ -59,12 +78,17 @@ export type {
   PasswordResetEmailResult,
   PasswordChangedEmailParams,
   PasswordChangedEmailResult,
-} from '../components/email/index'
+} from '../auth/infrastructure/email'
 
 // Auth plugin config types
-export type { AuthLoginPluginOptions } from '../index'
+export type { AuthLoginPluginOptions } from '../config'
 
-export { AuthProvider } from '../components/AuthProviderServer'
-export type { AuthProviderProps, AuthUser } from '../components/AuthProvider'
+export { AuthProvider } from '../auth/interface/react/providers/AuthProviderServer'
+export type { AuthProviderProps, AuthUser } from '../auth/interface/react/providers/AuthProvider'
 
-export type { AuthPresentationProps, AuthLocalizationProps, ResolvedAuthPresentation, PoweredByConfig } from '../components/auth-presentation/types'
+export type {
+  AuthPresentationProps,
+  AuthLocalizationProps,
+  ResolvedAuthPresentation,
+  PoweredByConfig,
+} from '../configuration/authAppearance/types'

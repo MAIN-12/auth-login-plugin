@@ -1,0 +1,70 @@
+.texture {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--auth-texture-color, #94a3b8);
+  mask-image: radial-gradient(ellipse at center, #000 20%, transparent 85%);
+  -webkit-mask-image: radial-gradient(ellipse at center, #000 20%, transparent 85%);
+}
+.base,
+.spotlight {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+}
+.dots {
+  --texture-pattern: radial-gradient(circle, currentColor 1px, transparent 1.5px);
+  --texture-size: 24px 24px;
+}
+.grid {
+  --texture-pattern:
+    linear-gradient(
+      to right,
+      transparent 23.5px,
+      currentColor 23.5px,
+      currentColor 24.5px,
+      transparent 24.5px
+    ),
+    linear-gradient(
+      to bottom,
+      transparent 23.5px,
+      currentColor 23.5px,
+      currentColor 24.5px,
+      transparent 24.5px
+    );
+  --texture-size: 48px 48px;
+}
+.base {
+  background-image: var(--texture-pattern);
+  background-size: var(--texture-size);
+  opacity: 0.16;
+}
+.spotlight {
+  background-image: var(--texture-pattern);
+  background-size: var(--texture-size);
+  opacity: var(--auth-texture-active, 0);
+  transition: opacity 450ms ease;
+  mask-image: radial-gradient(
+    260px circle at var(--auth-texture-x, 50%) var(--auth-texture-y, 50%),
+    #0009,
+    transparent
+  );
+  -webkit-mask-image: radial-gradient(
+    260px circle at var(--auth-texture-x, 50%) var(--auth-texture-y, 50%),
+    #0009,
+    transparent
+  );
+}
+.grid .spotlight {
+  /* Small points sit exactly on the grid intersections. */
+  background-image:
+    radial-gradient(circle, currentColor 1.8px, transparent 2.4px), var(--texture-pattern);
+}
+@media (prefers-reduced-motion: reduce), (hover: none), (pointer: coarse) {
+  .spotlight {
+    display: none;
+    transition: none;
+  }
+}

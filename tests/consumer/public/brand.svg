@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="180" height="44" viewBox="0 0 180 44" role="img" aria-label="Consumer Brand">
+  <rect width="44" height="44" rx="12" fill="#17324d" />
+  <path d="M13 23l6 6 12-14" fill="none" stroke="#d5e855" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
+  <text x="55" y="28" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#17324d">Consumer</text>
+</svg>

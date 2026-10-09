@@ -1,997 +1,318 @@
-# @main12/auth-login
+# @main12/auth-login — hardened password/OTP/Google candidate
 
-**Payload CMS authentication plugin** — login, signup, OTP, forgot password, branded emails, and "Powered by Main 12" footer. Install once, done.
+This working branch contains **the issues 01–06 hardening candidate**, a breaking authentication/configuration change. Publication remains gated on candidate-specific acceptance and the outstanding human accessibility checks; implementation is not a claim that the complete specification is accepted.
+
+## Integration contracts and documentation authority
+
+Read [the local plugin contracts and migration guide](docs/plugin-contracts.md) for configuration, shared card/page/modal workflows, explicit ES/EN locale, email branding, HTTP result contracts and verification scope. Existing `docs/README.md`, `docs/CONTEXT.md` and copied AOP guides describe another repository: they are **nonnormative reference here** and were preserved, not silently migrated or overwritten.
+
+Automatic presentation acceptance uses `pnpm test:integration:acceptance`; manual screen-reader evidence remains a separate gate. No automatic pass certifies the host application.
+
+## HeroUI theme inheritance
+
+With `style: 'hero-ui'`, cards, forms, OTP fields, and modals inherit the host's
+HeroUI light/dark/custom theme. Load HeroUI v3 styles in the host application and
+place the auth components below its theme scope (`.dark`, `data-theme`, or custom
+CSS variables). Modal portals stay inside that scope; no plugin-owned light mode
+or primary color overrides are applied. Shared text, errors, and password-strength
+indicators use HeroUI semantic tokens. Explicit caller classes still take precedence.
+The `tailwind` adapter retains its standalone light palette; email colors remain
+configured separately.
+
+## Source organization
+
+`src/components` contains only Atomic Design levels: `atoms`, `molecules`,
+`organisms`, `templates`, and `pages`. Each visual component owns its folder,
+including its neutral props and any `Hero.tsx` / `Tailwind.tsx` implementations.
+`src/hoc/withAuthStyle/index.tsx` selects the configured style per instance;
+HeroUI remains optional and lazy, and modal overrides retain their precedence.
+
+Pure visual settings live in `src/configuration/authAppearance`; data contexts and
+React settings hooks live in `src/contexts`, and tokens live in `src/theme`.
+Authentication/session integration belongs to `src/auth/interface/react/providers`.
+Server visual entries are `server.tsx` beside `AuthCard` and `AuthPages`; they are
+not providers. `AuthLogo` and `VisualLoadingBoundary` are atoms; the loading
+handshake stays in a data-only context, independent of `AuthCard`.
+All dictionaries and locale utilities live in `src/i18n/{ui,email,locale}.ts`,
+including overridable `common.close` modal copy. Email generation lives in
+`src/auth/infrastructure/email`, outside the visual tree. Public package
+entrypoints are unchanged; internal source paths are not supported API.
+
+## Supported flow and explicit limits
+
+- Password login delegates to Payload's real local login operation: existing passwords, hooks, verification, lockouts and field-read filtering remain authoritative. Native `collection.access.read` controls `/me`/CRUD, not whether valid credentials can log in; use rejecting login hooks for host login policy.
+- Google uses browser-bound, single-use OIDC/PKCE with native Payload sessions. Explicit private configuration and provider callback registration are required. Signup is closed by default in the explicit configuration. Signup, recovery and managed password changes are available only through the ownership-proof flows below; legacy native forgot/reset/first-register and raw credential CRUD still deny access. Public account discovery stays removed.
+- The target collection requires explicit `auth.useSessions: true`, `auth.verify: true`, email local strategy, and no API keys/custom authentication strategies. A verified account must have trustworthy `_verified: true` evidence. Do not mark legacy accounts verified by default.
+- Initial JWT lifetime is `min(auth.tokenExpiration, session.maxAge)`. `maxAge` defaults to 7200 **seconds**. Refresh cannot exceed `session.createdAt + lifetime`; it cannot lengthen a smaller host token lifetime. Logout revokes the native server session.
+- Host CORS, CSRF and cookie settings remain effective. `removeTokenFromResponses` is honored by login/refresh. The proxy only canonicalizes paths; a cookie is never proof of authentication.
+- The [issue06 candidate evidence](tests/evidence/issue06.md) demonstrates Node 22.23.2 and 24.21.0 with Payload 3.90.2, Next 16.3.6, React 19.2.6 and Chromium: 22 packed acceptance runs cover SQLite (WAL/1,000 ms busy timeout) and PostgreSQL 17.8. This is the exact tested stack, not Linux/remote-CI execution or every peer-range combination. OTP adapters are restricted to Payload SQLite/PostgreSQL; other adapters are excluded. Runtime peers pin that target (Framer Motion 12.43.0 and optional HeroUI 3.2.2). Human screen-reader/device checks and live Google acceptance remain pending.
+
+## One configuration per application instance
 
 ```ts
-// payload.config.ts
+// auth-plugin.ts — server-side composition root
 import { authLoginPlugin } from '@main12/auth-login'
 
-plugins: [
-  authLoginPlugin({
-    projectName: 'My SaaS',
-    domain: 'https://myapp.com',
-    logo: 'https://myapp.com/logo.png',
-    style: 'tailwind',
-    routeRedirects: true,
-  }),
-]
-```
-
----
-
-## Features
-
-- **5 auth pages** — login (multi-step), signup, forgot password, verify OTP, set password
-- **Single catch-all route** — one file handles all auth pages (`AuthPages` component)
-- **Route redirects** — automatic `/login` → `/auth/login`, `/admin/login` → `/auth/login` via Next.js 16 proxy
-- **Multi-style** — `tailwind` or `hero-ui` (HeroUI), with shared Framer Motion card transitions. Set once in config
-- **Google OAuth** — optional, enable via `providers` config (hidden by default)
-- **5 API endpoints** — `check-email`, `otp/send`, `otp/verify`, `set-password`, `signup`
-- **OTP engine** — SHA-256 hashing + `timingSafeEqual` comparison, 10-min expiry, 3 attempts
-- **Email templates** — welcome, OTP login, password reset, password changed (EN/ES)
-- **Powered by Main 12** — bundled inline SVG, linked to main12.com by default (URL overridable)
-- **Global logo** — pass once in plugin config, automatically shown on all pages and email headers
-- **Configurable login methods** — `passwordLogin` and `otpLogin` options for flexible auth flows
-- **Auto-verify OTP** — automatically verifies when all 6 digits are entered
-- **Smart redirects** — logged-in users are redirected away from auth pages
-- **Google account picker** — always shows account selection by default (`prompt: 'select_account'`)
-- **No UI library required** (Tailwind mode) — Next.js/React/Payload plus Framer Motion for card transitions; `style: 'hero-ui'` additionally requires HeroUI
-- **Multi-language** — built-in English/Spanish, auto-detected per-request, fully overridable via `messages` prop, works with or without next-intl/next-i18next
-
----
-
-## Installation
-
-```bash
-pnpm add @main12/auth-login
-```
-
-### Tailwind mode (default — also ShadCN compatible)
-
-Install `framer-motion` for the shared card entrance animation (`pnpm add framer-motion`). The Tailwind style uses standard utility classes that work in any Tailwind project, including ShadCN-based ones.
-
-If you are using Tailwind CSS in your host app, add the plugin to your Tailwind source scanning so custom utility classes compile properly:
-
-- **Tailwind v4** (in your `globals.css`):
-  ```css
-  @source './node_modules/@main12/auth-login/**/*.{js,ts,jsx,tsx}';
-  ```
-- **Tailwind v3** (in your `tailwind.config.js`):
-  ```js
-  content: [
-    './node_modules/@main12/auth-login/**/*.{js,ts,jsx,tsx}',
-    './src/**/*.{js,ts,jsx,tsx}',
-  ]
-  ```
-
-### HeroUI mode
-
-```bash
-pnpm add @heroui/react framer-motion @iconify/react
-```
-
----
-
-## Quick Start (Simplified Setup)
-
-The fastest way to get all auth pages running with just **2 files**.
-
-### 1. Add the plugin + Users collection
-
-```ts
-// payload.config.ts
-import { authLoginPlugin } from '@main12/auth-login'
-
-export default buildConfig({
-  collections: [
-    {
-      slug: 'users',
-      auth: { tokenExpiration: 7200, verify: false, maxLoginAttempts: 5 },
-      fields: [
-        { name: 'name', type: 'text' },
-      ],
-    },
-  ],
-  plugins: [
-    authLoginPlugin({
-      projectName: 'My App',
-      domain: 'https://myapp.com',
-      logo: '/logo.png',
-      style: 'tailwind',
-      routeRedirects: true,   // enables /login → /auth/login redirects
-    }),
-  ],
+export const authPlugin = authLoginPlugin({
+  collection: 'customers',
+  apiPrefix: '/backend', // must match Payload routes.api
+  authEndpointPrefix: '/access', // relative to the API prefix
+  basePath: '/account', // your AuthPages mount
+  passwordLogin: true,
+  otpLogin: false,
+  providers: { google: false },
+  allowSignup: false,
+  recovery: false,
+  session: { maxAge: 7200 },
+  modalLogin: true,
+  style: 'tailwind',
+  locale: 'en',
+  logo: '/brand.svg',
 })
 ```
 
-> **Note:** OTP data is stored in a hidden `auth-otps` collection that the plugin registers automatically. No OTP fields needed on your `users` collection.
-
-### 2. Create the catch-all auth route (1 file)
-
-```tsx
-// src/app/(frontend)/(auth)/auth/[...slug]/page.tsx
-'use client'
-
-import { use } from 'react'
-import { AuthPages } from '@main12/auth-login/client'
-
-export default function Page({ params }: { params: Promise<{ slug: string[] }> }) {
-  const { slug } = use(params)
-  return <AuthPages slug={slug} />
-}
-```
-
-This single file handles all routes:
-- `/auth/login`
-- `/auth/signup`
-- `/auth/forgot-password`
-- `/auth/verify-otp`
-- `/auth/set-password`
-
-### 3. Add the proxy for route redirects (1 file)
+Add `authPlugin` to `buildConfig({ plugins: [authPlugin], routes: { api: '/backend' }, ... })`. Configure `customers` with `auth: { useSessions: true, verify: true, removeTokenFromResponses: true, ... }`. Preserve collection access/hooks. Privileged account provisioning remains the consumer's responsibility; anonymous CRUD creation is denied by the plugin. Raw password/confirmPassword/hash/salt writes through native REST/GraphQL create/update are also disabled, even with a current cookie. Public writes to native session-authority fields (`sessions`, `_sid`, `_strategy`, `authLoginMethod`) are also denied to prevent session resurrection. Ordinary authorized profile updates such as email retain native behavior. Server maintenance must use an explicit Local API call, not an HTTP request forwarded with access overrides:
 
 ```ts
-// src/proxy.ts (Next.js 16+)
-export { proxy, config } from '@main12/auth-login/proxy'
-```
-
-This redirects:
-- `/login` → `/auth/login`
-- `/signup` → `/auth/signup`
-- `/forgot-password` → `/auth/forgot-password`
-- `/verify-otp` → `/auth/verify-otp`
-- `/set-password` → `/auth/set-password`
-- `/admin/login` → `/auth/login` (**always**, regardless of `routeRedirects` setting)
-
-### 4. Visit `/login` — done.
-
----
-
-## Testing All Pages
-
-Once the catch-all route is set up, every auth page is reachable directly by URL. Some pages require query params to have meaningful content (they're normally reached by clicking through the flow, e.g. signup → verify-otp), so use the URLs below to test each one in isolation:
-
-| Page | URL to test | Notes |
-|------|-------------|-------|
-| **Login** | `/auth/login` | 3 sub-states, driven by user interaction: email step (default) → password step or OTP-prompt step, depending on whether the account has a password and `passwordLogin`/`otpLogin` config |
-| **Signup** | `/auth/signup` | Hidden entirely if `allowSignup: false` — falls back to rendering Login instead |
-| **Forgot Password** | `/auth/forgot-password` | No query params required |
-| **Verify OTP** | `/auth/verify-otp?email=test@example.com&purpose=signup` | ⚠️ **Renders a blank page if `email` is missing** — always include `?email=...`. `purpose` can be `login`, `signup`, or `password-reset` (changes the title/subtitle) |
-| **Set Password** | `/auth/set-password` | No query params required |
-
-> **Why does `/auth/verify-otp` show a blank page?** The page intentionally renders `null` when there's no `email` in the URL, since in real usage it's always reached via a redirect from signup/login/forgot-password that appends `?email=...&purpose=...`. This is expected — not a bug. Always test it with the full query string above.
-
-### Testing the Login page's 3 sub-states
-
-The Login page's step is internal UI state, not driven by the URL — to see each one:
-1. **Email step** (default) — just load `/auth/login`.
-2. **Password step** — enter an email that belongs to a user *with* a password set, then submit. Requires `passwordLogin: true` (default).
-3. **OTP-prompt step** — enter an email that belongs to a user *without* a password set (e.g. a Google OAuth-only user), with `otpLogin: true` and `passwordLogin: true`.
-
-### Testing Google OAuth
-
-Google OAuth buttons only render when `providers.google` is configured with valid credentials (see [Google OAuth](#google-oauth-providers) below). With no credentials, the button is hidden — this is expected in a fresh setup.
-
-### Testing different locales
-
-Every page also respects the `locale` prop / auto-detection (see [Multi-Language Support](#multi-language-support)). To manually verify a specific language without changing your browser or OS settings, append the plugin's `locale` prop explicitly in your route file, or set the `NEXT_LOCALE` cookie / send an `Accept-Language` header:
-
-```bash
-curl -H "Accept-Language: es-MX,es;q=0.9" http://localhost:3000/auth/login
-```
-
----
-
-## Configuration
-
-```ts
-authLoginPlugin({
-  // Core
-  projectName: 'My App',          // Email subjects + footers
-  contactEmail: 'hi@myapp.com',   // Email footer contact
-  domain: 'https://myapp.com',    // Links in emails
-  logo: '/logo.png',              // All auth pages + email headers
-  style: 'tailwind',              // 'tailwind' | 'hero-ui'
-  enabled: true,
-
-  // Signup
-  allowSignup: true,               // Allow new users to sign up (default: true)
-
-  // Login methods
-  passwordLogin: true,            // Allow password-based login (default: true)
-  otpLogin: true,                 // Allow OTP-based login (default: true)
-
-  // Route redirects
-  routeRedirects: true,           // Enable /login → /auth/login redirects
-  // or with custom base path:
-  // routeRedirects: { basePath: '/auth' },
-
-  // OAuth providers (optional — hidden by default)
-  providers: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      prompt: 'select_account',   // Always show account picker (default)
-    },
-  },
+await payload.create({
+  collection: 'customers',
+  data: { email: 'owner@example.com', password: trustedPassword, _verified: verifiedEvidence },
+  overrideAccess: true,
+  context: { authLoginCredentialProvisioning: true },
+  disableVerificationEmail: true,
 })
 ```
 
-### Route Redirects
+This escape hatch requires all three: native `req.payloadAPI === 'local'`, `overrideAccess === true`, and the explicit server context marker. Omitting the marker, using `overrideAccess: false`, or forwarding a REST/GraphQL request remains denied. The marker is not a client grant and is never read from an Origin header. Credential maintenance, verification evidence and coordinated session revocation are the authorized server operator's responsibilities, not a public password-change flow.
 
-| Value | Behavior |
-|-------|----------|
-| `false` (default) | No redirects. You manage your own routes. |
-| `true` | Redirects `/login`, `/signup`, etc. → `/auth/login`, `/auth/signup`, etc. |
-| `{ basePath: '/myauth' }` | Same, but redirects to `/myauth/login`, etc. |
-
-> **Note:** `/admin/login` is **always** redirected to the plugin login page when the proxy is active, regardless of the `routeRedirects` setting.
-
-### Google OAuth (Providers)
-
-Google OAuth is **hidden by default**. To enable it, just add `providers.google` — the plugin handles everything (UI buttons + server-side OAuth flow via `payload-oauth2` under the hood):
-
-```ts
-authLoginPlugin({
-  providers: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      successRedirect: '/dashboard',    // optional, defaults to '/admin'
-      failureRedirect: '/login?error=failed', // optional
-    },
-  },
-})
-```
-
-That's it. No extra packages to install, no extra plugins to configure.
-
-| Config | Behavior |
-|--------|----------|
-| Omitted / not set | Google OAuth hidden |
-| `google: true` | Auto-detect `GOOGLE_CLIENT_ID` + `GOOGLE_CLIENT_SECRET` from env |
-| `google: { clientId, clientSecret }` | Enable with explicit credentials |
-| `google: false` | Force disable |
-
-#### Google Account Picker
-
-By default, Google always shows the account selection screen (`prompt: 'select_account'`). This prevents confusion when users have multiple Google accounts.
-
-| `prompt` value | Behavior |
-|----------------|----------|
-| `'select_account'` (default) | Always show account picker |
-| `'consent'` | Prompt for consent every time |
-| `'none'` | Skip picker, use existing session |
-
-### Login Methods
-
-Control which login methods are available:
-
-```ts
-authLoginPlugin({
-  passwordLogin: false,  // Disable password login
-  otpLogin: true,        // Enable OTP login
-})
-```
-
-| `passwordLogin` | `otpLogin` | User has password | Behavior |
-|---|---|---|---|
-| ✅ | ✅ | Yes | Password step |
-| ✅ | ✅ | No | OTP → straight to app |
-| ❌ | ✅ | Any | OTP → straight to app |
-| ✅ | ❌ | No | OTP → set password prompt |
-| ✅ | ❌ | Yes | Password step |
-
-When `otpLogin` is enabled, users are never prompted to set a password after OTP verification — they go straight to the app. The set-password prompt only appears when `passwordLogin` is enabled and `otpLogin` is disabled.
-
----
-
-## AuthPages Props
-
-The `AuthPages` component accepts these props for customization:
+The factory returns a callable Payload plugin and `authPlugin.publicConfig`: a frozen, scalar, serializable whitelist. No server secrets, verifier functions, OAuth credentials, global mutable defaults or environment-variable bridge are involved. Keep the factory in a server-only consumer module; pass only `publicConfig` to client components.
 
 ```tsx
-<AuthPages
-  slug={slug}                    // Required — from catch-all route params
-  redirectTo="/dashboard"        // Where to go after login/set-password (default: '/admin')
-  logo={<MyLogo />}             // Custom logo component
-  basePath="/auth"               // Base path for sibling links (default: '/auth')
-  showGoogleOAuth={true}         // Override Google OAuth visibility
-  passwordLogin={true}           // Override plugin's passwordLogin setting for this render
-  otpLogin={true}                // Override plugin's otpLogin setting for this render
-  onPasswordLogin={customLogin}  // Custom login handler
-  onSignup={customSignup}        // Custom signup handler
-  locale="es"                    // Override auto-detected locale (see Multi-Language Support)
-  messages={{ es: { login: { title: 'Bienvenido' } } }} // Partial translation overrides
-
-  // Page layout — these do not affect the login modal
-  backgroundClass="bg-black"    // Background classes (default: 'bg-accent')
-  verticalAlign="center"        // 'center' | 'top' (default: 'center')
-  texture="spotlight-dots"      // 'none' | 'spotlight-dots' | 'spotlight-grid'
-
-  // Card chrome — same options accepted by <AuthCard> (see Components Reference)
-  poweredBy={{ enabled: true }}  // Configure/hide the "Powered by Main 12" badge
-  cardClassName=""               // Extra classes on the card wrapper
-  removeBorder={false}           // Remove the card border (useful for split/custom layouts)
-  removeShadow={false}           // Remove the card shadow
-  mobileVariant="plain"          // 'plain' | 'card' | 'modal' — card presentation (default: 'plain')
-/>
-```
-
----
-
-## Multi-Language Support
-
-Built-in support for **English (`en`)** and **Spanish (`es`)** — works out of the box, no configuration required. The plugin never depends on next-intl, next-i18next, or any i18n library; it reads the same conventional signals those libraries already write, so it plugs into whatever your app already does automatically.
-
-### Automatic locale detection
-
-If you don't pass a `locale` prop, it's resolved per-request in this order:
-
-1. `NEXT_LOCALE` cookie (written by next-intl, next-i18next, and most i18n routing middlewares by convention)
-2. `Accept-Language` request header
-3. `<html lang="...">` attribute (client-side fallback)
-4. `'en'` (default)
-
-This means if your app already uses next-intl or next-i18next, the auth pages automatically match your site's current language — **zero extra code needed**.
-
-### Explicit locale override
-
-Pass `locale` directly on `<AuthPages />` (or any individual page component) to force a specific language for that render, regardless of auto-detection — useful if you resolve the locale yourself server-side:
-
-```tsx
-// app/(auth)/auth/[...slug]/page.tsx
-import { AuthPages } from '@main12/auth-login/rsc'
-import { getLocale } from 'next-intl/server' // or however your app resolves it
-
-export default async function Page({ params }: { params: Promise<{ slug: string[] }> }) {
-  const { slug } = await params
-  const locale = await getLocale()
-  return <AuthPages slug={slug} locale={locale} />
-}
-```
-
-### Overriding copy / adding new languages
-
-Pass a `messages` object — a partial override, keyed by locale. Any key you don't specify falls back to the built-in English/Spanish copy automatically. You can also introduce entirely new locales this way (e.g. French, Portuguese):
-
-```tsx
-<AuthPages
-  slug={slug}
-  messages={{
-    en: {
-      login: { title: 'Welcome Back!' }, // override just this one key
-    },
-    es: {
-      login: { title: '¡Bienvenido de nuevo!' },
-    },
-    fr: { // brand new locale, not built-in — falls back to English for any key not provided
-      login: { title: 'Content de vous revoir', subtitle: 'Connectez-vous pour continuer.' },
-      signup: { title: 'Créer un compte' },
-    },
-  }}
-/>
-```
-
-Resolution order per key: `messages[locale]` → `messages.en` → built-in `[locale]` dictionary → built-in `en` dictionary.
-
-### Available translation keys
-
-Each page has its own section — see `UiTranslations` (exported from `@main12/auth-login/client`) for the full shape:
-
-| Section | Covers |
-|---------|--------|
-| `login` | Title/subtitle for all 3 sub-states (email, password, OTP-prompt), Google button, form labels, links |
-| `signup` | Title/subtitle, form labels, Google button, terms/privacy links, login link |
-| `forgotPassword` | Title/subtitle, form labels, back-to-login link |
-| `verifyOtp` | Title/subtitle for both variants (code verification vs password-reset), resend button (supports `{seconds}` interpolation) |
-| `setPassword` | Title/subtitle, form labels, password requirements text |
-
-### Using translations in custom pages
-
-If you're building fully custom pages with the hooks (see [Building Custom Pages](#building-custom-pages)), import `getUiTranslations` directly:
-
-```tsx
-import { getUiTranslations } from '@main12/auth-login/client'
-
-const t = getUiTranslations(locale, messages).login
-// t.title, t.continueWithGoogle, t.emailLabel, etc.
-```
-
----
-
-## Migrating to 2.0
-
-- Configure `allowSignup` only in `authLoginPlugin(...)`; remove it from `AuthCard`, `AuthPages`, and provider `authCardProps`. Disabled signup renders Login at the signup URL and hides the signup prompt, without a signup-specific redirect.
-- Move `locale` and `messages` from `AuthLayout` to `AuthProvider` for shared page/modal defaults, or to an individual `AuthCard`. `AuthLayout` now handles only the page wrapper.
-- Mount the server `AuthProvider` as shown below to share plugin settings with client auth components. `modalLogin: true` takes precedence over the plugin's proxy redirects.
-- `AuthCard` forms now honor `style: 'hero-ui'` for cards, buttons, inputs, and OTP controls. Both page and modal flows use these shared forms. The older standalone page exports remain available.
-
-## Auth theme
-
-Auth cards and HeroUI login dialogs always use a locally scoped light theme, including when the host app uses dark mode. This keeps the card, inputs, buttons, and text consistent across desktop, mobile, and modal layouts without changing the host page theme or background.
-
-## Card loading and entrance animation
-
-`AuthCard` uses one loading boundary for its built-in forms and UI controls. While asynchronous UI modules load, it shows a dependency-free spinner with reserved vertical space. Once ready, the complete card appears together with a short Framer Motion fade and upward movement. The same behavior applies to page and modal cards; no extra props or artificial loading delay are needed. Reduced-motion preferences disable the entrance movement and fade.
-
-Install `framer-motion` for either UI style. Form submission spinners remain separate from initial card loading. Custom children that supply their own Suspense boundaries control their own loading behavior; remote images still need explicit dimensions to avoid layout shifts.
-
-## Optional page textures
-
-`AuthLayout` and `AuthPages` accept `texture="spotlight-dots"` or `texture="spotlight-grid"`. `AuthPages` defaults to `"spotlight-dots"`; pass `texture="none"` to disable it. `AuthLayout` remains opt-in and defaults to `"none"`. Textures are transparent overlays: your background color, gradient, or image stays visible underneath, and the auth content stays above them. They do not affect the login modal.
-
-```tsx
-<AuthLayout backgroundClass="bg-black" texture="spotlight-dots">
-  <AuthCard slug="login" mobileVariant="card" />
-</AuthLayout>
-```
-
-| Option | Accepted values | Default / behavior |
-| --- | --- | --- |
-| `texture` | `'none'`, `'spotlight-dots'`, `'spotlight-grid'` | `AuthPages`: dots. `AuthLayout` and standalone page components: none. |
-| `backgroundClass` | CSS utility class string | `'bg-accent'`; use `'bg-black'` for the demo appearance. The texture does not replace this background. |
-| `verticalAlign` | `'center'`, `'top'` | `'center'` on `AuthLayout` / `AuthPages`. |
-| `--auth-texture-color` | CSS color, set on an ancestor | `#94a3b8`; affects dots/grid only. |
-
-For example, set a custom texture color with a wrapper class:
-
-```css
-.login-surface {
-  --auth-texture-color: #a1a1aa;
-}
-```
-
-```tsx
-<div className="login-surface">
-  <AuthPages slug={slug} backgroundClass="bg-black" texture="spotlight-grid" />
-</div>
-```
-
-Set texture options on `AuthPages` or `AuthLayout`, not on `authLoginPlugin`, `AuthProvider`, or `AuthCard`. Pattern spacing, highlight radius, opacity, and motion timing are preset internals, not public configuration options. No extra animation dependency or manual texture stylesheet import is required.
-
-Dots gently brighten near the pointer; the grid also highlights its intersections. The highlight trails the pointer softly and fades on exit, with no continuous animation or animation-library dependency. Touch devices and reduced-motion users receive a static pattern. Optionally set `--auth-texture-color` on an ancestor to adapt the neutral pattern color to your background. Texture CSS ships with the component.
-
-Try `<TextureBackgroundLoginDemo />` at `/texture-demo` in the dev app; its Dots / Grid / None controls preview both presets over a black background with the default login card.
-
-## Modal login and shared session state
-
-Enable modal login in the plugin:
-
-```ts
-// payload.config.ts
-plugins: [authLoginPlugin({ modalLogin: true, style: 'hero-ui' })]
-```
-
-Mount the server provider once in your frontend layout. Await your Payload configuration first so its plugin settings are initialized. The server wrapper passes UI settings and locale to the client provider; it does not send secrets to the browser.
-
-```tsx
-// app/(frontend)/layout.tsx
-import config from '@payload-config'
+// Server layout — explicit RSC bridge
 import { AuthProvider } from '@main12/auth-login/rsc'
+import { authPlugin } from './auth-plugin'
 
-export default async function Layout({ children }: { children: React.ReactNode }) {
-  await config
-  return <AuthProvider>{children}</AuthProvider>
+export default function Layout({ children }: { children: React.ReactNode }) {
+  // Explicit host-app language; config.locale remains the installation fallback (en).
+  return (
+    <AuthProvider publicConfig={authPlugin.publicConfig} locale="es-CO">
+      {children}
+    </AuthProvider>
+  )
 }
 ```
 
-For a client-only integration, import `AuthProvider` from `@main12/auth-login/client` and pass `modalLogin`, `style`, and `authCardProps` explicitly. Client modules cannot automatically read the Payload server configuration.
+The `dev/` implementation uses this pattern: one exported factory in `dev/plugins/index.ts`, an English fallback, and an explicit `es-CO` provider in `dev/app/(frontend)/layout.tsx`. Auth cards/pages inherit Spanish presentation while receiving the same factory's `publicConfig`. The demo enables password login by default; Google requires all three credentials/redirect URI variables. OTP, signup and recovery stay disabled until you provide the [server-side OTP configuration](#enable-secure-otp-server-only) and a production Payload email adapter. The demo has no external email-adapter dependency; provision a verified account through the trusted Local API shown above to exercise password login.
 
-```tsx
-'use client'
-import { useAuth } from '@main12/auth-login/client'
+The client export has the same explicit `publicConfig` prop. For standalone cards/forms use `<AuthConfigProvider publicConfig={...}>`; RSC `AuthCard` and `AuthPages` also require this prop. `AuthClientInit` is now an alias for this **tree provider**, not a render-time initializer. Presentation (`locale`, translations, React logo, style and attribution) remains scoped to provider/card overrides. React logo components belong on UI props, not serializable plugin configuration.
 
-export function AccountActions() {
-  const { user, status, openLogin, isLoggedIn, logout } = useAuth()
-
-  async function protectedAction() {
-    try {
-      if (!(await isLoggedIn())) return
-      // The server confirmed the session. Continue your action here.
-    } catch {
-      // Session verification failed (for example, offline). Show a retry message.
-    }
-  }
-
-  return <>
-    <button onClick={() => openLogin()}>Sign in</button>
-    <button onClick={protectedAction}>Continue</button>
-  </>
-}
-```
-
-| Provider API | Behavior |
-| --- | --- |
-| `user` / `status` / `error` | Current user; status is `loading`, `authenticated`, `unauthenticated`, or `error` |
-| `openLogin({ redirectTo? })` | Opens login; navigates to the login page when modal mode is disabled |
-| `closeLogin()` / `isLoginOpen` | Dismisses or observes the modal |
-| `isLoggedIn({ redirectTo? })` | Fetches `/api/users/me` with cookies and no cache; returns true for a valid session, otherwise prompts for login and returns false |
-| `isLogedin()` | Alias for `isLoggedIn()` |
-| `refreshSession()` | Refreshes the user without prompting for login |
-| `logout()` | Ends the server session, clears the user, and refreshes the current route |
-
-The session check validates the server session instead of inspecting cookie presence. It rejects on network/server failures and preserves the last known user. Call it from an event handler or effect, not during rendering. An action that returns false is not automatically replayed after login. Continue enforcing authorization in your server endpoints and protected pages.
-
-Login, signup, password recovery, OTP, and setting a password all reuse `AuthCard` within the modal. By default, successful login closes it and refreshes server-rendered data while retaining the current URL and page state. Pass `openLogin({ redirectTo: '/checkout' })` to navigate after success. Destinations must be local paths. Google OAuth still visits Google, then returns to the original page in modal mode unless an explicit Google `successRedirect` is configured. Standalone auth pages remain available for direct links and OAuth error fallback.
-
-With `style: 'hero-ui'`, the provider loads the [HeroUI v3 Modal](https://heroui.com/en/docs/react/components/modal). Import `@heroui/styles` in your app CSS. Clicking the backdrop or empty area around the dialog dismisses login; clicking inside the form does not. Escape and the close button also dismiss it. Cancelling does not authenticate the user or continue a protected action. Tailwind mode uses the native modal dialog with Escape dismissal, focus restoration, and background scroll locking. Optional `modalLabel` and `closeLabel` customize accessible labels. Set shared branding and language directly on the provider; `authCardProps` supplies modal-only overrides and login-method settings. `initialUser` can provide a known user or null; otherwise the provider fetches the session on mount. No polling, inactivity timeout, or session watchdog is included.
-
-### Shared language and branding
-
-Configure shared presentation on the provider; both modal and page components inherit it:
-
-```tsx
-<AuthProvider
-  locale="es"
-  messages={{ es: { login: { title: 'Bienvenido' } } }}
-  logo={<Logo />}
-  poweredBy={{ enabled: false }}
->
-  {children}
-</AuthProvider>
-```
-
-`AuthCard` still renders the logo and controls its placement. A card can override `logo`, `locale`, `messages`, `style`, or `poweredBy` for its subtree:
-
-```tsx
-<AuthLayout backgroundClass="bg-white">
-  <AuthCard slug="login" /> {/* Inherits the provider's branding and language */}
-  <AuthCard slug="signup" locale="en" logo={<PartnerLogo />} />
-</AuthLayout>
-```
-
-Precedence is **explicit component props → nearest provider → plugin/request/browser defaults**. Partial message dictionaries merge by translation key, and partial `poweredBy` settings merge by field. Undefined values inherit; `logo={null}` deliberately hides the logo. Custom children/forms inside a card inherit that card's language. Components also work without a provider.
-
-`AuthLayout` only accepts page wrapper options (`backgroundClass`, `verticalAlign`, `texture`, and `children`). Move any former layout `locale`/`messages` props to `AuthProvider`, `AuthCard`, or the page component. The layout never applied those settings to children; page components continue accepting their existing localization props.
-
-For custom auth UI, `useAuthPresentation()` reads resolved presentation settings and `useAuthTranslations()` reads the shared dictionary. Both work independently of the session context. `getUiTranslations()` remains a pure function and only uses its explicit arguments.
-
-Server exports keep detected settings as fallback context, so an RSC `AuthCard` or `AuthPages` inside a provider cannot accidentally override the provider's language or logo. Session checks and authorization remain independent of presentation settings.
-
-### Proxy precedence
-
-`modalLogin: true` disables this plugin's auth redirects, including `/admin/login` and redirects away from auth pages when a cookie is present. It also takes precedence over an explicit proxy `basePath`. Application access checks and unrelated proxy logic remain your application's responsibility.
-
-Proxy runtimes may run separately from Payload. In the dev app, the proxy imports the plugin index to initialize the same settings; there is no second UI options file or repeated `modalLogin` setting:
+Plugin `locale` is an immutable installation fallback, not the current language. Effective language follows local override → provider → plugin default → `en`; custom hooks and forms inherit it without rewriting configuration or changing transport scope. Regional ES/EN tags (`es-CO`, `en-US`) use their base built-in language and the same `Accept-Language`/email language. Unsupported languages use the installed fallback; exact custom `messages[locale]` overrides remain supported for UI. Locale detection is opt-in: pass the result explicitly from your host app, consistently for server and client.
 
 ```ts
-// dev/proxy.ts
-import './plugins'
-export { proxy } from '@main12/auth-login/proxy'
-export const config = {
-  matcher: ['/admin/login', '/login', '/signup', '/forgot-password', '/verify-otp', '/set-password', '/auth/:path*'],
-}
+// proxy.ts — explicit configuration in separately bundled Next runtimes
+import { createAuthProxy } from '@main12/auth-login/proxy'
+export const proxy = createAuthProxy({ basePath: '/account', modalLogin: true })
+export const config = { matcher: ['/login', '/signup'] }
 ```
 
-`allowSignup` is not a proxy option. Set it only in `authLoginPlugin(...)`. The server provider/cards carry it internally to the UI: when false, `AuthCard` renders Login for the `signup` slug and omits the entire signup prompt. It does not redirect to another URL. Do not pass `allowSignup` to `AuthCard`, `AuthPages`, or `authCardProps`.
+## Enable secure OTP (server only)
 
-If the application only uses modal login, the plugin proxy can be omitted altogether. Typing `/login` into the address bar does not open a modal over a previous page; use `openLogin()` or `isLoggedIn()` from the current page.
-
-The development frontend layout mounts the shared provider. Try it at `/modal-demo`; change `style` or `modalLogin` directly in `dev/plugins/index.ts` to switch the UI or test page login. The dev proxy consumes the same plugin configuration. Run the provider and proxy regression suite with `pnpm test --run`.
-
-## Individual Page Setup (Advanced)
-
-If you need full control over each page, create separate route files instead of using `AuthPages`:
-
-```tsx
-// login/page.tsx
-'use client'
-import { LoginPage } from '@main12/auth-login/client'
-
-export default function Page() {
-  return (
-    <LoginPage
-      onPasswordLogin={async ({ email, password }) => {
-        const res = await fetch('/api/users/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        })
-        if (!res.ok) throw new Error('Login failed')
-      }}
-      redirectTo="/dashboard"
-      signupUrl="/signup"
-    />
-  )
-}
-```
-
-### Per-page overrides
-
-```tsx
-<LoginPage
-  logo={<AppLogo width={180} />}
-  onPasswordLogin={login}
-  redirectTo="/dashboard"
-  showGoogleOAuth={true}
-  signupUrl="/signup"
-/>
-
-<SignupPage onSignup={signup} loginUrl="/login" />
-<ForgotPasswordPage loginUrl="/login" />
-<VerifyOtpPage loginUrl="/login" />
-<SetPasswordPage redirectTo="/dashboard" />
-```
-
----
-
-## Custom Layouts (Split-Screen, etc.)
-
-For layouts `AuthPages` can't express (e.g. a split-screen with an image pane), compose `AuthLayout` + `AuthCard` directly — the same primitives every built-in page is built from. Pass `slug` to auto-render the matching form (with full translation/config support), and use `removeBorder`/`removeShadow`/`cardClassName` to fit the card into your own layout:
-
-```tsx
-// app/(auth)/auth/[...slug]/page.tsx  (server component, no 'use client' needed)
-import { AuthLayout, AuthCard } from '@main12/auth-login/rsc'
-
-export default async function Page({ params }: { params: Promise<{ slug: string[] }> }) {
-  const { slug } = await params
-  return (
-    <AuthLayout backgroundClass="bg-white">
-      <div className="min-h-screen grid md:grid-cols-2">
-        <div className="hidden md:block bg-cover bg-center" style={{ backgroundImage: 'url(/hero.jpg)' }} />
-        <div className="flex items-center justify-center">
-          <AuthCard
-            slug={slug?.[0] ?? 'login'}
-            removeShadow
-            removeBorder
-            basePath="/auth"
-            redirectTo="/admin"
-          />
-        </div>
-      </div>
-    </AuthLayout>
-  )
-}
-```
-
-`AuthCard` also accepts `children` instead of `slug` for fully custom form content — see [Building Custom Pages](#building-custom-pages) below.
-
----
-
-## Building Custom Pages
-
-Use the plugin's hooks to build your own UI with any component library (HeroUI, shadcn, plain Tailwind).
-
-### Hook Quick-Reference
-
-| Hook | Returns | Key inputs |
-|------|---------|------------|
-| `useLoginFlow({ redirectTo, onPasswordLogin })` | `step, email, password, error, isLoading, isSendingOtp, showPassword, setEmail, setPassword, setShowPassword, handleEmailSubmit, handlePasswordSubmit, handleSendOtp, handleEditEmail, handleGoogleLogin` | `redirectTo: string`, `onPasswordLogin: (creds) => Promise<void>` |
-| `useForgotPasswordFlow()` | `email, error, isLoading, setEmail, handleSubmit` | none |
-| `useVerifyOtpFlow({ email, purpose, redirectTo })` | `otp, error, isLoading, isResending, resendCooldown, setOtp, handleSubmit, handleResendCode` | `email: string`, `purpose: 'login'\|'signup'\|'password-reset'` |
-| `useSetPasswordFlow({ redirectTo })` | `password, confirmPassword, error, isLoading, showPassword, strength, setPassword, setConfirmPassword, setShowPassword, handleSubmit` | `redirectTo?: string` |
-
-> **Signup note:** No hook needed — call `signup(name, email)` from `@main12/auth-login/client`, then redirect to `/verify-otp?email=...&purpose=signup`.
-
-### Full Example: Custom Login Page
-
-```tsx
-'use client'
-import { useLoginFlow } from '@main12/auth-login/client'
-import { useAuth } from '@/providers/Auth'
-
-export default function CustomLogin() {
-  const { login } = useAuth()
-  const {
-    step, email, password, error, isLoading, showPassword,
-    setEmail, setPassword, setShowPassword,
-    handleEmailSubmit, handlePasswordSubmit, handleSendOtp, handleEditEmail,
-  } = useLoginFlow({ redirectTo: '/dashboard', onPasswordLogin: login })
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-xl">
-        <img src="/logo.png" className="mx-auto mb-6" width={180} alt="" />
-
-        {/* Step 1: Email */}
-        {step === 'email' && (
-          <form onSubmit={handleEmailSubmit} className="space-y-4">
-            <h1 className="text-xl font-semibold text-center">Welcome Back</h1>
-            {error && <p className="text-red-600 text-sm">{error}</p>}
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="Email" required className="w-full h-12 px-4 border rounded-xl" />
-            <button type="submit" disabled={isLoading}
-              className="w-full h-12 bg-[#D5E855] rounded-full font-semibold">
-              {isLoading ? 'Loading...' : 'Continue'}
-            </button>
-          </form>
-        )}
-
-        {/* Step 2a: Password */}
-        {step === 'password' && (
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
-            <div className="flex justify-between border rounded-xl px-4 py-3">
-              <span>{email}</span>
-              <button type="button" onClick={handleEditEmail} className="text-sm">Edit</button>
-            </div>
-            {error && <p className="text-red-600 text-sm">{error}</p>}
-            <input type={showPassword ? 'text' : 'password'} value={password}
-              onChange={e => setPassword(e.target.value)} placeholder="Password" required
-              className="w-full h-12 px-4 border rounded-xl" autoFocus />
-            <button type="submit" disabled={isLoading}
-              className="w-full h-12 bg-[#D5E855] rounded-full font-semibold">
-              {isLoading ? 'Loading...' : 'Sign In'}
-            </button>
-          </form>
-        )}
-
-        {/* Step 2b: OTP Prompt (migrated users without password) */}
-        {step === 'otp-prompt' && (
-          <div className="space-y-4">
-            <div className="flex justify-between border rounded-xl px-4 py-3">
-              <span>{email}</span>
-              <button type="button" onClick={handleEditEmail}>Edit</button>
-            </div>
-            {error && <p className="text-red-600 text-sm">{error}</p>}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-700">
-              We'll send a verification code to this email.
-            </div>
-            <button onClick={handleSendOtp} disabled={isLoading}
-              className="w-full h-12 bg-[#D5E855] rounded-full font-semibold">
-              {isLoading ? 'Sending...' : 'Send Code'}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-```
-
-### Custom Signup
-
-Same pattern — call `onSignup(name, email)` from your form, redirect to `/verify-otp?email=...&purpose=signup` on success.
-
-### Custom Verify OTP
-
-Use `useVerifyOtpFlow({ email, purpose, redirectTo })`. It manages the 6-digit input, verification, resend cooldown (60s), and auto-redirect. All you need is an `<input>` or `<InputOtp>` for the code and a verify button.
-
-### Custom Forgot Password
-
-Use `useForgotPasswordFlow()`. Collect email, call `handleSubmit(e)`. It checks user exists, sends OTP, and redirects to `/verify-otp?email=...&purpose=password-reset`.
-
-### Custom Set Password
-
-Use `useSetPasswordFlow({ redirectTo })`. Two password fields (new + confirm). The hook validates strength (≥8 chars, 3/4 criteria) and matches. Returns `strength.score` (0-5) for a visual indicator.
-
----
-
-## Custom Email Templates
+Password and OTP can coexist, or OTP can be the sole enabled login method. Existing passwords are never replaced. Configure a dedicated random key (at least 32 characters) shared by every instance, explicit sender/locale, and a trusted host-side peer resolver:
 
 ```ts
-import { generateWelcomeEmail, getEmailTranslations } from '@main12/auth-login/rsc'
-
-// Override translations
-const t = getEmailTranslations('en')
-t.welcome.subject = 'Welcome to My SaaS! 🚀'
-
-// Or wrap template generators
-function myWelcome(params) {
-  const base = generateWelcomeEmail(params)
-  return { ...base, html: base.html.replace('Get Started', 'Launch Now') }
-}
-
-// Use in hooks/endpoints
-await payload.sendEmail({
-  to: user.email,
-  ...myWelcome({ userName: user.name, userEmail: user.email }),
-})
+otpLogin: true,
+otp: {
+  secret: consumerSecrets.otpKey,
+  origin: req => trustedPeerFromHost(req),
+  email: { from: 'auth@example.com', locale: 'es', projectName: 'Your project' },
+  // Defaults: ttlSeconds: 300, maxAttempts: 3, cooldownSeconds: 60,
+  // accountLimit: 5 per sliding hour, originLimit: 50 requests per sliding hour.
+},
 ```
 
----
+OTP does not grant Payload admin access: its session adapter denies users for whom the native `access.admin` policy allows access. Frontend-only collections should explicitly use `access: { admin: () => false }`. For consumer server login hooks, `isOtpSessionRequest(req)` is unforgeable request-local evidence during OTP login; it is not a later-session policy. Signed method evidence survives capped refresh, and every subsequent native authentication re-evaluates OTP admin eligibility failclosed. Password admin policy is unchanged; full R20 admin integration belongs to its later issue.
 
-## API Endpoints
+`trustedPeerFromHost` is consumer server code, not an HTTP header lookup. Obtain the actual connection peer from your server integration; use forwarded IPs only after checking that peer against your explicit trusted-proxy configuration. Return `null` when trust cannot be established: issuance fails closed. Never use user-controlled `x-forwarded-for` directly. The plugin cannot infer a socket address from a Fetch request.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/api/auth/check-email` | Check if email is registered |
-| POST | `/api/auth/otp/send` | Generate + send OTP via Payload email adapter |
-| POST | `/api/auth/otp/verify` | Verify OTP + login (sets httpOnly cookie) |
-| POST | `/api/auth/set-password` | Set/update password |
-| POST | `/api/auth/signup` | Create account + send welcome email |
+Mail uses the current Payload instance's email adapter. Optional `logoUrl`/`contactUrl` require HTTPS; branding is escaped, the code never appears in subject/preheader, and supported locales are `es`/`en`. Public config excludes all server options. Logs contain event names and keyed correlations, never email/code/token or authentication bodies; the consumer owns log retention/access.
 
----
+For Next consumers bundling/transpiling this plugin, include `@libsql/client` in `serverExternalPackages` and install `@libsql/client@0.14.0` directly in the consuming app; this avoids webpack parsing libsql native-package assets. See the packed consumer fixture.
 
-## Exports & Components Reference
+The adapter creates a private SQL table `auth_login_otp_security` lazily. Its records use AEAD, keyed OTP verification and domain-separated keys, protecting the six-digit space from offline guessing without server keys. It is not a Payload collection and has no REST/GraphQL CRUD surface. Challenges/verifiers bind the original durable account ID and target collection; reassigned emails cannot transfer authorization. Account quotas follow that durable ID across email changes, scoped to the target collection; origin quotas remain shared across collections. All instances must share Payload/OTP secrets and the database. SQLite requires working write transactions; PostgreSQL requires the native pool. Unsupported adapters or failed atomic storage deny access.
 
-| Import path | Contents |
-|-------------|----------|
-| `@main12/auth-login` | Plugin factory (`authLoginPlugin`), types, server config |
-| `@main12/auth-login/client` | Page components, `AuthPages`, hooks, services, UI/locale utilities |
-| `@main12/auth-login/rsc` | Server component `AuthPages` wrapper, email template generators, email translations |
-| `@main12/auth-login/proxy` | Next.js 16 proxy for route redirects |
+Resend reuses the original code, context, expiry and remaining attempts. Another browser cannot replace a live challenge; it must retain its initial context or wait until expiry. Native session writes apply snapshot additions/deletions under fresh locks, never a naive union. Logout-all revokes every observed preexisting session; an overlapping newly authorized login can legally linearize after logout and survive. Mail reservations commit before delivery: a crash or SMTP failure can lose a send, but cannot reset budgets. Automatic mail retry is deliberately disabled; one resend is allowed after cooldown. Verification consumes proof before native session creation: a denying hook/session failure burns the proof, so request a new challenge after cooldown instead of replaying it. This is at-most-once authorization, not exactly-once delivery.
 
-### Components (`@main12/auth-login/client` unless noted)
+## Signup, recovery and password management
 
-| Component | Description | Typical usage |
-|-----------|-------------|----------------|
-| `AuthPages` (also `@main12/auth-login/rsc`) | Catch-all component — renders the correct page based on `slug`. The `/rsc` version is a server component that auto-resolves plugin config + locale from headers; the `/client` version needs `'use client'` and manual config props | `<AuthPages slug={slug} />` in your `[...slug]/page.tsx` |
-| `LoginPage` | Standalone login page (email → password/OTP flow) | Individual route setup, or full customization via props |
-| `SignupPage` | Standalone signup page | Individual route setup |
-| `ForgotPasswordPage` | Standalone forgot-password page | Individual route setup |
-| `VerifyOtpPage` | Standalone OTP verification page — **requires `?email=...` in the URL** | Reached via redirect from signup/login/forgot-password |
-| `SetPasswordPage` | Standalone set/reset password page | Individual route setup, or post-OTP password creation |
-| `AuthCard` | The card chrome (logo, title/subtitle, footer, "Powered by" badge) — pass `slug` to auto-render the matching form, or `children` for fully custom content. `removeBorder`/`removeShadow`/`cardClassName`/`mobileVariant` support custom layouts like split-screen | `<AuthCard slug="login" removeShadow basePath="/auth" />` or `<AuthCard title="..." subtitle="...">{children}</AuthCard>` |
-| `AuthLayout` | Outermost full-height background wrapper used by every page — compose it with `AuthCard` (and e.g. a split-screen image) when building fully custom layouts | `<AuthLayout backgroundClass="bg-white"><AuthCard slug="login" /></AuthLayout>` |
-| `AuthClientInit` | Drop into your root layout to sync server plugin config (`style`, Google OAuth flag) to client bundles. Optional — only needed if you hit issues with plugin config not reaching client components in certain bundler setups | `<AuthClientInit />` inside `<body>` |
-| `PoweredBy` | The "Powered by Main 12" footer badge, rendered automatically on every page (configurable via `poweredBy` prop) | Rarely used standalone — mostly internal |
+Enable `allowSignup: true` and/or `recovery: true` with `passwordLogin: true` and the same explicit `otp` server options above. Recovery works with `otpLogin: false`; enabling recovery never enables OTP application login. Google-only accounts never gain a password through recovery. Public registration needs a frontend-only `access.admin: () => false` policy: creation rolls back if host defaults/hooks make the new account admin eligible. Native account creation is still denied anonymously, and arbitrary fields/roles are rejected by the managed signup contract. Consumer hooks can intentionally deny provisioning; unknown required consumer fields must be provisioned by an authorized host flow instead of accepting arbitrary public input.
 
-### Hooks (`@main12/auth-login/client`)
+No user, name, password or session is reserved during signup. Only a short-lived, purpose/browser-bound email challenge is stored. Another browser cannot replace a live challenge; its bounded TTL prevents an indefinite reservation. Verification issues an **opaque, AEAD-encrypted completion permit valid for ten minutes**, not an application token or cookie. Only then does the owner choose a password. Duplicate signup requests have the same accepted issuance contract; an existing account is never overwritten. Completing signup requires a fresh login.
 
-| Hook | Returns | Key inputs |
-|------|---------|------------|
-| `useLoginFlow({ redirectTo, onPasswordLogin })` | `step, email, password, error, isLoading, isSendingOtp, showPassword, setEmail, setPassword, setShowPassword, handleEmailSubmit, handlePasswordSubmit, handleSendOtp, handleEditEmail, handleGoogleLogin` | `redirectTo: string`, `onPasswordLogin: (creds) => Promise<void>` |
-| `useForgotPasswordFlow()` | `email, error, isLoading, setEmail, handleSubmit` | none |
-| `useVerifyOtpFlow({ email, purpose, redirectTo })` | `otp, error, isLoading, isResending, resendCooldown, setOtp, handleSubmit, handleResendCode` | `email: string`, `purpose: 'login'\|'signup'\|'password-reset'` |
-| `useSetPasswordFlow({ redirectTo })` | `password, confirmPassword, error, isLoading, showPassword, strength, setPassword, setConfirmPassword, setShowPassword, handleSubmit` | `redirectTo?: string` |
+Recovery issues the same limited ten-minute permit, bound to the original account, email, credential version and purpose. It only replaces an existing native hash/salt: passwordless/unknown credentials are not inferred from public fields and do not gain a password through recovery. Requesting or verifying recovery does not revoke sessions. Confirming a valid password changes the native credential, establishes email verification from that ownership proof, revokes **all** sessions and invalidates all outstanding credential-version-bound permits/OTP proofs in one native transaction. No automatic login occurs. Existing unknown-verification public accounts can use the verification-only flow below without replacing their password. Recovery is a separate explicit password replacement, not the required migration path. Lost legacy passwords are not reconstructible.
 
-### Service functions (`@main12/auth-login/client`)
+Voluntary change or explicit password addition requires an authenticated current session and a five-minute reauthentication permit bound to that SID/account. Password reauthentication runs native Payload permission, password, lockout and login hooks. An unforgeable request-local capability suppresses the new native SID, so even a token observed by login hooks cannot authenticate; no new session/token/cookie is returned. An OTP-enabled account can instead prove email ownership with purpose `reauth`, including a passwordless account adding its first password while password login is enabled. The proof never enables a disabled method. Confirmation revokes all other sessions and replaces the current SID, preserving its original `createdAt` and absolute cap; refresh cannot turn the rotation into an unlimited extension. Hook errors roll back credential/session/permit consumption together; the owner can retry the unconsumed, still-current permit.
 
-Low-level `fetch` wrappers used internally by the hooks — call directly for fully custom flows:
+| Managed HTTP surface                   | Bounded JSON / result                                                                                                    |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `POST /backend/access/otp/send`        | `{ email, purpose: 'signup' \| 'recovery' \| 'reauth', context? }`; generic accepted issuance contract                   |
+| `POST /backend/access/otp/verify`      | `{ email, purpose, context, otp }`; `{ success: true, permit, expiresAt }`, never a login cookie/token                   |
+| `POST /backend/access/forgot-password` | `{ email, context? }`; convenience alias for recovery issuance                                                           |
+| `POST /backend/access/signup`          | `{ permit, password }`; commit the verified owner's account, no session                                                  |
+| `POST /backend/access/reset-password`  | `{ permit, password }`; atomic credential/reset/revoke-all, then fresh login                                             |
+| `POST /backend/access/reauthenticate`  | `{ password }` plus authenticated native cookie; five-minute limited permit                                              |
+| `POST /backend/access/set-password`    | `{ permit, password }` plus the exact authenticated SID; capped rotated cookie/token honoring `removeTokenFromResponses` |
 
-| Function | Description |
-|----------|--------------|
-| `checkEmail(email)` | Checks whether an email is already registered |
-| `sendOtp(email, purpose)` | Requests a new OTP code |
-| `verifyOtp(email, otp, purpose)` | Verifies an OTP code, logs the user in on success |
-| `setUserPassword(password)` | Sets/updates the current user's password |
-| `signup(name, email)` | Creates a new account, triggers welcome email + OTP verification |
-| `initiateGoogleLogin()` | Redirects to the Google OAuth flow |
+Every permit is one use via a durable nonce-consumption record committed with the credential, so deleting an account cannot make signup permits reusable. Extra account/email/role fields cannot retarget a permit. The public UI completes signup/recovery through email → verify → set password → login. The existing `set-password` form offers password or enabled-email reauthentication for voluntary change/addition. Its per-tab `sessionStorage` continuation is scoped by API/endpoint/collection, cleared on success/expiry, and never put in a URL; it is not session authority or protection against XSS. Closing the tab/restarting the flow is safe. A mounted permit expires back to its purpose-specific signup/recovery start or reauthentication screen; authoritative `AUTH_FAILED` clears the invalid continuation. Transient `AUTH_UNAVAILABLE` and correctable `INVALID_INPUT` keep the still-valid proof for retry. Legacy `onSignup` callbacks are retained as deprecated prop types but no longer create accounts: the managed form uses the configured ownership API directly.
 
-### Utilities & config (`@main12/auth-login/client`)
+New passwords require **15 Unicode characters**, allow phrases/Unicode/paste without composition rules, and use the same client/server rule. Legacy password login is not revalidated against this new rule. A versioned local SecLists common/compromised-derived 100,000-password corpus is included with its MIT notice; membership is case-insensitive, without changing or trimming the owner-chosen credential. This is not exhaustive breach screening. Provenance, hashes, limitations and deterministic update/rollback checks live in `tests/evidence/issue03-blocklist.md`. Updating it changes new-password policy only, never invalidates stored legacy credentials. Client and server load only a generated eligible subset (currently 72 entries): shorter corpus entries already fail the minimum-length rule. The full licensed corpus remains available for provenance; after changing the corpus or minimum length, run `pnpm exec tsx scripts/generate-password-blocklist.ts`. Tests reject stale generated data and verify parity with the full policy.
 
-| Export | Description |
-|--------|--------------|
-| `initClientConfig(opts)` | Manually sync plugin config into the client bundle (used internally by `AuthPages`/`AuthClientInit`) |
-| `evaluatePasswordStrength(password)` | Returns `{ score, isValid, ... }` — used by the password strength meter |
-| `isPasswordValid(password)` / `MIN_PASSWORD_LENGTH` | Password validation helpers |
-| `getUiTranslations(locale, messages)` | Resolve translated UI copy — see [Multi-Language Support](#multi-language-support) |
-| `uiTranslations` | Raw built-in `{ en, es }` dictionaries, if you need to read them directly |
-| `detectClientLocale()` | Client-side locale auto-detection (cookie → `<html lang>` → `'en'`) |
+Private tables `auth_login_credential_locks` and `auth_login_password_permits` have no Payload CRUD surface. All instances must share the supported native SQLite/PostgreSQL database and secrets. Preserve these and `auth_login_otp_security` through schema push/migrations: Payload does not manage their schema and may propose deleting them. Do not accept that deletion. Consumption records can be deleted only after their `expires_at` millisecond deadline; live records must survive rollback/restore or permits could replay. Email lock rows are keyed, not email plaintext, and currently have no automatic cleanup: quiesce all instances before maintenance. OTP/security state retention and table growth remain consumer operator responsibilities. Security-key rotation invalidates old proofs; restoring an old key/state snapshot must not revive revoked credentials/sessions/permits.
 
-### Email templates (`@main12/auth-login/rsc`)
+## Google and administrative authorization
 
-| Export | Description |
-|--------|--------------|
-| `generateWelcomeEmail(params)` | Welcome email after signup |
-| `generateOtpEmail(params)` | OTP code email (login/signup/password-reset) |
-| `generatePasswordResetEmail(params)` | Password reset code email |
-| `generatePasswordChangedEmail(params)` | Confirmation after password change |
-| `getEmailTranslations(locale)` | English/Spanish email copy (separate dictionary from the UI translations above) |
-| `wrapInBaseTemplate(options)` | Wraps any HTML body in the plugin's branded email shell |
+Register exactly `<apiPrefix><authEndpointPrefix>/oauth/google/callback` with Google, then configure the server plugin (never its client props):
 
----
-
-## ShadCN Compatibility
-
-The `tailwind` style works in ShadCN projects out of the box. For ShadCN components, build a [custom page](#building-custom-pages) — import the plugin's hooks and use your `@/components/ui/button`, `@/components/ui/input`, etc.
-
----
-
-## Setup Comparison
-
-| Approach | Files needed | Best for |
-|----------|-------------|----------|
-| **Catch-all + proxy** (recommended) | 2 files | Most projects — fastest setup |
-| **Individual pages** | 5 files | Full control over each page |
-| **Custom pages with hooks** | Your own files | Completely custom UI |
-| **Backend only** (`routeRedirects: false`, no `AuthPages`) | 0 frontend files | Custom frontend using only the API endpoints + hooks |
-
----
-
-## 🤖 AI Agent Prompts
-
-Copy these prompts into Claude, Cursor, Copilot, or any AI agent.
-
-### Prompt: Set up the auth plugin (simplified catch-all)
-
-```
-Add @main12/auth-login to this Payload project:
-
-1. Install: pnpm add @main12/auth-login
-2. In payload.config.ts, add:
-   - Users collection with auth enabled + otpHash, otpAttempts, otpExpiresAt fields
-   - Plugin: authLoginPlugin({ projectName: "<PROJECT>", domain: "<URL>", logo: "/logo.png", style: "tailwind", routeRedirects: true })
-3. Create catch-all route: src/app/(frontend)/(auth)/auth/[...slug]/page.tsx
-   - 'use client', import { use } from 'react', import { AuthPages } from '@main12/auth-login/client'
-   - export default function Page({ params }) { const { slug } = use(params); return <AuthPages slug={slug} /> }
-4. Create proxy: src/proxy.ts
-   - export { proxy, config } from '@main12/auth-login/proxy'
-5. Verify: visit /login → should redirect to /auth/login
+```ts
+providers: { google: {
+  enabled: true, clientId: 'server-client-id', clientSecret: 'server-secret',
+  redirectURI: 'https://app.example.com/backend/access/oauth/google/callback',
+} },
+admin: {
+  authorize: ({ req, evidence }) => req.user?.role === 'admin'
+    && evidence.method !== 'otp', // add verified freshness/amr requirements here if needed
+  collections: [{ slug: 'administrative-records', operations: ['read', 'create', 'update', 'delete'] }],
+  globals: [{ slug: 'settings', operations: ['read', 'update'] }],
+},
 ```
 
-### Prompt: Set up with Google OAuth
+Admin defaults to denied without an explicit policy; email OTP alone is always denied. Enumerate **every administrative resource/operation**: selected native access callbacks compose the consumer callback, covering REST, GraphQL and Local API `overrideAccess:false`, not only the Admin UI. Unlisted resources keep their consumer access rules; ordinary self/service operations are not blanket-blocked. Policy exceptions or unverifiable requirements deny access. Trusted maintenance deliberately uses native Local API `overrideAccess:true`; do not forward untrusted HTTP inputs to that authority. Original `access.admin` remains an additional condition for both Admin entry and every enumerated native operation; false or exceptions deny even when the explicit policy authorizes. Configure non-privileged public account defaults/hooks: public provisioning evaluates a fresh private native storage row, not an `afterRead` presentation, and rolls back when that stored principal is admin-eligible.
 
-```
-Add @main12/auth-login with Google OAuth to this Payload project:
+`evidence` is request-local, bound to the native Payload instance, exact Headers object, exact authenticated principal object and verified identity/SID/collection. Native GraphQL request proxies preserve those object identities; fabricated Local API user copies do not. A server-only namespaced WeakMap registry survives independently evaluated Next REST/GraphQL bundles. It stores no global configuration/secrets and partitions records by the exact Payload instance, so consumers cannot borrow another instance's evidence. Evidence never comes from a client body, database method field or request context. Password login stamps signed `authenticatedAt`; Google exposes only signed provider `auth_time`/`amr` when present. Missing claims are **not** proof of freshness/MFA. `getAuthenticationEvidence(req)` is a server-only hook seam. Original consumer Admin-eligibility checks for OTP issuance and later native authentication remain enforced; the new default-deny wrapper cannot hide eligibility changes. Google and OTP share the proven native-session adapter; `isOtpSessionRequest(req)` still identifies only OTP.
 
-1. Install: pnpm add @main12/auth-login
-2. In payload.config.ts, add:
-   - Users collection with auth enabled + otpHash, otpAttempts, otpExpiresAt fields
-   - Plugin: authLoginPlugin({
-       projectName: "<PROJECT>",
-       domain: "<URL>",
-       style: "tailwind",
-       routeRedirects: true,
-       providers: {
-         google: {
-           clientId: process.env.GOOGLE_CLIENT_ID,
-           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-         }
-       }
-     })
-3. Create catch-all route + proxy (same as simplified setup)
-4. Add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to .env
-5. Verify: visit /login → should show Google OAuth button
+| Google HTTP surface                    | Contract                                                                                                                                             |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET .../oauth/google?returnTo=/local` | Start a ten-minute browser-bound correlation and redirect to Google                                                                                  |
+| `GET .../oauth/google/callback`        | Consume once; validate state, S256, nonce, issuer/audience/time and RS256 signature before account effects; return native cookie and local 303       |
+| `POST .../oauth/google/link`           | Authenticated current SID plus `{ permit, confirm: true, returnTo? }`; no implicit email linking                                                     |
+| `GET .../oauth/google/reauthenticate`  | Authenticate the **already linked subject**, requiring signed `auth_time` within five minutes; JSON `{ success, permit, expiresAt }`, no new session |
+
+For an explicit consumer account-settings action, use the client package's instance service:
+
+```ts
+const service = createAuthService(publicConfig)
+const proof = await service.reauthenticateGoogle() // invoke from a user gesture; bounded popup
+await service.completePassword(proof, ownerChosenPassword) // only when password method is enabled
+// Or obtain a password/OTP reauth permit, then explicitly link:
+await service.linkGoogle(reauthPermit, '/account#methods')
 ```
 
-### Prompt: Build a custom login page with HeroUI components
+There is no new full account-settings UI: these actions compose with the consumer's own confirmed controls. Existing Google login buttons use the configured API/endpoint prefixes. Popup mode is validated and stored in the correlation; its callback has a nonce CSP, no-store/no-referrer, and sends the grant only to the configured callback origin. The client requires the exact returned popup and same-origin typed message; blocked/closed popups and a five-minute UI timeout reject. No permit appears in a URL or new storage. Direct reauthentication without popup mode retains the JSON contract. Parent and callback must share the configured public origin.
 
-```
-Build a custom login page using @main12/auth-login hooks and @heroui/react:
+Linking accepts the same five-minute opaque reauthentication permit issued by password, enabled email OTP or linked Google. Its native SID/account/email/credential version must remain current; the shared durable nonce ledger makes link and password completion mutually one-use. Subject/account SQL uniqueness cannot overwrite conflicts; after conflict-tolerant insertion the transaction re-reads the authoritative owner, so a concurrent loser cannot report success. Provider email changes do not update local email or replace stable subject identity. Signup-closed consumers can log in existing linked accounts but never provision new ones. No matching email autolink occurs.
 
-- Import useLoginFlow from '@main12/auth-login/client'
-- Use useAuth() from Payload's Auth provider for the login function
-- Render 3 steps: email input → password input / OTP prompt
-- Use HeroUI <Button>, <Input> with variant="bordered", rounded-full
-- Add "Continue with Google" button using initiateGoogleLogin from the plugin
-- Add "Powered by Main12" footer from the plugin's PoweredBy component
-```
+A verified cross-site link/reauth callback replaces Origin-CSRF proof **only after** durable browser correlation consumption and verified OIDC signature. The named native adapter clones headers for native `payload.auth`, retains the exact incoming token/cookie, then checks the original SID and live session/version under native locks. It does not mutate incoming headers or disable CSRF for other routes. This compatibility exception should retire when native Payload exposes a verified-OAuth authentication context. Google provisioning uses a discarded random bootstrap password only because Payload 3.90 native registration requires it; native hooks run and hash/salt are cleared in the same transaction before identity commit. Committed Google-only accounts have no password capability.
 
-### Prompt: Customize email templates for my project
+Only local returns are supported. Encoded authority/backslash/control variants are denied, while permitted query/hash remain unchanged. Proxy remains a path canonicalizer, never treats cookie presence as authentication and does not block login/reset for invalid or revoked cookies. Private server-only `customFetch` is a provider-transport test seam, not a client option or alternate issuer. Issuer is fixed to Google. The controlled OIDC acceptance server is not proof of live Google acceptance.
 
-```
-Customize the email templates from @main12/auth-login for my project "<PROJECT_NAME>":
+Private `auth_login_google_identities` and encrypted OAuth records in `auth_login_otp_security` must be preserved alongside native users/sessions and credential permit ledgers across deploy/rollback. Losing subject mappings must not be "repaired" by email autolink. Rejected callbacks log only a server-generated UUID request ID and a constant event; the matching `X-Auth-Request-ID` response header permits incident correlation without logging state, codes, cookies, tokens or provider errors. OAuth consumption tombstones must survive live correlation deadlines; operator-controlled retention applies as for OTP. Do not let schema push delete unmanaged security tables.
 
-- Import generateWelcomeEmail, generateOtpEmail, generatePasswordResetEmail, generatePasswordChangedEmail from '@main12/auth-login/rsc'
-- Override each to use my brand colors (primary: <COLOR>, accent: <COLOR>)
-- Change the welcome email CTA text to "<CUSTOM_TEXT>"
-- Change the OTP email purpose text to "<CUSTOM_TEXT>"
-- Add my project's social media links to the footer
-```
+## HTTP contract
 
----
+With the example prefixes:
 
-## Dev Testing
+| Surface                                 | Result                                                                                                                            |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /backend/access/login`            | Bounded JSON `{ email, password }`; normalized email; Payload password login                                                      |
+| `POST /backend/customers/login`         | Same guarded implementation, not a bypass                                                                                         |
+| `GET /backend/customers/me`             | Authoritative current session via native Payload                                                                                  |
+| `POST /backend/customers/refresh-token` | Native refresh with absolute expiry enforcement                                                                                   |
+| `POST /backend/customers/logout`        | Native server-session revocation                                                                                                  |
+| `GET /backend/access/credentials`       | Authenticated self-only non-secret capabilities                                                                                   |
+| `POST /backend/access/otp/send`         | `{ email, purpose: 'login', context? }`; accepted response `{ success: true, code: 'OTP_REQUEST_ACCEPTED', context, retryAfter }` |
+| `POST /backend/access/otp/verify`       | `{ email, purpose: 'login', context, otp }`; native session/cookie, no password changes                                           |
+| `POST /backend/access/check-email`      | `403 METHOD_DISABLED`; never account discovery                                                                                    |
+| Disabled method endpoints               | `403 METHOD_DISABLED`; no credential/email effects                                                                                |
+
+Failures use `{ success: false, code }` with `INVALID_INPUT`, `AUTH_FAILED`, `METHOD_DISABLED`, `UNAUTHENTICATED`, `AUTH_UNAVAILABLE` or `ORIGIN_DENIED`. Password login uses one generic response for an unknown account, wrong password, locked or unverified account; it never publishes internal exceptions. Requests are limited to 4096 body bytes, 254 email characters and 1024 password characters; the latter is an input bound, **not** a new legacy-password complexity rule. Login accepts no unrelated properties.
+
+OTP issuance's accepted response is identical for unknown, limited and failed-mail accounts and **does not confirm delivery**. `context` is an opaque 64-hex challenge binding; alone it cannot authenticate. Preserve it for verification/resend. The UI displays `retryAfter` but direct HTTP is governed by shared storage. Wrong purpose/extra fields are invalid; failed verification is generic. Six digits expire at the original deadline. Infrastructure timing is not promised indistinguishable.
+
+The credential adapter reads native hash/salt only within protected server storage for the authenticated account and reduces them to `available`, `unavailable` or `unknown`. Neither hashes nor existence/provider state is exposed anonymously. UI selection depends on enabled methods, never on an email lookup.
+
+## Migration and rollback boundaries
+
+1. Back up accounts, native sessions and OTP storage before deployment. Preserve hashes/salts and account identifiers.
+2. Apply the explicit options and RSC/client/proxy props above. Remove `pluginConfig`, `initClientConfig`, `AUTH_LOGIN_*` and implicit Google environment detection. API/base paths must be configured explicitly across boundaries.
+3. Establish trustworthy email-verification evidence without inventing it. Public accounts with unknown/false verification can prove control using `purpose: 'verify-email'` on OTP send/verify (see the guide). This sets verification only, preserving password and sessions and requiring a fresh login; administrative accounts need a trusted host verification process. Passwords destroyed by legacy OTP cannot be reconstructed.
+4. During the announced security cutover, use root-exported `migrateAuthLogin` with all writers stopped, the target collection and an explicit legacy OTP collection/filter. It revokes native sessions/reset/verification tokens and advances scoped proof authority without deleting accounts, changing passwords, rotating global keys or rewriting Google mappings. Follow the coordinated cutover and rollback procedure in the guide; rerun it after a backup restore before resuming writers. Disposable-fixture rehearsal is not proof that production operators have executed it.
+5. A rollback must retain the revocations and disabled unsafe flows. Do **not** restore revoked sessions/codes or silently redeploy legacy OTP password substitution. Restore availability through the last security-equivalent artifact or keep access disabled; restoring a database backup must not restore security artifacts as valid.
+
+The package version is intentionally not a release promise on this branch. Publish only as a major change after review and the remaining applicable acceptance gates.
+
+## Local formatting and Git hooks
+
+Run `pnpm install --frozen-lockfile` to install dependencies and Git hooks through
+`prepare`. If installation used `--ignore-scripts`, run `pnpm hooks:install` afterward.
+
+- **Before commit:** validate a changed dependency manifest/lockfile, then run Prettier
+  and ESLint `--fix` sequentially on staged files. Fixes are staged automatically;
+  Lefthook temporarily hides unstaged edits in partially staged files. If those edits
+  conflict with formatting, the commit stops: resolve the conflict before retrying.
+- **Before push:** run `pnpm typecheck`. Database, packed-consumer and browser acceptance
+  stay explicit commands below; hooks never generate Payload types or import maps.
+- **Manual formatting:** `pnpm format:check` checks the repository;
+  `pnpm format` rewrites it. Existing formatting debt is not migrated automatically.
+  To keep a change focused, use `pnpm exec prettier --write path/to/file.ts`.
+
+Generated files, lockfiles, captured evidence, scratch files and copied architecture
+references are excluded in `.prettierignore`. ESLint keeps the existing `src`/`tests`
+boundary. Lock validation uses frozen, lockfile-only mode without lifecycle scripts;
+if it fails, run `pnpm install` and stage the updated manifest and lockfile together.
+
+## Maintainer boundaries and evidence
+
+- `src/config.ts`: pure instance/public contract, no React/Next/Payload imports. Server options are separate type-only modules; only `PublicAuthConfig` crosses client boundaries.
+- `src/auth/application/googleFlow.ts` and `googleAccountPolicy.ts`: framework-free OAuth correlation and account-policy owners with explicit provider/storage/clock/account dependencies.
+- `src/auth/server/googleAuthentication.ts`, `googleAccount.ts`, `googleProvider.ts`: declared Payload-integrated workflow/SQL/OIDC adapters; `src/endpoints/googleEndpoints.ts` validates/translates the HTTP interface.
+- CLEAN collection-owner adaptation: this reusable plugin owns the configurable auth collection, not a fixed consumer `src/collections/Users`. Package `src/index.ts` is its explicit public seam; native-integrated session/credential/OAuth workflows are named exceptions where transaction/hooks require Payload. Retire these exceptions when Payload supplies equivalent public operations; a directory rewrite or consumer fixed-slug API would not preserve the plugin contract.
+- `src/auth/domain/login.ts`: input/method policy and login use case with explicit authentication dependency, no transport/framework imports.
+- `src/endpoints/authEndpoints.ts` and `passwordEndpoints.ts`: HTTP translation and Payload-bound adapter composition; `authSchemas.ts` declares strict Zod interfaces without duplicating authorization policy.
+- `src/auth/application/ownershipVerification.ts`: purpose-specific account eligibility with explicit native account/evidence/principal/grant dependencies; no transport or Payload imports.
+- `src/auth/domain/proofBinding.ts`: shared named proof-reference codec; quotas preserve durable account identity rather than positional serialization.
+- `src/auth/server/sessionPolicy.ts` and `credentialEvidence.ts`: declared Payload-specific native storage/session seams; not a general portable authentication framework.
+- `src/auth/interface/react/providers/AuthConfigProvider/index.tsx`: isolated per-tree client settings. Client entrypoint must not import the server session/credential adapters.
+- `src/exports/client.ts`, `rsc.ts`, `src/proxy.ts`: consumer surfaces; do not infer settings from another bundle's globals.
 
 ```bash
-git clone https://github.com/MAIN-12/auth-login-plugin.git
-cd auth-login-plugin
-pnpm install
-pnpm dev
+pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm lint                         # src and tests, not a no-op
+pnpm test:unit                    # includes real Payload/SQLite HTTP acceptance
+pnpm build                        # cleans dist before generating JS/declarations/assets
+pnpm exec playwright install chromium
+pnpm test:otp:acceptance          # packed PostgreSQL/two-process/browser OTP acceptance
+pnpm test:oauth:sqlite            # packed controlled-OIDC Chromium + native API acceptance
+pnpm test:oauth:postgres          # same behavior against PostgreSQL/two processes
+pnpm test:consumer                # external package install, exports and types; no app/browser
+pnpm test:consumer:integration    # minimal Next/Payload host, real login/logout + SQLite
+AUTH_CONSUMER_DB=sqlite pnpm test:migration:acceptance
+AUTH_CONSUMER_DB=postgres pnpm test:migration:acceptance
 ```
 
-Visit `http://localhost:3000/login` — all 5 auth pages wired with SQLite.
+`test:consumer` generates a temporary package manifest and TypeScript imports check;
+it does not maintain another app fixture. `test:consumer:integration` and the specialized
+acceptance commands share the single Next/Payload fixture in `tests/consumer`, with
+scenario-specific behavior selected by environment flags, not overlays. Both runners
+clean their temporary directories. The integration
+host is not a mock auth server. See the candidate traceability for exact runtime/adapter outcomes. Human screen-reader/real-device checks and remote CI execution remain separate pending gates; unit mocks are not evidence for those claims. TypeScript lint uses an explicitly TS6-compatible parser instead of an unrelated vendor repository's formatting config. Existing non-critical `any`/dormant UI warnings are reported, not hidden.
 
----
+**Concurrent SQLite host requirement:** configure `sqliteAdapter({ wal: true, busyTimeout: 1000, ... })` on every instance. The demonstrated two-process setup uses WAL plus a 1,000 ms native read busy timeout; default DELETE journal/zero timeout can fail native authentication/logout during overlapping OTP writes. The plugin does not silently change the host journal mode or retry authentication hooks. Local file/WAL requires a filesystem that supports SQLite shared-memory/locking; multi-host network filesystems are not established support.
 
-## Usage with @main12/brevo-adapter
+### Repository scripts
 
-```ts
-import { authLoginPlugin } from '@main12/auth-login'
-import { brevoAdapter } from '@main12/brevo-adapter'
-
-export default buildConfig({
-  email: brevoAdapter(),
-  plugins: [authLoginPlugin({ projectName: 'My App' })],
-})
-```
-
-The auth-login plugin uses `payload.sendEmail()` internally — which routes through Brevo automatically.
-
-## Requirements
-
-| Dependency | Version | Required |
-|------------|---------|----------|
-| Payload CMS | `^3.90.0` | ✅ |
-| Next.js | `^16.3.3` | ✅ |
-| React | `^19.0.0` | ✅ |
-| HeroUI | `>=3.2.0` | Only for `style: 'hero-ui'` |
-| Framer Motion | `^12.x` | Shared card entrance animation in both styles |
-
----
-
-## License
-
-MIT © Main 12
+Repository tooling in `scripts/` is TypeScript and runs through the `tsx`
+development dependency. Use the package commands (for example,
+`pnpm build:fix-esm-imports` and `pnpm test:consumer`) or
+`pnpm exec tsx scripts/<name>.ts`. `pnpm typecheck` also checks these scripts
+with their strict, no-emit configuration; they are not emitted into `dist/`.
+The browser acceptance helpers in `tests/*-browser.ts` use the same TypeScript tooling.

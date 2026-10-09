@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { getServerProviderConfig, getServerModalLogin } from './config'
+import type { PublicAuthConfig } from './auth/contracts/publicConfig'
 
 const AUTH_ROUTES = ['login', 'signup', 'forgot-password', 'verify-otp', 'set-password']
 
 export interface AuthProxyOptions {
   /** Explicitly enable modal mode in separately bundled proxy runtimes. */
+  publicConfig?: PublicAuthConfig
   modalLogin?: boolean
   /** Base path where AuthPages catch-all is mounted. Defaults to '/auth' */
   basePath?: string
@@ -12,54 +13,30 @@ export interface AuthProxyOptions {
   routes?: string[]
 }
 
-/**
- * Creates a proxy that redirects bare auth routes (e.g. /login)
- * to the catch-all path (e.g. /auth/login).
- *
- * Usage in your app's proxy.ts (Next.js 16+):
- * ```ts
- * // One-liner — just re-export:
- * export { proxy, config } from '@main12/auth-login/proxy'
- * ```
- * Or compose with your own logic:
- * ```ts
- * import { createAuthProxy } from '@main12/auth-login/proxy'
- * const authProxy = createAuthProxy({ basePath: '/auth' })
- * export function proxy(req) { return authProxy(req) }
- * ```
- *
- * The basePath defaults to the value set in the plugin options
- * (`routeRedirects: { basePath: '/auth' }`), or '/auth' if not configured.
+/** Canonicalizes configured auth paths only. Pass publicConfig or explicit basePath.
+ * The default export is deliberately inert; no separately bundled globals are read.
+ * Authentication/authorization belongs to the consumer's server guard, never cookies here.
  */
-export function createAuthProxy({ basePath, routes = AUTH_ROUTES, modalLogin }: AuthProxyOptions = {}) {
+export function createAuthProxy({
+  basePath,
+  routes = AUTH_ROUTES,
+  modalLogin,
+  publicConfig,
+}: AuthProxyOptions = {}) {
   const routeSet = new Set(routes)
 
   return function proxy(request: NextRequest) {
-    if (modalLogin || getServerModalLogin()) return NextResponse.next()
+    if (modalLogin ?? publicConfig?.modalLogin) return NextResponse.next()
 
-    const settings = getServerProviderConfig()
-    const base = (basePath ?? settings.authBasePath).replace(/\/$/, '')
-    const redirectsEnabled = settings.routeRedirects
+    const base = (basePath ?? publicConfig?.authBasePath ?? '/auth').replace(/\/$/, '')
+    const redirectsEnabled = publicConfig?.routeRedirects
     if (!redirectsEnabled && !basePath) {
       return NextResponse.next()
     }
 
     const { pathname } = request.nextUrl
 
-    // If user is already logged in, redirect away from auth pages (login, signup, etc.)
-    const token = request.cookies.get('payload-token')?.value
-    if (token) {
-      const segment = pathname.replace(/^\//, '').replace(/\/$/, '')
-      const isAuthPage = routeSet.has(segment) || routeSet.has(pathname.replace(`${base}/`, ''))
-      if (isAuthPage || pathname.startsWith(`${base}/login`) || pathname.startsWith(`${base}/signup`)) {
-        const redirect = request.nextUrl.searchParams.get('redirect') || '/'
-        const url = request.nextUrl.clone()
-        url.pathname = redirect
-        url.search = ''
-        return NextResponse.redirect(url)
-      }
-    }
-
+    // A cookie is not proof of authentication. Proxy only canonicalizes paths.
     // Always redirect /admin/login to the plugin login page
     if (pathname === '/admin/login' || pathname === '/admin/login/') {
       const url = request.nextUrl.clone()
@@ -83,11 +60,11 @@ export const proxy = createAuthProxy()
 
 export const config = {
   matcher: [
-    '/admin/login', 
-    '/login', 
-    '/signup', 
-    '/forgot-password', 
-    '/verify-otp', 
+    '/admin/login',
+    '/login',
+    '/signup',
+    '/forgot-password',
+    '/verify-otp',
     '/set-password',
     '/auth/:path*',
   ],
