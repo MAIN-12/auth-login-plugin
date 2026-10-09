@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import { expect, it } from 'vitest'
-import { dependencies } from '../scripts/auth-architecture.mjs'
+import { dependencies } from '../scripts/auth-architecture.ts'
 
 function files(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {

@@ -3,6 +3,10 @@
   "version": "3.0.0",
   "description": "Payload CMS authentication plugin — isolated configuration and guarded native password login",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MAIN-12/auth-login-plugin.git"
+  },
   "type": "module",
   "exports": {
     ".": {

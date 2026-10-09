@@ -1,6 +1,9 @@
-import { architecturePlugin } from './scripts/auth-architecture.mjs'
+import { tsImport } from 'tsx/esm/api'
 import reactHooks from 'eslint-plugin-react-hooks'
 import tseslint from 'typescript-eslint'
+
+// Scope TypeScript loading to this development-only plugin; plain eslint still works.
+const { architecturePlugin } = await tsImport('./scripts/auth-architecture.ts', import.meta.url)
 
 // The vendor config had undocumented repository-wide formatting requirements,
 // a missing dependency, and a parser that does not support this repo's TS6.

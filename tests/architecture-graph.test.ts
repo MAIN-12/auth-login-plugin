@@ -2,7 +2,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { expect, it } from 'vitest'
-import { inspectArchitecture } from '../scripts/auth-architecture.mjs'
+import { inspectArchitecture } from '../scripts/auth-architecture.ts'
 
 it('rejects a domain dependency hidden by a type import and an alias barrel', () => {
   const root = mkdtempSync(path.join(tmpdir(), 'auth-graph-'))
@@ -128,7 +128,7 @@ it('the actual plugin respects the resolved architectural graph', () => {
 
 import { ESLint } from 'eslint'
 import tseslint from 'typescript-eslint'
-import { architecturePlugin, dependencies } from '../scripts/auth-architecture.mjs'
+import { architecturePlugin, dependencies } from '../scripts/auth-architecture.ts'
 import { readFileSync } from 'node:fs'
 
 it('lint uses the same graph to reject an unsaved type import through a server barrel', async () => {

@@ -2,6 +2,11 @@ import fs from 'node:fs'
 import path from 'node:path'
 import ts from 'typescript'
 import { isBuiltin } from 'node:module'
+import type { ESLint, Rule } from 'eslint'
+
+type Dependency = { specifier: string | null; typeOnly: boolean }
+type GraphEdge = Dependency & { local: string | undefined; unresolved: boolean }
+type Finding = { file: string; rule: string; trail: string[] }
 
 const sourceExtensions = /\.(?:[cm]?[jt]sx?)$/
 const externalServer =
@@ -19,7 +24,7 @@ const reactServerEntry =
   /^(?:components\/(?:organisms\/AuthCard|pages\/AuthPages)\/server\.tsx$|auth\/interface\/react\/providers\/AuthProviderServer\/)/
 const emailModule = /^auth\/infrastructure\/email\//
 
-function sources(directory) {
+function sources(directory: string): string[] {
   if (!fs.existsSync(directory)) return []
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(directory, entry.name)
@@ -28,13 +33,13 @@ function sources(directory) {
 }
 
 /** Parse syntax, not source substrings: includes type imports, reexports, import types and CJS. */
-export function dependencies(file, source) {
+export function dependencies(file: string, source: string): Dependency[] {
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
-  const edges = []
-  const add = (node, typeOnly = false) => {
+  const edges: Dependency[] = []
+  const add = (node: ts.Node | undefined, typeOnly = false) => {
     edges.push({ specifier: node && ts.isStringLiteralLike(node) ? node.text : null, typeOnly })
   }
-  const visit = (node) => {
+  const visit = (node: ts.Node) => {
     if (ts.isImportDeclaration(node)) add(node.moduleSpecifier, node.importClause?.isTypeOnly)
     else if (ts.isExportDeclaration(node) && node.moduleSpecifier)
       add(node.moduleSpecifier, node.isTypeOnly)
@@ -58,14 +63,17 @@ export function dependencies(file, source) {
 }
 
 /** The same resolved transitive graph is consumed by lint and tests. No production modules execute. */
-export function inspectArchitecture(root, overrides = new Map()) {
+export function inspectArchitecture(
+  root: string,
+  overrides: ReadonlyMap<string, string> = new Map(),
+): Finding[] {
   const config = ts.readConfigFile(path.join(root, 'tsconfig.json'), ts.sys.readFile)
   const options = ts.parseJsonConfigFileContent(config.config ?? {}, ts.sys, root).options
   const src = path.join(root, 'src')
   const files = [...new Set([...sources(src), ...overrides.keys()])]
-  const graph = new Map()
-  const relative = (file) => path.relative(src, file).split(path.sep).join('/')
-  const resolve = (specifier, file) =>
+  const graph = new Map<string, GraphEdge[]>()
+  const relative = (file: string) => path.relative(src, file).split(path.sep).join('/')
+  const resolve = (specifier: string, file: string) =>
     ts.resolveModuleName(specifier, file, options, ts.sys).resolvedModule?.resolvedFileName
   for (const file of files) {
     const edges = dependencies(file, overrides.get(file) ?? fs.readFileSync(file, 'utf8')).map(
@@ -89,9 +97,9 @@ export function inspectArchitecture(root, overrides = new Map()) {
     )
     graph.set(file, edges)
   }
-  const findings = []
-  const seenFindings = new Set()
-  const report = (file, rule, trail) => {
+  const findings: Finding[] = []
+  const seenFindings = new Set<string>()
+  const report = (file: string, rule: string, trail: string[]) => {
     const key = file + rule + trail.join(' -> ')
     if (!seenFindings.has(key)) {
       seenFindings.add(key)
@@ -107,8 +115,8 @@ export function inspectArchitecture(root, overrides = new Map()) {
     const client = clientEntry.test(name) && !emailModule.test(name) && !reactServerEntry.test(name)
     const proxy = name === 'proxy.ts'
     if (!pure && !http && !client && !rsc && !proxy) continue
-    const visited = new Set()
-    const walk = (current, trail) => {
+    const visited = new Set<string>()
+    const walk = (current: string, trail: string[]) => {
       if (visited.has(current)) return
       visited.add(current)
       for (const edge of graph.get(current) ?? []) {
@@ -175,7 +183,7 @@ export const architecturePlugin = {
   rules: {
     boundaries: {
       meta: { type: 'problem', schema: [], messages: { boundary: '{{rule}}: {{trail}}' } },
-      create(context) {
+      create(context: Rule.RuleContext) {
         return {
           Program(node) {
             const file = context.filename
@@ -193,4 +201,4 @@ export const architecturePlugin = {
       },
     },
   },
-}
+} satisfies ESLint.Plugin

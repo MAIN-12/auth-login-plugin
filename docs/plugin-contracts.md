@@ -137,7 +137,7 @@ isolated use-case evidence; no Chromium/E2E or new DB acceptance suites are requ
   live in contracts/publicConfig; browser/proxy imports no longer traverse private config.
   RSC preserves its existing server option _type_ export via config, not root bootstrap;
   no concrete server runtime or credentials cross that surface. Email APIs stay explicit.
-- `scripts/auth-architecture.mjs` resolves syntax with TypeScript and checks transitive
+- `scripts/auth-architecture.ts` resolves syntax with TypeScript and checks transitive
   imports including types, alias barrels, dynamic import/require. ESLint uses the same
   graph; tests exercise valid and forbidden fixtures. This is static evidence, not
   packed/browser/runtime validation.
