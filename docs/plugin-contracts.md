@@ -166,6 +166,19 @@ explicit unknown/unverified/deleted/verified evidence. Missing or malformed evid
 cannot become an eligible identity. Composition captures private options per instance;
 publicConfig receives no secrets or server capabilities.
 
+`otp.secret` is an optional server-only override, unchanged when supplied (minimum
+32 characters; malformed values fail closed). When absent, composition derives a
+32-byte HKDF-SHA256 key from the current request's `payload.secret` (minimum 32
+characters), with salt `auth-login/otp/hkdf-salt/v1` and info `auth-login/otp/v1`,
+encoded as hex for the existing codec. No ambient/global key or environment
+fallback is used. Login and every ownership OTP purpose share this resolution.
+Keep existing overrides on upgrade; removing/changing one, or rotating Payload's
+key with the default, invalidates live challenges and changes quota identifiers.
+Stop issuance until challenge expiry and the one-hour sliding quota window have
+passed, retain security state and coordinate every instance's switch. Derivation gives domain separation,
+not independent compromise/rotation or extra root entropy; storage still uses
+Payload's key.
+
 The durable reservation commits before delivery. Failed mail never resets cooldown,
 quota, expiry or attempts, and accepted never asserts delivery or account existence.
 Verification commits its irreversible burn before opening the separate native session

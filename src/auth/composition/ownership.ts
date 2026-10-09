@@ -2,7 +2,7 @@ import type { Endpoint, PayloadRequest } from 'payload'
 import type { OtpOptions, PublicAuthConfig } from '../../config'
 import { createOwnershipPolicy } from '../application/use-cases/ownership'
 import { createOwnershipVerification } from '../application/use-cases/ownershipVerification'
-import { createOtpCodec } from '../infrastructure/crypto/otpCodec'
+import { createOtpCodec, resolveOtpSecret } from '../infrastructure/crypto/otpCodec'
 import { createPasswordPermitCodec } from '../infrastructure/crypto/passwordPermitCodec'
 import { createOtpLedger } from '../infrastructure/payload/otpLedger'
 import { createPayloadOtpStore } from '../server/otpStore'
@@ -107,7 +107,7 @@ export function createOwnershipScope(
         purpose,
         principal,
         challengeGeneration: generation,
-        codec: createOtpCodec(options.secret),
+        codec: createOtpCodec(resolveOtpSecret(options.secret, req.payload.secret)),
         ledger: createOtpLedger(createPayloadOtpStore(req)),
         findOwnershipAccount: (email) => findOwnershipAccount(req, settings.collection, email),
         grant: async (proof) => {

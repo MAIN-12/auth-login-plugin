@@ -27,7 +27,7 @@ it('requires a complete private Google configuration rather than the unsafe lega
   ).toThrow('Google requires')
 })
 
-it('requires a dedicated key and trusted server-origin resolver before enabling OTP', () => {
+it('requires trusted server-origin configuration before enabling OTP', () => {
   expect(() =>
     authLoginPlugin({
       passwordLogin: true,

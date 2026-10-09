@@ -102,11 +102,13 @@ export function resolveAuthConfig(options: AuthLoginPluginOptions): PublicAuthCo
   if (options.otpLogin || (options.allowSignup && options.passwordLogin) || options.recovery) {
     if (
       !options.otp ||
-      typeof options.otp.secret !== 'string' ||
-      options.otp.secret.length < 32 ||
+      (options.otp.secret !== undefined &&
+        (typeof options.otp.secret !== 'string' || options.otp.secret.length < 32)) ||
       typeof options.otp.origin !== 'function'
     )
-      throw new Error('auth-login: OTP requires server secret and trusted origin resolver')
+      throw new Error(
+        'auth-login: OTP requires trusted origin resolver and an optional secret of at least 32 characters',
+      )
     for (const key of [
       'ttlSeconds',
       'cooldownSeconds',

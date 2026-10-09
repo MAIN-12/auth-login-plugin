@@ -30,7 +30,8 @@ export function createGoogleScope(
   let used = false
   let receipt: Awaited<ReturnType<typeof createOtpSession>> | undefined
   const originalUser = req.user
-  const originalHeaders = req.headers
+  const originalHeadersDescriptor = Object.getOwnPropertyDescriptor(req, 'headers')
+  let headersOverridden = false
   const prepare = async () => {
     const generation = await readCutoverGeneration(req, settings.collection)
     const assertCurrent = async () => {
@@ -77,7 +78,15 @@ export function createGoogleScope(
           const headers = new Headers(req.headers)
           headers.set('Origin', new URL(redirectURI).origin)
           headers.set('Sec-Fetch-Site', 'same-origin')
-          req.headers = headers
+          // Payload augments native Request objects; their inherited headers getter has no setter.
+          // Shadow it only for the verified callback, keeping native request identity intact.
+          Object.defineProperty(req, 'headers', {
+            value: headers,
+            configurable: true,
+            enumerable: originalHeadersDescriptor?.enumerable ?? true,
+            writable: true,
+          })
+          headersOverridden = true
           const authenticated = await req.payload.auth({
             headers,
             req,
@@ -128,7 +137,11 @@ export function createGoogleScope(
       throw error
     } finally {
       req.user = originalUser
-      req.headers = originalHeaders
+      if (headersOverridden) {
+        if (originalHeadersDescriptor)
+          Object.defineProperty(req, 'headers', originalHeadersDescriptor)
+        else Reflect.deleteProperty(req, 'headers')
+      }
     }
   }
   return {

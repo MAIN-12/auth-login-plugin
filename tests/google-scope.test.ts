@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest'
+import { beforeEach, expect, it, vi } from 'vitest'
 import type { PayloadRequest } from 'payload'
 import { createGoogleScope } from '../src/auth/composition/google'
 import { publicConfig } from './auth-test-config'
@@ -16,7 +16,11 @@ vi.mock('../src/auth/infrastructure/payload/googleAccountCommit', () => ({
 vi.mock('../src/auth/server/otpStore', () => ({
   createPayloadOtpStore: (req: PayloadRequest) => doubles.stores.get(req.payload)!,
 }))
-function fixture() {
+beforeEach(() => {
+  doubles.session.mockReset()
+  doubles.commit.mockReset()
+})
+function fixture(nativeRequest = false) {
   const records = new Map<string, Record<string, unknown>>()
   const db = {
     name: 'postgres',
@@ -24,11 +28,18 @@ function fixture() {
     sessions: {},
     execute: vi.fn(async () => ({ rows: [] })),
   }
-  const req = {
-    headers: new Headers({ host: 'app.test' }),
-    user: undefined,
-    payload: { secret: 'test-secret', db },
-  } as unknown as PayloadRequest
+  const req = Object.assign(
+    nativeRequest
+      ? new Request('https://app.test/api/auth/oauth/google', {
+          headers: {
+            host: 'app.test',
+            origin: 'https://external.test',
+            'sec-fetch-site': 'cross-site',
+          },
+        })
+      : { headers: new Headers({ host: 'app.test' }) },
+    { user: undefined, payload: { secret: 'test-secret', db } },
+  ) as unknown as PayloadRequest
   doubles.stores.set(req.payload, {
     transaction: async (_keys, work) =>
       work({
@@ -60,29 +71,32 @@ it('disabled native scope performs zero storage/provider effects and exposes no 
   expect(f.provider.authorize).not.toHaveBeenCalled()
   expect(() => scope.takeReceipt()).toThrow('AUTH_UNAVAILABLE')
 })
-it('native login uses the real req and keeps its receipt consumable once outside the application result', async () => {
-  const f = fixture()
-  const originalHeaders = f.req.headers
-  doubles.commit.mockResolvedValueOnce({
-    account: { id: 1, email: 'owner@example.com', hash: 'private-hash', salt: 'private-salt' },
-  })
-  doubles.session.mockResolvedValueOnce({ token: 'private-token', user: { id: 1 }, exp: 2000 })
-  const start = await f.scope().start({ browser: 'one' })
-  const callback = f.scope()
-  const result = await callback.callback(start.state, 'one', 'https://app.test/callback')
-  expect(result).toEqual({ result: { success: true }, purpose: 'login', returnTo: '/' })
-  expect(JSON.stringify(result)).not.toMatch(/private-/)
-  expect(doubles.commit.mock.calls.at(-1)![0]).toBe(f.req)
-  expect(doubles.session.mock.calls.at(-1)![0]).toBe(f.req)
-  expect(callback.takeReceipt()).toMatchObject({ token: 'private-token' })
-  expect(() => callback.takeReceipt()).toThrow('AUTH_UNAVAILABLE')
-  expect(f.req.headers).toBe(originalHeaders)
-  expect(f.req.user).toBeUndefined()
-  callback.dispose()
-  await expect(callback.callback(start.state, 'one', 'https://app.test/callback')).rejects.toThrow(
-    'AUTH_UNAVAILABLE',
-  )
-})
+it.each([false, true])(
+  'login keeps its receipt consumable with native Request=%s',
+  async (nativeRequest) => {
+    const f = fixture(nativeRequest)
+    const originalHeaders = f.req.headers
+    doubles.commit.mockResolvedValueOnce({
+      account: { id: 1, email: 'owner@example.com', hash: 'private-hash', salt: 'private-salt' },
+    })
+    doubles.session.mockResolvedValueOnce({ token: 'private-token', user: { id: 1 }, exp: 2000 })
+    const start = await f.scope().start({ browser: 'one' })
+    const callback = f.scope()
+    const result = await callback.callback(start.state, 'one', 'https://app.test/callback')
+    expect(result).toEqual({ result: { success: true }, purpose: 'login', returnTo: '/' })
+    expect(JSON.stringify(result)).not.toMatch(/private-/)
+    expect(doubles.commit.mock.calls.at(-1)![0]).toBe(f.req)
+    expect(doubles.session.mock.calls.at(-1)![0]).toBe(f.req)
+    expect(callback.takeReceipt()).toMatchObject({ token: 'private-token' })
+    expect(() => callback.takeReceipt()).toThrow('AUTH_UNAVAILABLE')
+    expect(f.req.headers).toBe(originalHeaders)
+    expect(f.req.user).toBeUndefined()
+    callback.dispose()
+    await expect(
+      callback.callback(start.state, 'one', 'https://app.test/callback'),
+    ).rejects.toThrow('AUTH_UNAVAILABLE')
+  },
+)
 it('asynchronous native session failure cannot leak a receipt or revive callback, and scopes isolate instances', async () => {
   const f = fixture()
   const other = fixture()
@@ -108,40 +122,43 @@ it('asynchronous native session failure cannot leak a receipt or revive callback
   )
   expect(f.provider.exchange).toHaveBeenCalledTimes(1)
 })
-it('reauthentication denies a changed native principal after consuming state and restores the real req headers/user', async () => {
-  const f = fixture()
-  const account = {
-    id: 1,
-    email: 'owner@example.com',
-    _verified: true,
-    sessions: [{ id: 'sid', expiresAt: new Date(100000).toISOString() }],
-  }
-  f.req.user = {
-    ...account,
-    collection: publicConfig.collection,
-    _sid: 'sid',
-  } as PayloadRequest['user']
-  Object.assign(f.db, { findOne: vi.fn(async () => account) })
-  const auth = vi.fn(async () => ({
-    user: { ...account, collection: publicConfig.collection, _sid: 'changed' },
-  }))
-  Object.assign(f.req.payload, { auth })
-  const originalUser = f.req.user
-  const originalHeaders = f.req.headers
-  const start = await f.scope().start({ browser: 'one', purpose: 'reauth', popup: true })
-  const callback = f.scope()
-  await expect(callback.callback(start.state, 'one', 'https://app.test/callback')).rejects.toThrow(
-    'AUTH_FAILED',
-  )
-  expect(auth.mock.calls[0][0].req).toBe(f.req)
-  expect(f.req.user).toBe(originalUser)
-  expect(f.req.headers).toBe(originalHeaders)
-  expect(() => callback.takeReceipt()).toThrow('AUTH_UNAVAILABLE')
-  await expect(f.scope().callback(start.state, 'one', 'https://app.test/callback')).rejects.toThrow(
-    'AUTH_FAILED',
-  )
-  expect(f.provider.exchange).toHaveBeenCalledTimes(1)
-})
+it.each([false, true])(
+  'reauthentication denies a changed principal and restores headers/user with native Request=%s',
+  async (nativeRequest) => {
+    const f = fixture(nativeRequest)
+    const account = {
+      id: 1,
+      email: 'owner@example.com',
+      _verified: true,
+      sessions: [{ id: 'sid', expiresAt: new Date(100000).toISOString() }],
+    }
+    f.req.user = {
+      ...account,
+      collection: publicConfig.collection,
+      _sid: 'sid',
+    } as PayloadRequest['user']
+    Object.assign(f.db, { findOne: vi.fn(async () => account) })
+    const auth = vi.fn(async () => ({
+      user: { ...account, collection: publicConfig.collection, _sid: 'changed' },
+    }))
+    Object.assign(f.req.payload, { auth })
+    const originalUser = f.req.user
+    const originalHeaders = f.req.headers
+    const start = await f.scope().start({ browser: 'one', purpose: 'reauth', popup: true })
+    const callback = f.scope()
+    await expect(
+      callback.callback(start.state, 'one', 'https://app.test/callback'),
+    ).rejects.toThrow('AUTH_FAILED')
+    expect(auth.mock.calls[0][0].req).toBe(f.req)
+    expect(f.req.user).toBe(originalUser)
+    expect(f.req.headers).toBe(originalHeaders)
+    expect(() => callback.takeReceipt()).toThrow('AUTH_UNAVAILABLE')
+    await expect(
+      f.scope().callback(start.state, 'one', 'https://app.test/callback'),
+    ).rejects.toThrow('AUTH_FAILED')
+    expect(f.provider.exchange).toHaveBeenCalledTimes(1)
+  },
+)
 it('account uniqueness rejection after exchange burns correlation without invoking native session or exposing receipt', async () => {
   const f = fixture()
   const sessionsBefore = doubles.session.mock.calls.length
@@ -191,3 +208,121 @@ it.each([
     expect(f.provider.exchange).not.toHaveBeenCalled()
   },
 )
+
+it.each([false, true])(
+  'verified reauthentication uses trusted scoped headers and restores their descriptor with native Request=%s',
+  async (nativeRequest) => {
+    const f = fixture(nativeRequest)
+    const account = { id: 1, email: 'owner@example.com', _verified: true }
+    f.req.user = {
+      ...account,
+      collection: publicConfig.collection,
+      _sid: 'sid',
+    } as PayloadRequest['user']
+    Object.assign(f.db, { findOne: vi.fn(async () => account) })
+    const originalUser = f.req.user
+    const originalHeaders = f.req.headers
+    const descriptor = Object.getOwnPropertyDescriptor(f.req, 'headers')
+    const auth = vi.fn(async ({ headers, req }: { headers: Headers; req: PayloadRequest }) => {
+      expect(req).toBe(f.req)
+      expect(req.headers).toBe(headers)
+      expect(headers).not.toBe(originalHeaders)
+      expect(headers.get('origin')).toBe('https://app.test')
+      expect(headers.get('sec-fetch-site')).toBe('same-origin')
+      return { user: originalUser }
+    })
+    Object.assign(f.req.payload, { auth })
+    doubles.commit.mockImplementationOnce(async (req: PayloadRequest) => {
+      expect(req).toBe(f.req)
+      expect(req.user).toBe(originalUser)
+      expect(req.headers.get('origin')).toBe('https://app.test')
+      return { permit: { success: true } }
+    })
+    const start = await f.scope().start({ browser: 'one', purpose: 'reauth', popup: true })
+    const callback = f.scope()
+    await expect(
+      callback.callback(start.state, 'one', 'https://app.test/callback'),
+    ).resolves.toEqual({
+      result: { success: true },
+      purpose: 'reauth',
+      popup: true,
+      returnTo: '/',
+    })
+    expect(auth).toHaveBeenCalledTimes(1)
+    expect(doubles.session).not.toHaveBeenCalled()
+    expect(f.req.headers).toBe(originalHeaders)
+    expect(Object.getOwnPropertyDescriptor(f.req, 'headers')).toEqual(descriptor)
+    expect(f.req.user).toBe(originalUser)
+    expect(() => callback.takeReceipt()).toThrow('AUTH_UNAVAILABLE')
+  },
+)
+it.each(['auth', 'commit'])(
+  'native callback preserves failure and restores headers after asynchronous %s rejection',
+  async (failure) => {
+    const f = fixture(true)
+    const account = { id: 1, email: 'owner@example.com', _verified: true }
+    f.req.user = {
+      ...account,
+      collection: publicConfig.collection,
+      _sid: 'sid',
+    } as PayloadRequest['user']
+    Object.assign(f.db, { findOne: vi.fn(async () => account) })
+    const originalUser = f.req.user
+    const originalHeaders = f.req.headers
+    Object.assign(f.req.payload, {
+      auth: vi.fn(async () => {
+        await Promise.resolve()
+        if (failure === 'auth') throw new Error('native auth failure')
+        return { user: originalUser }
+      }),
+    })
+    doubles.commit.mockImplementationOnce(async () => {
+      await Promise.resolve()
+      throw new Error('native commit failure')
+    })
+    const start = await f.scope().start({ browser: 'one', purpose: 'reauth', popup: true })
+    const callback = f.scope()
+    await expect(
+      callback.callback(start.state, 'one', 'https://app.test/callback'),
+    ).rejects.toThrow(`native ${failure} failure`)
+    expect(f.req.headers).toBe(originalHeaders)
+    expect(Object.hasOwn(f.req, 'headers')).toBe(false)
+    expect(f.req.user).toBe(originalUser)
+    expect(() => callback.takeReceipt()).toThrow('AUTH_UNAVAILABLE')
+    await expect(
+      f.scope().callback(start.state, 'one', 'https://app.test/callback'),
+    ).rejects.toThrow('AUTH_FAILED')
+    expect(f.provider.exchange).toHaveBeenCalledTimes(1)
+  },
+)
+it('non-configurable headers fail closed without authenticating or changing the request', async () => {
+  const f = fixture(true)
+  const account = { id: 1, email: 'owner@example.com', _verified: true }
+  f.req.user = {
+    ...account,
+    collection: publicConfig.collection,
+    _sid: 'sid',
+  } as PayloadRequest['user']
+  Object.assign(f.db, { findOne: vi.fn(async () => account) })
+  const originalUser = f.req.user
+  const originalHeaders = f.req.headers
+  Object.defineProperty(f.req, 'headers', {
+    value: originalHeaders,
+    configurable: false,
+    writable: false,
+  })
+  const descriptor = Object.getOwnPropertyDescriptor(f.req, 'headers')
+  const auth = vi.fn()
+  Object.assign(f.req.payload, { auth })
+  const start = await f.scope().start({ browser: 'one', purpose: 'reauth', popup: true })
+  const callback = f.scope()
+  await expect(callback.callback(start.state, 'one', 'https://app.test/callback')).rejects.toThrow(
+    TypeError,
+  )
+  expect(auth).not.toHaveBeenCalled()
+  expect(doubles.commit).not.toHaveBeenCalled()
+  expect(f.req.headers).toBe(originalHeaders)
+  expect(Object.getOwnPropertyDescriptor(f.req, 'headers')).toEqual(descriptor)
+  expect(f.req.user).toBe(originalUser)
+  expect(() => callback.takeReceipt()).toThrow('AUTH_UNAVAILABLE')
+})

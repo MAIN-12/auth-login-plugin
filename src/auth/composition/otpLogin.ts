@@ -6,7 +6,7 @@ import type { PayloadRequest } from 'payload'
 import type { OtpOptions, PublicAuthConfig } from '../../config'
 import { createOtpLogin } from '../application/use-cases/otpLogin'
 import { createOtpProtocol } from '../application/use-cases/otpProtocol'
-import { createOtpCodec } from '../infrastructure/crypto/otpCodec'
+import { createOtpCodec, resolveOtpSecret } from '../infrastructure/crypto/otpCodec'
 import { createNativeOtpLogin } from '../infrastructure/payload/otpLogin'
 import { createOtpLedger } from '../infrastructure/payload/otpLedger'
 import { createPayloadOtpStore } from '../server/otpStore'
@@ -43,7 +43,7 @@ export function createOtpLoginScope(
           purpose: 'login',
           collection: settings.collection,
           challengeGeneration: generation,
-          codec: createOtpCodec(options!.secret),
+          codec: createOtpCodec(resolveOtpSecret(options!.secret, req.payload.secret)),
           ledger: createOtpLedger(createPayloadOtpStore(req)),
           findAccount: adapter.findAccount,
           quotaIdentity: adapter.quotaIdentity,

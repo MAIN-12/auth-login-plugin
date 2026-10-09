@@ -117,12 +117,12 @@ export const config = { matcher: ['/login', '/signup'] }
 
 ## Enable secure OTP (server only)
 
-Password and OTP can coexist, or OTP can be the sole enabled login method. Existing passwords are never replaced. Configure a dedicated random key (at least 32 characters) shared by every instance, explicit sender/locale, and a trusted host-side peer resolver:
+Password and OTP can coexist, or OTP can be the sole enabled login method. Existing passwords are never replaced. Configure an explicit sender/locale and a trusted host-side peer resolver. By default the OTP key is derived from the current Payload instance's high-entropy `payload.secret` (at least 32 characters):
 
 ```ts
 otpLogin: true,
 otp: {
-  secret: consumerSecrets.otpKey,
+  // Optional: secret: consumerSecrets.otpKey, // dedicated random key, >=32 characters
   origin: req => trustedPeerFromHost(req),
   email: { from: 'auth@example.com', locale: 'es', projectName: 'Your project' },
   // Defaults: ttlSeconds: 300, maxAttempts: 3, cooldownSeconds: 60,
@@ -133,6 +133,10 @@ otp: {
 OTP does not grant Payload admin access: its session adapter denies users for whom the native `access.admin` policy allows access. Frontend-only collections should explicitly use `access: { admin: () => false }`. For consumer server login hooks, `isOtpSessionRequest(req)` is unforgeable request-local evidence during OTP login; it is not a later-session policy. Signed method evidence survives capped refresh, and every subsequent native authentication re-evaluates OTP admin eligibility failclosed. Password admin policy is unchanged; full R20 admin integration belongs to its later issue.
 
 `trustedPeerFromHost` is consumer server code, not an HTTP header lookup. Obtain the actual connection peer from your server integration; use forwarded IPs only after checking that peer against your explicit trusted-proxy configuration. Return `null` when trust cannot be established: issuance fails closed. Never use user-controlled `x-forwarded-for` directly. The plugin cannot infer a socket address from a Fetch request.
+
+The default uses HKDF-SHA256 (32 output bytes, hex-encoded) with fixed salt `auth-login/otp/hkdf-salt/v1` and context `auth-login/otp/v1`; it never uses the root key directly. An explicit `otp.secret` retains its existing behavior unchanged; empty, null or short overrides are rejected, not replaced by the default. The derivation separates cryptographic uses, not compromise or rotation: it cannot strengthen a weak Payload secret, and private OTP storage already depends on Payload's key.
+
+Keep existing overrides during upgrades. Removing/changing an override or rotating the Payload secret when using the default changes the OTP key: quiesce issuance until both live challenges and the one-hour sliding quota window expire before switching all instances together; key changes also change quota identifiers. Retain private security state. Do not restore old key/security-state snapshots to revive revoked proofs.
 
 Mail uses the current Payload instance's email adapter. Optional `logoUrl`/`contactUrl` require HTTPS; branding is escaped, the code never appears in subject/preheader, and supported locales are `es`/`en`. Public config excludes all server options. Logs contain event names and keyed correlations, never email/code/token or authentication bodies; the consumer owns log retention/access.
 

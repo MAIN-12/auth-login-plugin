@@ -2,6 +2,7 @@ import {
   createCipheriv,
   createDecipheriv,
   createHmac,
+  hkdfSync,
   randomBytes,
   randomInt,
   timingSafeEqual,
@@ -9,7 +10,7 @@ import {
 import type { OtpCodec } from '../../application/ports/otp'
 
 export function createOtpCodec(secret: string): OtpCodec {
-  if (secret.length < 32)
+  if (typeof secret !== 'string' || secret.length < 32)
     throw new Error('auth-login: OTP secret must contain at least 32 characters')
   const keyed = (value: string) => createHmac('sha256', secret).update(value).digest('hex')
   const cipherKey = Buffer.from(keyed('otp-encryption-v1'), 'hex')
@@ -39,4 +40,18 @@ export function createOtpCodec(secret: string): OtpCodec {
     random: () => randomInt(0, 1_000_000).toString().padStart(6, '0'),
     context: () => randomBytes(32).toString('hex'),
   }
+}
+
+/** Preserve explicit legacy keys; derive only when the override is absent. */
+export function resolveOtpSecret(secret: string | undefined, payloadSecret: string): string {
+  if (secret !== undefined) {
+    if (typeof secret !== 'string' || secret.length < 32)
+      throw new Error('auth-login: OTP secret must contain at least 32 characters')
+    return secret
+  }
+  if (typeof payloadSecret !== 'string' || payloadSecret.length < 32)
+    throw new Error('auth-login: Payload secret must contain at least 32 characters for OTP')
+  return Buffer.from(
+    hkdfSync('sha256', payloadSecret, 'auth-login/otp/hkdf-salt/v1', 'auth-login/otp/v1', 32),
+  ).toString('hex')
 }
