@@ -20,7 +20,7 @@ import {
   generatePasswordResetEmail,
   generateWelcomeEmail,
 } from '../src/auth/infrastructure/email'
-it('exported email generators escape branding and names without showing OTP in previews', () => {
+it('exported email generators escape branding and names with OTP in subjects and code-free preheaders', () => {
   const baseOptions = {
     projectName: '<Brand>',
     contactEmail: 'support@example.test',
@@ -33,7 +33,7 @@ it('exported email generators escape branding and names without showing OTP in p
     language: 'es',
     baseOptions,
   })
-  expect(email.subject).not.toContain('123456')
+  expect(email.subject).toContain('123456')
   expect(email.html).not.toContain('<script>')
   expect(email.html).toContain('&lt;Brand&gt;')
   expect(email.html).toContain('support@example.test')

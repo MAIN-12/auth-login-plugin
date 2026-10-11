@@ -5,6 +5,7 @@ export type {
   PublicAuthConfig,
   SerializableAuthConfig,
   AuthStyle,
+  AuthCardTheme,
   OtpOptions,
 } from './config'
 export type { AuthErrorCode, AuthErrorResponse } from './auth/contracts/errors'
@@ -19,3 +20,9 @@ export { getAuthenticationEvidence } from './auth/infrastructure/payload/adminPo
 
 /** Offline, account-preserving maintenance cutoff; never exposed through HTTP. */
 export { migrateAuthLogin, type AuthLoginMigrationOptions } from './auth/composition/migration'
+
+export type {
+  AuthEmailOverrides,
+  AuthEmailParams,
+  AuthEmailResult,
+} from './auth/domain/emailTemplates'

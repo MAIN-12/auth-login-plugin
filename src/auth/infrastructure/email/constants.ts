@@ -6,13 +6,8 @@
 export { DEFAULT_COLORS } from '../../domain/emailPresentation'
 export type { EmailColors } from '../../domain/emailPresentation'
 
-export type SocialPlatform =
-  'facebook' | 'twitter' | 'instagram' | 'linkedin' | 'youtube' | 'tiktok' | 'github' | 'discord'
-
-export interface SocialLink {
-  platform: SocialPlatform
-  url: string
-}
+import type { SocialPlatform } from '../../domain/emailTemplates'
+export type { SocialPlatform, SocialLink } from '../../domain/emailTemplates'
 
 /** Minimal Material Design SVG icons for social platforms */
 export const SOCIAL_ICONS: Record<SocialPlatform, string> = {

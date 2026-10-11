@@ -13,8 +13,9 @@ Automatic presentation acceptance uses `pnpm test:integration:acceptance`; manua
 With `style: 'hero-ui'`, cards, forms, OTP fields, and modals inherit the host's
 HeroUI light/dark/custom theme. Load HeroUI v3 styles in the host application and
 place the auth components below its theme scope (`.dark`, `data-theme`, or custom
-CSS variables). Modal portals stay inside that scope; no plugin-owned light mode
-or primary color overrides are applied. Shared text, errors, and password-strength
+CSS variables). Modal portals stay inside that scope. By default, no plugin-owned light mode
+or primary color overrides are applied. Use the optional `theme` prop on cards/pages
+to scope an explicit light or dark appearance. Shared text, errors, and password-strength
 indicators use HeroUI semantic tokens. Explicit caller classes still take precedence.
 The `tailwind` adapter retains its standalone light palette; email colors remain
 configured separately.
@@ -102,7 +103,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 }
 ```
 
-The `dev/` implementation uses this pattern: one exported factory in `dev/plugins/index.ts`, an English fallback, and an explicit `es-CO` provider in `dev/app/(frontend)/layout.tsx`. Auth cards/pages inherit Spanish presentation while receiving the same factory's `publicConfig`. The demo enables password login by default; Google requires all three credentials/redirect URI variables. OTP, signup and recovery stay disabled until you provide the [server-side OTP configuration](#enable-secure-otp-server-only) and a production Payload email adapter. The demo has no external email-adapter dependency; provision a verified account through the trusted Local API shown above to exercise password login.
+The `dev/` implementation uses this pattern: one exported factory in `dev/plugins/index.ts`, an English fallback, and an explicit `es-CO` provider in `dev/app/(frontend)/layout.tsx`. Auth cards/pages inherit Spanish presentation while receiving the same factory's `publicConfig`. The demo enables password login by default; Google requires all three credentials/redirect URI variables. The demo currently enables signup with the Brevo sender and a shared development-only OTP rate-limit bucket; OTP login and recovery remain disabled. Production hosts need their own [server-side OTP configuration](#enable-secure-otp-server-only) and trusted peer resolver. The demo uses `@main12/brevo-adapter` with Axios as development-only dependencies; provision a verified account through the trusted Local API shown above to exercise password login.
 
 The client export has the same explicit `publicConfig` prop. For standalone cards/forms use `<AuthConfigProvider publicConfig={...}>`; RSC `AuthCard` and `AuthPages` also require this prop. `AuthClientInit` is now an alias for this **tree provider**, not a render-time initializer. Presentation (`locale`, translations, React logo, style and attribution) remains scoped to provider/card overrides. React logo components belong on UI props, not serializable plugin configuration.
 
@@ -138,7 +139,7 @@ The default uses HKDF-SHA256 (32 output bytes, hex-encoded) with fixed salt `aut
 
 Keep existing overrides during upgrades. Removing/changing an override or rotating the Payload secret when using the default changes the OTP key: quiesce issuance until both live challenges and the one-hour sliding quota window expire before switching all instances together; key changes also change quota identifiers. Retain private security state. Do not restore old key/security-state snapshots to revive revoked proofs.
 
-Mail uses the current Payload instance's email adapter. Optional `logoUrl`/`contactUrl` require HTTPS; branding is escaped, the code never appears in subject/preheader, and supported locales are `es`/`en`. Public config excludes all server options. Logs contain event names and keyed correlations, never email/code/token or authentication bodies; the consumer owns log retention/access.
+Mail uses the current Payload instance's email adapter. Optional `logoUrl`/`contactUrl` require HTTPS; branding is escaped, OTP subjects include the code; built-in preheaders remain code-free, and supported locales are `es`/`en`. Public config excludes all server options. Logs contain event names and keyed correlations, never email/code/token or authentication bodies; the consumer owns log retention/access.
 
 For Next consumers bundling/transpiling this plugin, include `@libsql/client` in `serverExternalPackages` and install `@libsql/client@0.14.0` directly in the consuming app; this avoids webpack parsing libsql native-package assets. See the packed consumer fixture.
 
@@ -320,3 +321,91 @@ development dependency. Use the package commands (for example,
 `pnpm exec tsx scripts/<name>.ts`. `pnpm typecheck` also checks these scripts
 with their strict, no-emit configuration; they are not emitted into `dist/`.
 The browser acceptance helpers in `tests/*-browser.ts` use the same TypeScript tooling.
+
+## Custom emails (3.1.0)
+
+The server-only `emails` option accepts synchronous or asynchronous renderers for
+`otp`, `welcome`, `passwordReset`, and `passwordChanged`. Each returns
+`{ subject, html }`; omitted renderers keep the built-in template. Use
+`dev/examples/auth-emails.ts` as a complete example of shared layout and wording.
+
+```ts
+import type { AuthEmailOverrides } from '@main12/auth-login'
+import { generateOtpEmail, renderAuthEmail } from '@main12/auth-login/rsc'
+
+const emails: AuthEmailOverrides = {
+  otp: async (params) => {
+    const builtIn = generateOtpEmail(params)
+    return { ...builtIn, subject: 'Your account verification code' }
+  },
+}
+// Add `emails` to your existing authLoginPlugin options.
+// Existing otp.email settings continue controlling sender, locale and branding.
+const preview = await renderAuthEmail(
+  'welcome',
+  {
+    userName: 'Alex',
+    loginUrl: 'https://your-app.example/auth/login',
+  },
+  emails,
+)
+```
+
+OTP callbacks run for login, signup, recovery, email verification and
+reauthentication. Their `purpose` is respectively `login`, `signup`,
+`password-reset`, `verify-email`, or `reauth`; `expiresInSeconds` reflects the
+configured challenge lifetime. `language` follows the effective request locale.
+Custom renderers are trusted server code: escape dynamic values, validate links,
+and keep codes out of preheaders. OTP subjects automatically include the code. Errors retain the authentication
+flow's existing failure behavior. Callbacks and private email settings never enter
+`publicConfig`. Return values cannot override delivery recipients or sender.
+
+`emailAccentColor` (six-digit hex) and `contactEmail` provide plugin-level defaults;
+`otp.email.colors.primary` and `otp.email.contactEmail` take precedence. Project
+name and HTTPS logo fall back to the plugin branding. Unlike the old 2.3 demo,
+v3 does not automatically send welcome or password-changed notifications.
+Render those explicitly with `renderAuthEmail` and deliver using your Payload
+email adapter after the corresponding operation succeeds. The `passwordReset`
+renderer is also available for manual use; the built-in recovery flow uses `otp`
+with purpose `password-reset`.
+
+The development homepage links to `/email-demo`, with built-in/project designs,
+all four template types, mobile/desktop widths, customization help, and test-send
+controls. Test sending requires development mode and the Main12 Brevo adapter, configured
+in `dev/payload.config.ts`. Set `BREVO_API_KEY`, `BREVO_SENDER_EMAIL` (a verified
+Brevo sender), optional `BREVO_SENDER_NAME`, and `BREVO_EMAILS_ACTIVE=true` in
+`dev/.env.local`, then restart the server. The email preview uses the same adapter
+without opening the database. A success message means Brevo accepted the email,
+not that inbox delivery is confirmed. No email is sent just by loading a preview. Preview codes are samples and cannot authenticate. The preview itself
+does not initialize the database or send mail.
+
+### Google login in the development demo
+
+The button is enabled only when `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and
+`GOOGLE_REDIRECT_URI` are all present in `dev/.env.local`. For the demo on port
+3001, use `http://localhost:3001/api/auth/oauth/google/callback` and register that
+exact URI in Google Cloud. Use your actual port if different, and restart the dev
+server after editing environment settings. Merely including a `google` object
+with missing credentials does not enable the provider.
+
+### HeroUI light and dark appearance
+
+Set `theme: 'inherit' | 'light' | 'dark'` in `authLoginPlugin(...)` to choose the
+installation default. An explicit `AuthProvider`, `AuthPages`, or `AuthCard` theme
+overrides that default. Omit the component prop to use the default; explicitly
+set `theme="inherit"` to follow the surrounding page even if the plugin forces a theme.
+
+HeroUI cards inherit the nearest application theme by default, including custom
+HeroUI tokens. `AuthCard` and `AuthPages` accept `theme="inherit"`, `theme="light"`,
+or `theme="dark"`. A forced theme is scoped to the card; it does not change the
+page background or replace the form when toggled. These settings require the
+host to import `@heroui/styles`. The standalone Tailwind adapter retains its
+fixed light palette.
+
+```tsx
+<AuthPages publicConfig={authPlugin.publicConfig} style="hero-ui" theme="light" slug={['login']} />
+```
+
+Open `/theme-demo` in the development app to switch between a light/dark page
+and inherited/forced login appearances. The demo uses the configured login
+flow, and typed input is preserved while switching themes.

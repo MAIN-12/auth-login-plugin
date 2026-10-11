@@ -1,9 +1,12 @@
+import type { AuthEmailOverrides } from './auth/domain/emailTemplates'
 import type { EmailColors } from './auth/domain/emailPresentation'
 import type { PayloadRequest } from 'payload'
 
 export interface OtpOptions {
   /** Optional high-entropy server-only override (>=32 characters); otherwise derived from Payload secret. */
   secret?: string
+  /** Server-only renderers; authLoginPlugin also accepts these as top-level emails. */
+  emails?: AuthEmailOverrides
   /** Trusted host-derived peer identity; never trust forwarding headers without explicit proxy validation. */
   origin: (req: PayloadRequest) => string | null | Promise<string | null>
   now?: () => number

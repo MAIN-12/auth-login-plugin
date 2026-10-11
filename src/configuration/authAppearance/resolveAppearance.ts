@@ -9,6 +9,7 @@ export function mergeAuthPresentation(
   for (const layer of layers) {
     if (!layer) continue
     if (layer.locale !== undefined) result.locale = layer.locale
+    if (layer.theme !== undefined) result.theme = layer.theme
     if (layer.style !== undefined) result.style = layer.style
     if (layer.logo !== undefined) result.logo = layer.logo
     if (layer.messages !== undefined)

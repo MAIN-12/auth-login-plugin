@@ -77,6 +77,7 @@ export function AuthProvider({
   publicConfig,
   modalLogin = publicConfig.modalLogin,
   style,
+  theme,
   locale,
   messages,
   logo,
@@ -88,7 +89,7 @@ export function AuthProvider({
   closeLabel,
 }: AuthProviderProps) {
   const presentation = useAuthPresentation(
-    { style, locale, messages, logo, poweredBy },
+    { style, theme, locale, messages, logo, poweredBy },
     publicConfig,
   )
   const serviceScope = useMemo(() => createAuthServiceScope(publicConfig), [publicConfig])

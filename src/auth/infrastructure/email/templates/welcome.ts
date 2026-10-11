@@ -1,25 +1,8 @@
-import { type SocialLink } from '../constants'
-import {
-  wrapInBaseTemplate,
-  validatedEmailUrl,
-  resolveEmailColors,
-  type BaseTemplateOptions,
-} from '../baseTemplate'
-import { getEmailTranslations, type SupportedLanguage } from '../../../../i18n/email'
+import { wrapInBaseTemplate, validatedEmailUrl, resolveEmailColors } from '../baseTemplate'
+import { getEmailTranslations } from '../../../../i18n/email'
 
-export interface WelcomeEmailParams {
-  userName: string
-  userEmail?: string
-  loginUrl?: string
-  language?: SupportedLanguage
-  socialLinks?: SocialLink[]
-  baseOptions?: BaseTemplateOptions
-}
-
-export interface WelcomeEmailResult {
-  subject: string
-  html: string
-}
+import type { WelcomeEmailParams, WelcomeEmailResult } from '../../../domain/emailTemplates'
+export type { WelcomeEmailParams, WelcomeEmailResult } from '../../../domain/emailTemplates'
 
 export function generateWelcomeEmail(params: WelcomeEmailParams): WelcomeEmailResult {
   const {

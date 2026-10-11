@@ -1,3 +1,5 @@
+export type AuthCardTheme = 'inherit' | 'light' | 'dark'
+
 export type AuthStyle = 'tailwind' | 'hero-ui'
 
 /** Only this explicit, immutable value crosses server/client boundaries. */
@@ -8,6 +10,7 @@ export interface PublicAuthConfig {
   readonly authBasePath: string
   /** Installation fallback; effective language belongs to the presentation/request scope. */
   readonly locale?: 'es' | 'en'
+  readonly theme?: AuthCardTheme
   readonly style: AuthStyle
   readonly logoUrl?: string
   readonly projectName?: string

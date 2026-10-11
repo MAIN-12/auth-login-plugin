@@ -3,7 +3,7 @@ import { generateOtpEmail, generatePasswordResetEmail } from '../src/auth/infras
 import { getEmailTranslations } from '../src/i18n/email'
 
 it.each(['en', 'es'] as const)(
-  '%s login and password-reset templates localize content, escape dynamic values, and hide OTP from previews',
+  '%s login and password-reset templates localize content, escape dynamic values, and include OTP in subjects while keeping preheaders code-free',
   (language) => {
     const translations = getEmailTranslations(language)
     const otp = '918273'
@@ -38,8 +38,8 @@ it.each(['en', 'es'] as const)(
       },
     ]
     for (const { result, subject, preheader, purpose } of cases) {
-      expect(result.subject).toBe(subject)
-      expect(result.subject).not.toContain(otp)
+      expect(result.subject).toBe(`${subject}: ${otp}`)
+      expect(result.subject).toContain(otp)
       expect(result.html).toContain(`<html lang="${language}">`)
       expect(result.html).toContain(purpose)
       expect(result.html).toContain(otp)

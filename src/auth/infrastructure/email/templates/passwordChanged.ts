@@ -1,25 +1,19 @@
-import { type SocialLink } from '../constants'
 import {
   wrapInBaseTemplate,
   escapeEmailText,
   validatedEmailUrl,
   resolveEmailColors,
-  type BaseTemplateOptions,
 } from '../baseTemplate'
-import { getEmailTranslations, type SupportedLanguage } from '../../../../i18n/email'
+import { getEmailTranslations } from '../../../../i18n/email'
 
-export interface PasswordChangedEmailParams {
-  userName: string
-  loginUrl?: string
-  language?: SupportedLanguage
-  socialLinks?: SocialLink[]
-  baseOptions?: BaseTemplateOptions
-}
-
-export interface PasswordChangedEmailResult {
-  subject: string
-  html: string
-}
+import type {
+  PasswordChangedEmailParams,
+  PasswordChangedEmailResult,
+} from '../../../domain/emailTemplates'
+export type {
+  PasswordChangedEmailParams,
+  PasswordChangedEmailResult,
+} from '../../../domain/emailTemplates'
 
 export function generatePasswordChangedEmail(
   params: PasswordChangedEmailParams,

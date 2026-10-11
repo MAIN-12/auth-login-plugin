@@ -45,6 +45,7 @@ describe('serializable appearance defaults', () => {
     const config = Object.freeze({ ...publicConfig, locale: 'es', logoUrl: '/brand.svg' })
     expect(getAuthAppearanceDefaults(config)).toEqual({
       style: config.style,
+      theme: 'inherit',
       locale: 'es',
       logoUrl: '/brand.svg',
     })
@@ -54,6 +55,7 @@ describe('serializable appearance defaults', () => {
   it('retains standalone style and language defaults without invented branding', () => {
     expect(getAuthAppearanceDefaults()).toEqual({
       style: 'tailwind',
+      theme: 'inherit',
       locale: 'en',
       logoUrl: undefined,
     })

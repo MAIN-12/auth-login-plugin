@@ -53,6 +53,7 @@ it('the configuration allowed across the client/RSC boundary contains only publi
     'recovery',
     'routeRedirects',
     'style',
+    'theme',
   ])
   for (const field of fields) {
     const value = checker.getTypeOfSymbolAtLocation(field, field.declarations![0])

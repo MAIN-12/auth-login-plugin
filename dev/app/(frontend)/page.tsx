@@ -1,13 +1,32 @@
 import Link from 'next/link'
+import { ArrowUpRight } from 'lucide-react'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Auth playground | Main12' }
 
 const sections = [
   {
+    title: 'Emails',
+    description: 'Preview auth emails and customize them for your project.',
+    demos: [
+      {
+        title: 'Email templates',
+        href: '/email-demo',
+        description:
+          'Compare built-in and custom email designs, preview mobile layouts, and send a test email.',
+      },
+    ],
+  },
+  {
     title: 'Login layouts',
     description: 'Explore the same authentication flow in different presentations.',
     demos: [
+      {
+        title: 'Light and dark themes',
+        href: '/theme-demo',
+        description:
+          'Try the plugin theme default, follow the page, or override a card to light or dark.',
+      },
       {
         title: 'Centered login',
         href: '/centered-demo',
@@ -123,7 +142,7 @@ export default function DemoHomePage() {
                       aria-label={`Open ${demo.title.toLowerCase()} demo`}
                       className="inline-flex min-h-11 items-center justify-between gap-3 rounded-xl bg-accent px-4 py-2 text-sm font-medium text-accent-foreground transition-opacity hover:opacity-85 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
                     >
-                      Open demo <span aria-hidden="true">↗</span>
+                      Open demo <ArrowUpRight size={18} aria-hidden="true" />
                     </Link>
                   </article>
                 ))}

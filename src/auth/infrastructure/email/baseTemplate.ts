@@ -1,4 +1,4 @@
-import { SOCIAL_ICONS, type EmailColors, type SocialLink } from './constants'
+import { SOCIAL_ICONS } from './constants'
 import {
   escapeEmailText,
   validatedEmailUrl,
@@ -9,20 +9,10 @@ export {
   validatedEmailUrl,
   resolveEmailColors,
 } from '../../domain/emailPresentation'
-import { getEmailTranslations, type SupportedLanguage } from '../../../i18n/email'
+import { getEmailTranslations } from '../../../i18n/email'
 
-export interface BaseTemplateOptions {
-  logoUrl?: string
-  projectName?: string
-  domain?: string
-  contactEmail?: string
-  contactUrl?: string
-  colors?: Partial<EmailColors>
-  preheader?: string
-  language?: SupportedLanguage
-  socialLinks?: SocialLink[]
-  userEmail?: string
-}
+import type { BaseTemplateOptions } from '../../domain/emailTemplates'
+export type { BaseTemplateOptions } from '../../domain/emailTemplates'
 /** Content is trusted template HTML. All dynamic values must be escaped before composing it. */
 export function wrapInBaseTemplate(content: string, options: BaseTemplateOptions = {}): string {
   const language = options.language === 'es' ? 'es' : 'en'
@@ -50,5 +40,5 @@ export function wrapInBaseTemplate(content: string, options: BaseTemplateOptions
   const recipient = options.userEmail
     ? `<p>${escapeEmailText(t.footerEmailSentTo)} ${escapeEmailText(options.userEmail)}</p>`
     : ''
-  return `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${name}</title></head><body style="background:${colors.background};color:${colors.text};font-family:Arial,sans-serif"><div style="display:none;max-height:0;overflow:hidden">${escapeEmailText(options.preheader ?? '')}</div><table role="presentation" style="width:100%;max-width:600px;margin:auto;background:${colors.backgroundSecondary};border:1px solid ${colors.border}"><tr><td style="padding:24px;text-align:center">${logo}</td></tr>${content}<tr><td style="padding:24px;text-align:center;color:${colors.textSecondary}">${contact}${recipient}${social}<p>© ${new Date().getFullYear()} ${name}. ${escapeEmailText(t.footerCopyright)}</p></td></tr></table></body></html>`
+  return `<!doctype html><html lang="${language}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${name}</title></head><body style="background:${colors.background};color:${colors.text};font-family:Arial,sans-serif"><div style="display:none;max-height:0;overflow:hidden">${escapeEmailText(options.preheader ?? '')}</div><table role="presentation" style="width:100%;max-width:600px;margin:auto;background:${colors.backgroundSecondary}"><tr><td style="padding:24px;text-align:center">${logo}</td></tr>${content}<tr><td style="padding:24px;text-align:center;color:${colors.textSecondary}">${contact}${recipient}${social}<p>© ${new Date().getFullYear()} ${name}. ${escapeEmailText(t.footerCopyright)}</p></td></tr></table></body></html>`
 }

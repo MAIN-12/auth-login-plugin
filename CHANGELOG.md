@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.1.0
+
+- Add a HeroUI plugin theme default with provider and component overrides for page and modal login, plus an interactive theme demo.
+- Include OTP codes in email subjects, frame verification codes, and simplify default emails with white backgrounds and no outer border.
+- Add development Brevo delivery testing and Lucide icons for demo navigation.
+- Align CI and publishing with pnpm 11 workspace settings.
+
+- Restore server-only `emails` overrides and `renderAuthEmail` for OTP, welcome, password-reset and password-changed templates.
+- Pass flow purpose, locale, branding and expiry to custom OTP delivery across the v3 authentication flows.
+- Restore email previews, project design examples, mobile/desktop views and development test-send controls.
+- Restore `emailAccentColor` and `contactEmail` defaults; retain v3 configuration isolation and template validation.
+- Update pnpm configuration and rebuild the package before starting the development server.
+
 ## Unreleased — issues01–06 hardening candidate
 
 - Preserve legacy credentials while verifying public-account email ownership through a verification-only OTP purpose: no password replacement or automatic login.
