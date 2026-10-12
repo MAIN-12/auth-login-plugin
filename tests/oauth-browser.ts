@@ -592,14 +592,17 @@ export async function verifyOauthAcceptance({
     const digits = String(
       inbox.filter((message: FixtureMessage) => message.to === 'browser@example.com').at(-1).html,
     ).match(/\b(\d{6})\b/)![1]
-    await rejected(
-      await post(origin2, '/backend/access/otp/verify', {
-        email: 'browser@example.com',
-        purpose: 'login',
-        context: proof.context,
-        otp: digits,
-      }),
-    )
+    const adminOtp = await post(origin2, '/backend/access/otp/verify', {
+      email: 'browser@example.com',
+      purpose: 'login',
+      context: proof.context,
+      otp: digits,
+    })
+    assert.equal(adminOtp.status, 200, await adminOtp.clone().text())
+    const adminOtpCookie = appCookie(adminOtp)!
+    assert.equal((await currentUser(adminOtpCookie)).email, 'browser@example.com')
+    assert.equal(await access(adminOtpCookie), true)
+    assert.equal((await protectedGet(adminOtpCookie)).status, 200)
     const publicRequest = await post(origin, '/backend/access/otp/send', {
       email: 'mail@example.com',
       purpose: 'login',
@@ -624,7 +627,7 @@ export async function verifyOauthAcceptance({
     await rejected(await protectedGet(publicOtpCookie))
     await deniedGraphql(publicOtpCookie)
     mark(
-      'native OTP proof alone cannot issue an administrator application session even when consumer policy would otherwise allow the role',
+      'existing administrator OTP session receives role-based Admin access; ordinary OTP session cannot access administrative resources',
     )
   }
   await control({ injectPublicAdmin: true, maskPublicAdminRole: true, adminEligible: false })

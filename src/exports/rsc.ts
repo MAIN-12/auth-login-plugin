@@ -57,15 +57,15 @@ export {
   generateWelcomeEmail,
   generatePasswordResetEmail,
   generatePasswordChangedEmail,
-} from '../auth/infrastructure/email'
+} from '../shared/infrastructure/email/index'
 
-export type { BaseTemplateOptions } from '../auth/infrastructure/email/baseTemplate'
+export type { BaseTemplateOptions } from '../shared/infrastructure/email/baseTemplate'
 
 export type {
   EmailColors,
   SocialLink,
   SocialPlatform,
-} from '../auth/infrastructure/email/constants'
+} from '../shared/infrastructure/email/constants'
 
 export type { SupportedLanguage, EmailTranslations } from '../i18n/email'
 
@@ -78,13 +78,16 @@ export type {
   PasswordResetEmailResult,
   PasswordChangedEmailParams,
   PasswordChangedEmailResult,
-} from '../auth/infrastructure/email'
+} from '../shared/infrastructure/email/index'
 
 // Auth plugin config types
-export type { AuthLoginPluginOptions } from '../config'
+export type { AuthLoginPluginOptions } from '../configuration/plugin/config'
 
-export { AuthProvider } from '../auth/interface/react/providers/AuthProviderServer'
-export type { AuthProviderProps, AuthUser } from '../auth/interface/react/providers/AuthProvider'
+export { AuthProvider } from '../authentication/interface/react/providers/AuthProviderServer/index'
+export type {
+  AuthProviderProps,
+  AuthUser,
+} from '../authentication/interface/react/providers/AuthProvider/index'
 
 export type {
   AuthPresentationProps,

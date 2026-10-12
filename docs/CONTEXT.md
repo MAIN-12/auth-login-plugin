@@ -10,3 +10,6 @@ La autoridad local del plugin es [plugin-contracts.md](plugin-contracts.md). La 
 - **Servicio integrado/transicional Payload-bound**: código que declara explícitamente su acoplamiento a Payload o tipos generados; no equivale a dominio puro ni a aplicación portable.
 - **Adapter de entrada**: hook, endpoint, job, cron o handler que valida entrada, invoca un caso de uso/query y traduce salida/errores; no posee workflow de negocio.
 - **Servicio de cliente**: wrapper frontend/HTTP de una collection consumido por React hooks; no es un lifecycle hook de Payload ni vive en `interface/hooks/`.
+
+- **Configured auth collection owner**: Con `collection: 'customers'`, `src/collections/ConfiguredAuthCollection/` actúa sobre la collection `customers` del consumidor y posee persistencia, invariantes de credenciales/password, sesiones nativas y hooks de la collection autenticada configurable; no registra una collection ficticia.
+- **Authentication workflows**: `src/authentication/` coordina los dueños de la colección autenticada configurada y collections auxiliares; cada collection real conserva sus queries/repositories. La reutilización consume la interfaz del dueño, no convierte lógica en `shared`.

@@ -1,9 +1,9 @@
-import { createOtpCodec } from '../src/auth/infrastructure/crypto/otpCodec'
-import { createOtpLedger } from '../src/auth/infrastructure/payload/otpLedger'
-import { mapOwnershipAccount } from '../src/auth/server/ownershipAccount'
+import { createOtpCodec } from '../src/collections/AuthLoginOtpSecurity/infrastructure/crypto/otpCodec'
+import { createOtpLedger } from '../src/collections/AuthLoginOtpSecurity/infrastructure/repositories/otpLedger'
+import { mapOwnershipAccount } from '../src/collections/ConfiguredAuthCollection/infrastructure/payload/ownershipAccount'
 import { expect, it } from 'vitest'
-import { createOwnershipVerification } from '../src/auth/application/use-cases/ownershipVerification'
-import type { OtpStore } from '../src/auth/infrastructure/payload/otpLedger'
+import { createOwnershipVerification } from '../src/authentication/application/use-cases/ownershipVerification'
+import type { OtpStore } from '../src/collections/AuthLoginOtpSecurity/infrastructure/repositories/otpLedger'
 it('legacy email ownership binds existing credential evidence without granting password or session authority', async () => {
   const rows = new Map<string, Record<string, unknown>>()
   const store: OtpStore = {

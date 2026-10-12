@@ -1,5 +1,5 @@
-import type { PublicAuthConfig } from '../../auth/contracts/publicConfig'
-import type { AuthStyle } from '../../auth/contracts/publicConfig'
+import type { PublicAuthConfig } from '../../shared/contracts/publicConfig'
+import type { AuthStyle } from '../../shared/contracts/publicConfig'
 
 /** Serializable defaults only. React adapters decide how the logo is rendered. */
 export function getAuthAppearanceDefaults(config?: PublicAuthConfig | null): {

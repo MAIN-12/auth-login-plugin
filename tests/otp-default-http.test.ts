@@ -8,6 +8,7 @@ import { authLoginPlugin } from '../src/index'
 
 let dir: string
 let html = ''
+let subject = ''
 let now = Date.now()
 const instances: {
   payload: Payload
@@ -44,6 +45,7 @@ beforeAll(async () => {
         defaultFromName: 'Test',
         sendEmail: async (mail) => {
           html = String(mail.html)
+          subject = String(mail.subject)
         },
       }),
       collections: [
@@ -57,7 +59,8 @@ beforeAll(async () => {
       plugins: [plugin],
     })
     const key = `otp-default-http-${i}`
-    instances.push({ payload: await getPayload({ config, key }), config, key })
+    const payload = await getPayload({ config, key })
+    instances.push({ payload, config, key })
   }
   await instances[0].payload.create({
     collection: 'customers',
@@ -91,6 +94,8 @@ async function proof(email: string, purpose: string, cookie?: string) {
   expect(sent.status).toBe(200)
   const { context } = await sent.json()
   const otp = html.match(/>\s*(\d{6})\s*</)![1]
+  expect(subject).toBe(`${otp}: Your verification code`)
+  expect(html.match(/display:none[^>]*>([^<]*)/)?.[1]).not.toContain(otp)
   const verified = await request(1, '/otp/verify', { email, purpose, context, otp }, cookie)
   expect(verified.status).toBe(200)
   return verified

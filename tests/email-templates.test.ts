@@ -1,9 +1,12 @@
 import { expect, it } from 'vitest'
-import { generateOtpEmail, generatePasswordResetEmail } from '../src/auth/infrastructure/email'
+import {
+  generateOtpEmail,
+  generatePasswordResetEmail,
+} from '../src/shared/infrastructure/email/index'
 import { getEmailTranslations } from '../src/i18n/email'
 
 it.each(['en', 'es'] as const)(
-  '%s login and password-reset templates localize content, escape dynamic values, and hide OTP from previews',
+  '%s login and password-reset templates localize content, escape dynamic values, and include login OTP in subjects but hide it from preheaders',
   (language) => {
     const translations = getEmailTranslations(language)
     const otp = '918273'
@@ -20,7 +23,7 @@ it.each(['en', 'es'] as const)(
     const cases = [
       {
         result: generateOtpEmail(params),
-        subject: translations.otp.subjectLogin,
+        subject: `${otp}: ${translations.otp.subjectLogin}`,
         preheader: translations.otp.preheader,
         purpose: translations.otp.purposeLogin,
       },
@@ -39,7 +42,6 @@ it.each(['en', 'es'] as const)(
     ]
     for (const { result, subject, preheader, purpose } of cases) {
       expect(result.subject).toBe(subject)
-      expect(result.subject).not.toContain(otp)
       expect(result.html).toContain(`<html lang="${language}">`)
       expect(result.html).toContain(purpose)
       expect(result.html).toContain(otp)

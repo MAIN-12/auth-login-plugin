@@ -1,8 +1,11 @@
 import { expect, it } from 'vitest'
-import { createOtpProtocol } from '../src/auth/application/use-cases/otpProtocol'
-import type { OtpProtocolDependencies } from '../src/auth/application/ports/otp'
-import { createOtpCodec } from '../src/auth/infrastructure/crypto/otpCodec'
-import { createOtpLedger, type OtpStore } from '../src/auth/infrastructure/payload/otpLedger'
+import { createOtpProtocol } from '../src/collections/AuthLoginOtpSecurity/application/use-cases/otpProtocol'
+import type { OtpProtocolDependencies } from '../src/collections/AuthLoginOtpSecurity/application/ports/otp'
+import { createOtpCodec } from '../src/collections/AuthLoginOtpSecurity/infrastructure/crypto/otpCodec'
+import {
+  createOtpLedger,
+  type OtpStore,
+} from '../src/collections/AuthLoginOtpSecurity/infrastructure/repositories/otpLedger'
 function protocol<T>(
   options: Omit<OtpProtocolDependencies<T>, 'codec' | 'ledger' | 'now'> & {
     secret: string

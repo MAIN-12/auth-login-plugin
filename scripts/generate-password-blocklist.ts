@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 
-const domain = new URL('../src/auth/domain/', import.meta.url)
+const domain = new URL('../src/collections/ConfiguredAuthCollection/domain/', import.meta.url)
 const rules = await readFile(new URL('passwordRules.ts', domain), 'utf8')
 const minimum = rules.match(/export const MIN_PASSWORD_LENGTH = (\d+)/)?.[1]
 if (!minimum) throw new Error('Cannot read MIN_PASSWORD_LENGTH; update blocklist generator')

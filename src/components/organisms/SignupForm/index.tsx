@@ -9,9 +9,9 @@ import {
   AuthLink,
   authRoute,
   useAuthSearchParams,
-} from '../../../auth/interface/react/AuthFlowContext'
-import { useAuthConfig } from '../../../auth/interface/react/providers/AuthConfigProvider'
-import { useSignupFlow } from '../../../auth/interface/react/hooks/useSignupFlow'
+} from '../../../authentication/interface/react/AuthFlowContext'
+import { useAuthConfig } from '../../../authentication/interface/react/providers/AuthConfigProvider/index'
+import { useSignupFlow } from '../../../authentication/interface/react/hooks/useSignupFlow'
 import { Button, Divider } from '../../atoms'
 import { FormField } from '../../molecules/FormField'
 import { AuthErrorNotice } from '../../molecules/AuthErrorNotice'

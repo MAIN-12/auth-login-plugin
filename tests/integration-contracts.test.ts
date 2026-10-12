@@ -1,5 +1,8 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { createAuthService, AuthRequestError } from '../src/auth/interface/client/authService'
+import {
+  createAuthService,
+  AuthRequestError,
+} from '../src/authentication/interface/client/authService'
 import { publicConfig } from './auth-test-config'
 afterEach(() => vi.unstubAllGlobals())
 it('never exposes an infrastructure response or trusts an invalid successful OTP response', async () => {
@@ -19,8 +22,8 @@ import {
   generateOtpEmail,
   generatePasswordResetEmail,
   generateWelcomeEmail,
-} from '../src/auth/infrastructure/email'
-it('exported email generators escape branding and names without showing OTP in previews', () => {
+} from '../src/shared/infrastructure/email/index'
+it('exported email generators escape branding and names with OTP in login subjects but not preheaders', () => {
   const baseOptions = {
     projectName: '<Brand>',
     contactEmail: 'support@example.test',
@@ -33,7 +36,8 @@ it('exported email generators escape branding and names without showing OTP in p
     language: 'es',
     baseOptions,
   })
-  expect(email.subject).not.toContain('123456')
+  expect(email.subject).toBe('123456: Tu código de verificación')
+  expect(email.html.match(/display:none[^>]*>([^<]*)/)?.[1]).not.toContain('123456')
   expect(email.html).not.toContain('<script>')
   expect(email.html).toContain('&lt;Brand&gt;')
   expect(email.html).toContain('support@example.test')
@@ -45,7 +49,7 @@ it('exported email generators escape branding and names without showing OTP in p
   ).not.toContain('123456')
   expect(() => generateWelcomeEmail({ userName: 'A', loginUrl: 'javascript:alert(1)' })).toThrow()
 })
-import { createPasswordLoginEndpoint } from '../src/auth/composition/passwordLogin'
+import { createPasswordLoginEndpoint } from '../src/authentication/wiring/passwordLogin'
 it('failed password login returns a correlation identifier without logging submitted secrets', async () => {
   const events: unknown[] = []
   const req = {
@@ -74,7 +78,7 @@ it('failed password login returns a correlation identifier without logging submi
   expect(JSON.stringify(events)).toContain('auth.login.rejected')
   expect(JSON.stringify(events)).not.toContain('secret submitted')
 })
-import { resolveAuthConfig } from '../src/config'
+import { resolveAuthConfig } from '../src/configuration/plugin/config'
 it('explicit locale and HTTPS branding validate before any configuration is published', () => {
   expect(
     resolveAuthConfig({
@@ -97,7 +101,7 @@ it('explicit locale and HTTPS branding validate before any configuration is publ
     }),
   ).toThrow()
 })
-import { authRoute } from '../src/auth/interface/react/AuthFlowContext'
+import { authRoute } from '../src/authentication/interface/react/AuthFlowContext'
 it('configured navigation retains local query/hash and rejects encoded external bypasses', () => {
   expect(authRoute('/members', 'login', {}, '/checkout?item=1#payment')).toBe(
     '/members/login?redirect=%2Fcheckout%3Fitem%3D1%23payment',

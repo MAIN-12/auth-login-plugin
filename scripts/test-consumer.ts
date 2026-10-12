@@ -12,7 +12,6 @@ import { verifyOtpAcceptance } from '../tests/otp-browser.ts'
 import { verifyIntegrationAcceptance } from '../tests/integration-browser.ts'
 import { verifyOauthAcceptance } from '../tests/oauth-browser.ts'
 import { createClient } from '@libsql/client'
-import { verifyMigrationAcceptance } from '../tests/migration-browser.ts'
 import { controlledOidcProvider } from './oauth-provider.ts'
 import {
   buildConsumerPackage,
@@ -20,12 +19,11 @@ import {
   installConsumerPackage,
   verifyNativePackage,
 } from './consumer-package.ts'
-const migration = process.env.AUTH_CONSUMER_ISSUE06 === '1'
 const integration = process.env.AUTH_CONSUMER_ISSUE05 === '1'
 const password = process.env.AUTH_CONSUMER_PASSWORD === '1'
 const otp = process.env.AUTH_CONSUMER_OTP === '1'
 const oauth = process.env.AUTH_CONSUMER_OAUTH === '1'
-const shared = otp || password || oauth || integration || migration
+const shared = otp || password || oauth || integration
 let provider: Awaited<ReturnType<typeof controlledOidcProvider>> | undefined
 let postgres: Awaited<ReturnType<typeof temporaryPostgres>> | undefined
 let secondary: ChildProcess | undefined
@@ -54,7 +52,6 @@ async function digestHarness() {
     'tests/browser-support.ts',
     'scripts/otp-postgres.ts',
     'scripts/oauth-provider.ts',
-    'tests/migration-browser.ts',
     'tests/integration-browser.ts',
     'tests/otp-browser.ts',
     'tests/password-browser.ts',
@@ -65,7 +62,7 @@ async function digestHarness() {
 }
 
 try {
-  if (oauth || integration || migration) provider = await controlledOidcProvider()
+  if (oauth || integration) provider = await controlledOidcProvider()
   if (shared && process.env.AUTH_CONSUMER_DB !== 'sqlite') postgres = await temporaryPostgres()
   const harnessHash = await digestHarness()
   const { tarball, sourceHash, packedSha256 } = await buildConsumerPackage(root, packageDir)
@@ -205,161 +202,7 @@ try {
         'both SQLite instances must use the declared storage setup',
       )
     browser = await chromium.launch({ headless: true })
-    if (migration) {
-      const stop = async (child: ChildProcess | undefined) => {
-        if (!child?.pid) return
-        try {
-          process.kill(-child.pid, 'SIGTERM')
-        } catch {}
-        for (let count = 0; count < 100; count++) {
-          try {
-            process.kill(-child.pid, 0)
-          } catch {
-            return
-          }
-          await new Promise((resolve) => setTimeout(resolve, 100))
-        }
-        throw new Error('Maintenance requires stopped writers; consumer did not terminate')
-      }
-      const databaseFile = join(app, 'consumer.db')
-      const backup = join(temp, postgres ? 'backup.sql' : 'backup.db')
-      const pgBin = process.env.AUTH_TEST_POSTGRES_BIN ?? '/opt/homebrew/opt/postgresql@17/bin'
-      const start = async (base: string, second: boolean) => {
-        const child = spawn(
-          'pnpm',
-          [
-            'exec',
-            'next',
-            'dev',
-            ...bundlerArgs,
-            '--hostname',
-            '127.0.0.1',
-            '--port',
-            new URL(base).port,
-          ],
-          {
-            cwd: second ? secondaryApp : app,
-            env: {
-              ...process.env,
-              AUTH_CONSUMER_SQLITE_URL: sqliteURL,
-              AUTH_CONSUMER_SECONDARY: '1',
-              AUTH_CONSUMER_DIST: second ? '.next-secondary' : '.next',
-              ...(provider
-                ? {
-                    AUTH_CONSUMER_OIDC_ISSUER: provider.issuer,
-                    AUTH_CONSUMER_PRIMARY_PORT: String(port),
-                  }
-                : {}),
-              AUTH_CONSUMER_PORT: new URL(base).port,
-              ...(postgres ? { AUTH_CONSUMER_DATABASE_URL: postgres.url } : {}),
-              NEXT_TELEMETRY_DISABLED: '1',
-            },
-            stdio: ['ignore', 'pipe', 'pipe'],
-            detached: true,
-          },
-        )
-        child.stdout.on('data', (data) => {
-          logs += String(data)
-        })
-        child.stderr.on('data', (data) => {
-          logs += String(data)
-        })
-        for (let attempt = 0; attempt < 120; attempt++) {
-          try {
-            const response = await fetch(base, { signal: AbortSignal.timeout(30000) })
-            if (response.ok) return child
-          } catch {}
-          if (child.exitCode !== null) throw new Error(`Restart failed: ${logs}`)
-          await new Promise((resolve) => setTimeout(resolve, 500))
-        }
-        throw new Error(`Restart timed out: ${logs}`)
-      }
-      const maintenance = async (phase: 'cutoff' | 'rollback') => {
-        await stop(server)
-        await stop(secondary)
-        if (phase === 'cutoff') {
-          if (postgres)
-            execFileSync(join(pgBin, 'pg_dump'), ['--file', backup, postgres.url], {
-              stdio: 'inherit',
-            })
-          else {
-            const checkpoint = createClient({ url: `file:${databaseFile}` })
-            try {
-              await checkpoint.execute('PRAGMA wal_checkpoint(TRUNCATE)')
-            } finally {
-              checkpoint.close()
-            }
-            await cp(databaseFile, backup)
-          }
-        } else {
-          if (postgres)
-            execFileSync(
-              join(pgBin, 'psql'),
-              [
-                postgres.url,
-                '-v',
-                'ON_ERROR_STOP=1',
-                '-c',
-                'DROP SCHEMA public CASCADE; CREATE SCHEMA public;',
-              ],
-              { stdio: 'inherit' },
-            )
-          if (postgres)
-            execFileSync(
-              join(pgBin, 'psql'),
-              [postgres.url, '-v', 'ON_ERROR_STOP=1', '-f', backup],
-              { stdio: 'inherit' },
-            )
-          else {
-            await rm(databaseFile, { force: true })
-            await rm(`${databaseFile}-wal`, { force: true })
-            await rm(`${databaseFile}-shm`, { force: true })
-            await cp(backup, databaseFile)
-          }
-        }
-        execFileSync('pnpm', ['exec', 'payload', 'run', './migration.ts'], {
-          cwd: app,
-          env: {
-            ...process.env,
-            AUTH_CONSUMER_SQLITE_URL: sqliteURL,
-            AUTH_CONSUMER_SECONDARY: '1',
-            AUTH_CONSUMER_PORT: String(port),
-            ...(postgres ? { AUTH_CONSUMER_DATABASE_URL: postgres.url } : {}),
-          },
-          stdio: 'inherit',
-        })
-        const result = JSON.parse(await readFile(join(app, 'migration-result.json'), 'utf8'))
-        server = await start(origin, false)
-        secondary = await start(origin2, true)
-        return result
-      }
-      acceptanceResult = await verifyMigrationAcceptance({
-        browser,
-        origin,
-        origin2,
-        maintenance,
-        provider: provider!,
-        database: postgres?.version ?? 'SQLite real',
-        onPage: (page: Page) => {
-          diagnosticPage = page
-        },
-      })
-      assert.equal(
-        await digestDirectory(join(root, 'src')),
-        sourceHash,
-        'source changed during acceptance; rerun frozen',
-      )
-      assert.equal(
-        await digestDirectory(join(root, 'tests/consumer')),
-        fixtureHash,
-        'fixture changed during acceptance; rerun frozen',
-      )
-      assert.equal(
-        await digestHarness(),
-        harnessHash,
-        'harness changed during acceptance; rerun frozen',
-      )
-    } else if (oauth)
+    if (oauth)
       acceptanceResult = await verifyOauthAcceptance({
         browser,
         origin,
@@ -407,9 +250,7 @@ try {
       })
     execFileSync('pnpm', ['exec', 'tsc', '--noEmit'], { cwd: app, stdio: 'inherit' })
     execFileSync('pnpm', ['exec', 'tsc', '--noEmit'], { cwd: secondaryApp, stdio: 'inherit' })
-    console.log(
-      `${migration ? 'Migration' : oauth ? 'OAuth' : password ? 'Password' : 'OTP'} consumer declarations GREEN`,
-    )
+    console.log(`${oauth ? 'OAuth' : password ? 'Password' : 'OTP'} consumer declarations GREEN`)
     process.exitCode = 0
   } else if (integration) {
     const diagnostic = process.env.AUTH_CONSUMER_ISSUE05_DIAGNOSTIC === '1'

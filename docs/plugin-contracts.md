@@ -41,7 +41,7 @@ OTP UI stores six positions, with spaces representing blank slots internally. Se
 
 RSC generator export names remain stable (`generateOtpEmail`, `generatePasswordResetEmail`, `generateWelcomeEmail`, `generatePasswordChangedEmail`, `wrapInBaseTemplate`). Dynamic inputs are escaped by generators; URL/color/contact validation is shared with plugin configuration. **`wrapInBaseTemplate(content)` accepts trusted template HTML**, not untrusted user markup. Callers composing custom HTML must escape their own content.
 
-Supply real HTTPS `domain`/`loginUrl` to welcome/password-changed templates; the placeholder `https://example.com/login` is not your application destination. `getBaseUrl(base?)` and `getSenderEmail(sender?)` no longer read environment variables. Pass consumer configuration explicitly. OTP never appears in subject/preheader. Standalone template expiry copy uses the approved five-minute default; consumers customizing server TTL must communicate their own policy separately.
+Supply real HTTPS `domain`/`loginUrl` to welcome/password-changed templates; the placeholder `https://example.com/login` is not your application destination. `getBaseUrl(base?)` and `getSenderEmail(sender?)` no longer read environment variables. Pass consumer configuration explicitly. Registration and login OTP codes appear at the start of the subject. Explicit password-reset template subjects and all preheaders remain code-free. Standalone template expiry copy uses the approved five-minute default; consumers customizing server TTL must communicate their own policy separately.
 
 Email contact uses the validated `contactUrl` with a localized label when configured; otherwise it uses `contactEmail` as a mailto link. Configuring both intentionally gives the URL precedence.
 
@@ -69,18 +69,14 @@ This is distinct from recovery: recovery explicitly replaces an existing passwor
 
 ## Coordinated security cutover and rollback
 
-The detailed [account migration guide](migration.md) records the same ownership/maintenance boundaries. The approved cutover design uses collection-scoped persistent authorization epochs, not global Payload/OTP key rotation. The root-exported `migrateAuthLogin` helper is an offline maintenance API; the frozen issue06 candidate passed packed two-process SQLite/PostgreSQL cutover and backup/restore rehearsals on Node 22.23.2 and 24.21.0. Verification-only ownership preserved the original password without a session/cookie; rerunning cutover after restore rejected old authority with unchanged host keys. See [the candidate receipts](../tests/evidence/issue06.md). No `/dev` secrets or running consumer deployment are changed by this package implementation.
+**The consumer owns data migration, operational cutover and rollback.** The plugin does not export a data-migration helper, convert historical records, delete legacy codes or revoke every account's sessions as an upgrade task. The [account guide](migration.md) describes preservation and security requirements; [schema setup](schema-migrations.md) describes consumer-generated Payload migrations.
 
-1. Announce maintenance; stop **all** application instances, background jobs and authentication/database writers before backup or cutover. An online row deletion is not a deployment barrier.
-2. Back up accounts, native sessions, hashes/salts, verification evidence, Google subject mappings and every private security table. Protect backups as credential material. Rehearse on a disposable restored copy; record counts, account IDs and credential digests without logging raw hashes/secrets.
-3. Migrate explicit server/client/RSC/proxy configuration and native verification/session schema. Preserve users/passwords and known verification evidence; unknown is not verified. Do not let schema push delete unmanaged private tables.
-4. Invalidate native sessions, legacy OTP records and all outstanding proof authority before resuming writers. Call the root-exported `migrateAuthLogin(payload, { collection, maintenance: true, legacyOtpCollection: { slug, where } })` with an explicit host-owned legacy inventory/filter. The native transaction clears target sessions/reset/verification tokens, deletes only selected legacy OTP records and advances the private collection generation. It preserves account IDs, password hashes/salts, verification evidence and Google subject associations. Outstanding OTP/OAuth correlations and method permits become unusable without deleting shared ledgers or rotating global Payload/OTP keys. The epoch changes challenge authority, **not** shared account/origin quota namespaces; a cutover cannot reset issuance budgets. Security rows and consumed-permit records stay retained (old authority inert), with retention still operator-owned. The result contains only `{ success, collection, accounts, legacyCodesDeleted, generation }`; generation is an invalidation version, not an authentication grant.
-5. Start only the hardened artifact with the new configuration. Verify old-cookie/code/permit rejection and the original password's successful fresh login after ownership verification. Log only aggregate counts/correlations. Unknown credentials require an explicit supported recovery/provisioning path, never invented state.
-6. Roll back only to an equally safe artifact and retain revocations/current generation/security-state consumption history. Restoring a pre-cutover database backup as live authority is **not** rollback: rerun `migrateAuthLogin` against the restored copy while writers remain stopped before resuming. Never restore password-mutating OTP, public lookup, permissive credential writes, revoked sessions/codes or missing Google mappings repaired by email autolink.
+1. Stop all application/database writers and back up native accounts, credentials, verification evidence, provider mappings and security ledgers.
+2. Generate and review the application's schema migration with the plugin enabled. Preserve account identity and trustworthy evidence; unknown verification is not verified.
+3. Implement and test application-specific invalidation of old sessions, reset/verification tokens, legacy codes and host grants. The consumer must also establish a fresh collection-scoped proof generation as described in the [security-state contract](migration.md#consumer-owned-security-state), without dropping shared ledgers or resetting quotas.
+4. Verify preservation and rejection of stale sessions/codes/permits before resuming traffic. After a backup restore, repeat the consumer-owned security cutover while writers remain stopped. Never revive unsafe OTP, lost provider mappings or consumed authority.
 
-`maintenance: true` is operator attestation, not a mechanism that stops other processes. Inventory every target authentication collection and custom host grant; call the helper separately for each target. An empty legacy `where: {}` is appropriate only for a dedicated collection, never as an implicit cross-tenant cleanup. Omitting legacy inventory does not prove all historical codes were invalidated. Native target writes intentionally bypass host change hooks so a migration cannot rehash/provision credentials. Storage failure rolls back native changes; initialization DDL may remain, but grants no authority. Do not resume traffic after a failed cutover.
-
-Migration acceptance uses disposable real databases. It does not certify that a consumer has stopped every writer, applied a production migration or rehearsed disaster recovery. [Issue06 traceability](../tests/evidence/issue06-traceability.md) distinguishes historical proof, current-candidate checks and pending gates.
+Historical issue06 receipts describe the old candidate and its former helper, not the current package surface or proof that a consumer has performed its production migration. Runtime ownership verification and scoped generation checks remain authentication safeguards, not migration orchestration.
 
 ## Auth-clean task 01 approval and contract inventory
 
@@ -88,7 +84,7 @@ The user explicitly authorized implementation of task 01 on 2026-10-08. This app
 only the password-login slice of [the plugin adaptation](architecture/auth-clean-spec.md),
 not tasks 02–06. Existing security/product contracts above remain authoritative.
 The copied AOP collection layout, aliases and generated entity types are historical
-examples: this plugin owns auth policy under `src/auth`, and configures the host's
+examples: this plugin separates collection owners under `src/collections`, workflows under `src/authentication` and owner-independent infrastructure under `src/shared`, and configures the host's
 collection without importing a generated host model. Relative imports and explicit
 package exports remain the package convention.
 
@@ -123,15 +119,17 @@ isolated use-case evidence; no Chromium/E2E or new DB acceptance suites are requ
 
 ## Dependency seams and evidence
 
-- `src/auth/domain`: deterministic rules, semantic codes and pure binding evidence;
+- `src/collections/ConfiguredAuthCollection/domain`: credential capabilities and password policy; native account/session
+  persistence and hooks live in its infrastructure, exposed through explicit server seams.
+- `src/authentication/domain`: deterministic workflow rules and pure binding evidence;
   no workflows, HTTP/UI models, crypto or ambient dependencies.
-- `src/auth/application`: portable use-cases/ports, including operator maintenance
+- `src/authentication/application`: portable use-cases/ports, including operator maintenance
   intent; no Payload/SQL/HTTP/React/Next/crypto. Adapters select evidence.
-- `src/auth/infrastructure` and `src/auth/server`: concrete Payload/SQL/security/provider
-  adapters. Remaining server modules are operational owners, not legacy forwarding shims.
-- `src/auth/interface/http`: transport parsing, origin/CORS/cookies and mapping of
-  constructed operations. `composition` alone assembles concrete policy/adapter factories.
-- `src/auth/interface/client/authService`: sole browser HTTP owner for forms,
+- `src/authentication/infrastructure`: concrete Payload/security/provider adapters and
+  cross-owner commits, not configured auth collection repositories. SQL drivers stay inside storage seams.
+- `src/authentication/interface/http`: transport parsing, origin/CORS/cookies and mapping of
+  constructed operations. `wiring` alone assembles concrete policy/adapter factories.
+- `src/authentication/interface/client/authService`: sole browser HTTP owner for forms,
   Google, capabilities, native me/logout. Hooks/context live in interface/react.
 - Stable root/client/rsc/proxy exports use explicit declarations. Public config types
   live in contracts/publicConfig; browser/proxy imports no longer traverse private config.
@@ -281,13 +279,51 @@ The OIDC adapter retains oauth4webapi discovery, PKCE, nonce, issuer/audience,
 RS256 signature checks and private transport/config; it returns only a verified
 stable subject/identity. Expected protocol rejection is semantic AUTH_FAILED;
 unexpected transport/storage failure maps to AUTH_UNAVAILABLE. Pure account
-policy selects existing/provision and explicit link/reauth eligibility. Matching
-email never grants a subject association. Native commit retains trusted table
+policy selects existing/associate/provision and explicit link/reauth eligibility.
+Association by matching email requires a verified, non-deleted local account and
+Google authority (`email_verified=true` with Gmail or a valid signed Workspace `hd`).
+Unverified local accounts must complete prior email verification; email coincidence
+and external Google emails alone never grant an association. Existing credentials,
+sessions and privileges are not rewritten. Native commit retains trusted table
 identifiers, bound SQL values, collection/subject and collection/account uniqueness,
 real request propagation and credential/account locks. It rechecks exact current
 principal/SID, version, verification and live native session under the commit,
 including after asynchronous permit/generation work. Reauth requires recent finite
 provider authentication time and emits only the existing five-minute permit.
+
+### Diagnose Google failures
+
+Google failures retain existing `code` and HTTP status, adding an optional stable
+`reason`. Callback JSON also includes `requestId`, identical to `X-Auth-Request-ID`
+and the `auth_login_google_callback_rejected` log entry (`code`/`reason`). Client
+`AuthRequestError` exposes these optional fields and ignores unknown reason text.
+Do not branch on raw exception messages; other auth response shapes are unchanged.
+
+| Reason                                                   | Consumer action                                                                            |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `OAUTH_CALLBACK_INVALID`                                 | Check configured public callback host/path.                                                |
+| `OAUTH_STATE_INVALID`                                    | Restart Google login in the same browser; old correlations cannot be reused.               |
+| `GOOGLE_IDENTITY_REJECTED` / `GOOGLE_EMAIL_UNVERIFIED`   | Retry with a valid, verified Google identity.                                              |
+| `GOOGLE_LINK_REQUIRED`                                   | Sign in using an existing method, then explicitly link Google with recent proof.           |
+| `SIGNUP_DISABLED`                                        | Use an existing account or contact the operator.                                           |
+| `ACCOUNT_NOT_VERIFIED` / `ACCOUNT_UNAVAILABLE`           | Complete local verification or contact the operator.                                       |
+| `ACCOUNT_LOGIN_DENIED`                                   | Native login checks rejected the account; review lockout/verification policy.              |
+| `ACCOUNT_STATE_CHANGED`                                  | Restart authentication; account/session evidence changed.                                  |
+| `ACCOUNT_NOT_FOUND`                                      | Account disappeared during commit; correlate the request with native account/storage logs. |
+| `ACCOUNT_EMAIL_CHANGED` / `ACCOUNT_CREDENTIALS_CHANGED`  | Restart login; email or credential evidence differed on the locked account reread.         |
+| `GOOGLE_ASSOCIATION_NOT_PERSISTED`                       | Operator: inspect identity write/read visibility in the native transaction.                |
+| `GOOGLE_ASSOCIATION_CONFLICT`                            | Operator: resolve conflicting Google subject ownership; never overwrite a link.            |
+| `AUTH_CONFIGURATION_CHANGED`                             | Restart login after the authentication cutover/configuration generation changed.           |
+| `PUBLIC_ACCOUNT_PRIVILEGE_DENIED`                        | Public signup produced an admin-eligible account; review host defaults/access policy.      |
+| `PUBLIC_ACCOUNT_STATE_INVALID`                           | Public Google signup retained credentials or sessions; review native host hooks.           |
+| `SESSION_LOGIN_DENIED`                                   | Review native login hooks, access policy and session prerequisites.                        |
+| `AUTHENTICATION_REJECTED` / `AUTHENTICATION_UNAVAILABLE` | Correlate `requestId` with operator logs; unavailable remains HTTP 503.                    |
+
+Reasons are allowlisted diagnostics, never raw errors, emails, subjects, tokens or
+secrets. External email claims cannot disclose local verification/deletion status.
+This changes observability only: verified existing Gmail/Workspace accounts still
+associate without rewriting passwords, privileges or sessions. Query `hd` alone
+is not authority; Google authority comes from the validated signed ID token.
 
 Native provisioning still creates a Payload account and removes the discarded
 bootstrap credential in that same transaction. Final account evidence after host
@@ -346,11 +382,14 @@ Credential/email/session authority writes keep the shared hooks on every native
 transport. Trusted provisioning still requires Local API, overrideAccess and
 explicit context together. Host forwarding of REST/GraphQL flags remains denied.
 
-Plugin installation is composed in `auth/composition/plugin.ts`, including original
+Plugin installation is composed in `src/wiring/plugin.ts`, including original
 hooks/access and native session coordination. Admin requires native authentication
 evidence, original host eligibility and explicit authorization. Each decision
-calls original eligibility once; false or throw denies, OTP/ownership/client flags
-do not grant Admin. Async host callbacks must retain the bound principal/evidence;
+calls original eligibility once; false or throw denies. Password, OTP and Google
+can authenticate existing administrative accounts without a required password;
+roles/permissions, not the login method, decide Admin access. Authentication,
+ownership proof and client flags alone do not grant Admin. Public provisioning
+still rejects new admin-eligible accounts. Async host callbacks must retain the bound principal/evidence;
 resource access predicates are preserved, with rejected callbacks failing closed.
 Private Admin settings are copied/frozen and disabled factories remain inert.
 
@@ -371,28 +410,24 @@ multiprocess locks or deployment behavior; no new DB/E2E certification is claime
 
 ## Auth-clean 06: maintenance and architectural closure
 
-Authorized separately on 2026-10-08, after tasks 01–05 completed on chore/audit.
-`migrateAuthLogin(payload, options)` keeps its published signature/report. Composition
-captures the explicit legacy filter; application validates operator attestation and
-inventory identity, with no HTTP principal. The native maintenance adapter validates
-collection/engine and retains the entire existing transaction: direct storage cutoff,
-legacy filtered deletion and fresh collection generation, plus request/registry cleanup.
-Native DB writes intentionally bypass provisioning/change hooks without password rehash.
-Reports select only aggregates; thrown native operational errors retain the old API
-behavior and must not be exposed to a public HTTP caller or logged with secret data.
-Schema setup outside the transaction may remain after failure and grants no authority.
+The earlier offline maintenance implementation has been removed. Data preservation,
+legacy cleanup and deployment cutover now belong exclusively to the consuming
+application; no maintenance use case, adapter or public helper remains in the plugin.
+Runtime proof-generation reads, account-scoped credential operations and collection
+schema remain in their existing owners.
 
-Repeated cutoff neither lowers generation nor resets account/origin budgets or consumed
-permit records. Code rollback must retain bindings/revocations. Backup restoration still
+The consumer-owned cutover must use a fresh generation and preserve account/origin
+budgets and consumed permit records. Code rollback must retain bindings/revocations. Backup restoration still
 requires stopped writers and a fresh maintenance/re-cutover before serving traffic.
 Old Google correlations without principal binding are rejected; drain/finish eligible
 flows before rollout or require a fresh login/link/reauthentication after rollout.
 Do not downgrade checks or deserialize a legacy principal from browser state to rescue
 an in-flight callback. A failed later native effect does not resurrect consumed proof.
 
-Only internal unpublished forwarding paths were retired. Inert published global client
-functions and POST check-email/Google aliases remain deliberately disabled for source
-and wire compatibility. Public root/client/rsc/proxy exports, native hooks/settings,
+In addition to the retired internal forwarding paths, the public data-migration helper
+has now been removed. Inert published global client functions and POST check-email/Google
+aliases remain deliberately disabled for source and wire compatibility. Authentication
+root/client/rsc/proxy exports, native hooks/settings,
 HTTP/status/cookies, native/private schema, formats/AAD/namespaces/TTL and password corpus
 retain their owners. See [closure evidence](architecture/auth-clean-closure.md) for
 operation inventory, SC-01–20 mapping, static API/schema comparison and limits.
@@ -403,3 +438,52 @@ test:unit and are not isolated doubles or current multiprocess certification. No
 Chromium/E2E, external integration, production migration, backup restore or deployment
 was run for this closure. Host writer shutdown, physical rollback/locks, real cookies,
 provider interop and native retention remain separate operational validation decisions.
+
+## Authentication and collection-owned storage
+
+With `collection: 'customers'`, the logic in
+`src/collections/ConfiguredAuthCollection/` acts on the consumer's existing `customers`
+collection: credentials/password policy, native account queries/writes, row locks,
+sessions and native integration hooks. It registers no collection/table and never
+fixes the consumer's auth slug. Portable evidence
+and injected native-account ports live behind `domain.ts` and `application.ts`;
+`index.ts` exposes its server seam.
+
+`src/authentication/` coordinates cross-owner signup/recovery/login and OAuth,
+plus endpoints and client/React flows. It consumes configured auth collection and auxiliary
+collection interfaces. Its `wiring/` composes portable workflow ports with concrete adapters.
+Configured auth collection code never depends back on those workflows.
+
+The five real `AuthLogin*` collections own their schema and storage:
+
+| Owner           | Storage seam                                                                      | Semantics                                                                                |
+| --------------- | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| CredentialLocks | `infrastructure/repositories/credentialLock`                                      | Acquire conflict-safe key and Postgres row lock inside caller transaction                |
+| Identities      | `infrastructure/queries/identityAssociation`, `repositories/identityAssociations` | Local API lookup; native insert/conflict arbitration on collection/provider/subject      |
+| Cutovers        | `infrastructure/queries/cutoverGeneration`                                        | Fail-closed runtime epoch read; consumer-owned cutover publishes state                   |
+| OtpSecurity     | `infrastructure/repositories/otpStore`, `otpLedger`                               | Ordered durable locks, encrypted state, commit/rollback; acquisition-only SQLite retries |
+| PasswordPermits | `infrastructure/repositories/methodPermitLedger`                                  | Unique nonce burn in caller credential transaction; no independent commit                |
+
+Configured auth collection queries expose native credential/session evidence rather than
+Local API read presentation. Password create/update/verify use Local API so host hooks
+and native hashing run. Session snapshots and provider password clearing use native
+storage to avoid rehash/provisioning hooks. User row locks and the common credential transaction belong to `ConfiguredAuthCollection`: both
+password and Google workflows use that seam, not a password-specific adapter.
+The transaction acquires the CredentialLocks collection through its public interface;
+that real collection retains ownership of lock storage.
+Native session coordination still wraps Payload's database methods: this integration
+adapter owns snapshots/deltas and hooks, not auxiliary repositories.
+
+Cross-owner imports use explicit seams (`index.ts` for server/config; `domain.ts`,
+`application.ts`, `client.ts` for portable/browser capabilities). Deep imports into
+other owner implementations are rejected, including type-only imports and alias barrels. Portable/client seams never reexport
+server storage. `shared/` contains genuinely common contracts, transport, email,
+locale/redirect policy and native transaction infrastructure; it depends on neither
+collections nor authentication. Reuse alone does not justify moving owner
+policy into shared. `src/wiring/plugin.ts` composes plugin registration.
+
+Architecture and Atomic Design gates cover `authentication/`, every collection owner and
+`shared/`. SQL drivers are restricted to repository/query seams and the shared native
+transaction implementation. Public npm root/client/rsc/proxy exports, registered fields,
+indexes and denied public collection access are unchanged. This source-only refactor
+includes no consumer installation, schema migration, remote database or publication.

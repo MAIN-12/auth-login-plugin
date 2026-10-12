@@ -3,7 +3,7 @@ import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import { AuthPages, AuthConfigProvider } from '../src/exports/client'
-import { AuthFlowContext } from '../src/auth/interface/react/AuthFlowContext'
+import { AuthFlowContext } from '../src/authentication/interface/react/AuthFlowContext'
 import { publicConfig } from './auth-test-config'
 
 vi.mock('next/navigation', () => ({
@@ -87,7 +87,7 @@ async function submit() {
 const context = 'a'.repeat(64)
 const strongPassword = 'the river carries quiet dreams'
 
-import { storePasswordProof } from '../src/auth/interface/client/passwordProof'
+import { storePasswordProof } from '../src/collections/AuthLoginPasswordPermits/interface/client/passwordProof'
 import { SignupPage, ForgotPasswordPage, SetPasswordPage } from '../src/exports/client'
 
 it.each(['tailwind', 'hero-ui'] as const)(
@@ -223,6 +223,10 @@ it.each(['tailwind', 'hero-ui'] as const)(
       <SetPasswordPage style={style} texture="none" locale="en" />,
     )
     const passwords = host.querySelectorAll<HTMLInputElement>('input')
+    for (const password of passwords)
+      expect(
+        password.classList.contains(style === 'hero-ui' ? 'input--secondary' : 'bg-gray-100'),
+      ).toBe(true)
     await enter(passwords[0], strongPassword)
     await enter(passwords[1], 'mismatch')
     await submit()
@@ -233,11 +237,31 @@ it.each(['tailwind', 'hero-ui'] as const)(
     await submit()
     expect(host.querySelector('[role="alert"]')?.textContent).toBeTruthy()
     expect(request).not.toHaveBeenCalled()
-    await act(async () =>
-      host.querySelector<HTMLButtonElement>('button[aria-label="Show password"]')!.click(),
-    )
+    const showPassword = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Show password"]',
+    )!
+    const eye = showPassword.querySelector('svg')!
+    expect(showPassword.textContent).toBe('')
+    expect(eye.getAttribute('aria-hidden')).toBe('true')
+    expect(eye.getAttribute('focusable')).toBe('false')
+    expect(eye.getAttribute('stroke')).toBe('currentColor')
+    expect(eye.getAttribute('width')).toBe('20')
+    expect(eye.getAttribute('height')).toBe('20')
+    expect(eye.querySelector('circle')).not.toBeNull()
+    await act(async () => showPassword.click())
     expect(passwords[0].type).toBe('text')
     expect(passwords[1].type).toBe('text')
+    const hidePassword = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Hide password"]',
+    )!
+    const eyeOff = hidePassword.querySelector('svg')!
+    expect(hidePassword.textContent).toBe('')
+    expect(eyeOff.getAttribute('aria-hidden')).toBe('true')
+    expect(eyeOff.getAttribute('focusable')).toBe('false')
+    expect(eyeOff.querySelector('path[d="m2 2 20 20"]')).not.toBeNull()
+    await act(async () => hidePassword.click())
+    expect(passwords[0].type).toBe('password')
+    expect(passwords[1].type).toBe('password')
     await enter(passwords[0], strongPassword)
     await enter(passwords[1], strongPassword)
     await submit()
@@ -351,5 +375,49 @@ it.each(['tailwind', 'hero-ui'] as const)(
       host.remove()
       sessionStorage.clear()
     }
+  },
+)
+
+it.each([
+  ['tailwind', 'dispatcher'],
+  ['hero-ui', 'dispatcher'],
+  ['tailwind', 'standalone'],
+  ['hero-ui', 'standalone'],
+] as const)(
+  'uses one centered password heading and login-styled reauthentication help in %s %s',
+  async (style, page) => {
+    await mount(
+      page === 'dispatcher' ? (
+        <AuthPages slug={['set-password']} style={style} texture="none" locale="es" />
+      ) : (
+        <SetPasswordPage style={style} texture="none" locale="es" />
+      ),
+      { otpLogin: true },
+    )
+    expect(host.querySelectorAll('h1, h2')).toHaveLength(1)
+    expect(host.querySelector('h1')?.classList.contains('text-center')).toBe(true)
+    const intro = [...host.querySelectorAll('p')].find((paragraph) =>
+      paragraph.textContent?.includes('Verifica tu identidad'),
+    )!
+    expect(intro.classList.contains('text-center')).toBe(true)
+    expect(intro.classList.contains('text-sm')).toBe(true)
+    expect(intro.classList.contains(style === 'hero-ui' ? 'text-muted' : 'text-gray-600')).toBe(
+      true,
+    )
+    const back = host.querySelector<HTMLAnchorElement>('a[href^="/members/login"]')!
+    expect(back.parentElement?.classList.contains('text-center')).toBe(true)
+    expect(back.classList.contains('text-sm')).toBe(true)
+    expect(back.classList.contains(style === 'hero-ui' ? 'text-muted' : 'text-gray-600')).toBe(true)
+    expect(back.getAttribute('href')).toBe('/members/login?redirect=%2Faccount')
+    const currentPassword = host.querySelector('input[autocomplete="current-password"]')!
+    expect(
+      currentPassword.classList.contains(style === 'hero-ui' ? 'input--secondary' : 'bg-gray-100'),
+    ).toBe(true)
+    const emailAction = [...host.querySelectorAll('button')].find((button) =>
+      button.textContent?.includes('Verificar por correo'),
+    )!
+    expect(
+      emailAction.classList.contains(style === 'hero-ui' ? 'button--secondary' : 'bg-gray-100'),
+    ).toBe(true)
   },
 )

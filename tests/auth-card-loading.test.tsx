@@ -3,7 +3,7 @@ import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import { publicConfig } from './auth-test-config'
-import { AuthConfigProvider } from '../src/auth/interface/react/providers/AuthConfigProvider'
+import { AuthConfigProvider } from '../src/authentication/interface/react/providers/AuthConfigProvider/index'
 import { AuthCard } from '../src/components/organisms/AuthCard'
 import { AuthProvider, useAuth, type AuthContextValue } from '../src/exports/client'
 

@@ -362,7 +362,7 @@ export async function verifyIntegrationAcceptance({
     const digits = code(message)
     assert.ok(String(message.html).includes('Consumer &lt;Brand&gt;'))
     assert.ok(!String(message.html).includes('undefined'))
-    assert.ok(!String(message.subject).includes(digits))
+    assert.ok(String(message.subject).startsWith(`${digits}: `))
     // Configured HTTPS contact takes precedence over the fallback email address.
     assert.ok(
       String(message.html).includes(
@@ -515,7 +515,7 @@ export async function verifyIntegrationAcceptance({
   }
 
   // The shared OAuth fixture deliberately makes browser@example.com an Admin.
-  // Issue04 forbids email OTP for original-Admin-eligible accounts; do not relax it.
+  // Existing Admin eligibility is independent of the valid login method.
   await tick()
   const adminChallenge = await (
     await post('/otp/send', { email: 'browser@example.com', purpose: 'login' })
@@ -526,11 +526,43 @@ export async function verifyIntegrationAcceptance({
     context: adminChallenge.context,
     otp: code(await mail('browser@example.com')),
   })
-  assert.equal(adminOtp.status, 401)
-  assert.equal(requiredHeader(adminOtp, 'set-cookie'), null)
-  assert.deepEqual(await adminOtp.json(), { success: false, code: 'AUTH_FAILED' })
+  assert.equal(adminOtp.status, 200, await adminOtp.clone().text())
+  const adminCookie = requiredHeader(adminOtp, 'set-cookie').split(';')[0]
+  assert.equal((await adminOtp.json()).success, true)
+  const adminRequest = (path: string, cookie = adminCookie) =>
+    fetch(`${origin}/backend${path}`, {
+      headers: { origin, cookie },
+    })
+  assert.equal((await (await adminRequest('/customers/me')).json()).user.role, 'admin')
+  assert.equal((await adminRequest('/administrative-records')).status, 200)
+  const adminContext = await browser.newContext()
+  await adminContext.addCookies([
+    { name: 'consumer-token', value: adminCookie.slice('consumer-token='.length), url: origin },
+  ])
+  const adminPage = await adminContext.newPage()
+  onPage?.(adminPage)
+  await adminPage.goto(`${origin}/admin`)
+  assert.ok(
+    !new URL(adminPage.url()).pathname.includes('/login'),
+    'OTP admin enters Admin without password',
+  )
+  await adminContext.close()
+  const refreshed = await fetch(`${origin}/backend/customers/refresh-token`, {
+    method: 'POST',
+    headers: { origin, cookie: adminCookie, 'content-type': 'application/json' },
+    body: '{}',
+  })
+  assert.equal(refreshed.status, 200, await refreshed.clone().text())
+  const refreshedCookie = requiredHeader(refreshed, 'set-cookie').split(';')[0]
+  assert.equal((await adminRequest('/administrative-records', refreshedCookie)).status, 200)
+  await control({ adminEligible: false })
+  assert.equal((await adminRequest('/customers/me', refreshedCookie)).status, 200)
+  assert.equal((await adminRequest('/administrative-records', refreshedCookie)).status, 403)
+  await control({ adminEligible: true, adminUnavailable: true })
+  assert.equal((await adminRequest('/administrative-records', refreshedCookie)).status, 403)
+  await control({ adminUnavailable: false })
   checks.push(
-    'real correct-code OTP denied for original Admin-eligible fixture account; ordinary verified account OTP succeeds',
+    'existing Admin OTP login, /admin, /me and capped refresh succeed; current host eligibility/authorization still deny protected operations',
   )
 
   // Existing and unknown accounts fail with identical public shape; the UI never enumerates.

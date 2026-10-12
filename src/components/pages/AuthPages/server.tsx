@@ -1,10 +1,10 @@
 import AuthPagesClient from '.'
 import type { AuthPagesProps as ClientAuthPagesProps } from '.'
-import type { PublicAuthConfig } from '../../../auth/contracts/publicConfig'
-import { AuthConfigProvider } from '../../../auth/interface/react/providers/AuthConfigProvider'
-import { AuthSignupConfig } from '../../../auth/interface/react/providers/AuthSignupConfig'
+import type { PublicAuthConfig } from '../../../shared/contracts/publicConfig'
+import { AuthConfigProvider } from '../../../authentication/interface/react/providers/AuthConfigProvider/index'
+import { AuthSignupConfig } from '../../../authentication/interface/react/providers/AuthSignupConfig/index'
 import { AuthPresentationDefaults } from '../../../contexts/AuthAppearanceContext'
-import { getServerPresentationDefaults } from '../../../auth/interface/react/providers/AuthProviderServer/defaults'
+import { getServerPresentationDefaults } from '../../../authentication/interface/react/providers/AuthProviderServer/defaults'
 
 export type AuthPagesProps = ClientAuthPagesProps & { publicConfig: PublicAuthConfig }
 

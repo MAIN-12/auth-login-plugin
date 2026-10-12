@@ -1,7 +1,7 @@
 'use client'
 
 import React, { lazy, Suspense } from 'react'
-import type { AuthStyle } from '../../auth/contracts/publicConfig'
+import type { AuthStyle } from '../../shared/contracts/publicConfig'
 import { useAuthPresentation } from '../../contexts/AuthAppearanceContext'
 import { VisualLoadingBoundary } from '../../components/atoms/VisualLoadingBoundary'
 

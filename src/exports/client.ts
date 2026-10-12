@@ -8,15 +8,15 @@
 export {
   AuthConfigProvider,
   useAuthConfig,
-} from '../auth/interface/react/providers/AuthConfigProvider'
-export type { PublicAuthConfig } from '../auth/contracts/publicConfig'
-export { AuthClientInit } from '../auth/interface/react/providers/AuthClientInit'
+} from '../authentication/interface/react/providers/AuthConfigProvider/index'
+export type { PublicAuthConfig } from '../shared/contracts/publicConfig'
+export { AuthClientInit } from '../authentication/interface/react/providers/AuthClientInit/index'
 
 // Auth hooks
-export { useLoginFlow } from '../auth/interface/react/hooks/useLoginFlow'
-export { useVerifyOtpFlow } from '../auth/interface/react/hooks/useVerifyOtpFlow'
-export { useForgotPasswordFlow } from '../auth/interface/react/hooks/useForgotPasswordFlow'
-export { useSetPasswordFlow } from '../auth/interface/react/hooks/useSetPasswordFlow'
+export { useLoginFlow } from '../authentication/interface/react/hooks/useLoginFlow'
+export { useVerifyOtpFlow } from '../authentication/interface/react/hooks/useVerifyOtpFlow'
+export { useForgotPasswordFlow } from '../authentication/interface/react/hooks/useForgotPasswordFlow'
+export { useSetPasswordFlow } from '../authentication/interface/react/hooks/useSetPasswordFlow'
 
 // Auth service functions (client-side fetch wrappers)
 export {
@@ -28,14 +28,14 @@ export {
   setUserPassword,
   signup,
   initiateGoogleLogin,
-} from '../auth/interface/client/authService'
+} from '../authentication/interface/client/authService'
 
 // Domain utilities
 export {
   evaluatePasswordStrength,
   isPasswordValid,
   MIN_PASSWORD_LENGTH,
-} from '../auth/domain/passwordRules'
+} from '../collections/ConfiguredAuthCollection/domain'
 
 // UI translations / locale utilities
 export { getUiTranslations, uiTranslations } from '../i18n/ui'
@@ -96,11 +96,11 @@ export type {
   VerifyOtpResponse,
   SetPasswordResponse,
   SignupResponse,
-} from '../auth/contracts/clientModels'
+} from '../authentication/contracts/clientModels'
 
-export type { UseLoginFlowOptions } from '../auth/interface/react/hooks/useLoginFlow'
-export type { UseVerifyOtpFlowOptions } from '../auth/interface/react/hooks/useVerifyOtpFlow'
-export type { UseSetPasswordFlowOptions } from '../auth/interface/react/hooks/useSetPasswordFlow'
+export type { UseLoginFlowOptions } from '../authentication/interface/react/hooks/useLoginFlow'
+export type { UseVerifyOtpFlowOptions } from '../authentication/interface/react/hooks/useVerifyOtpFlow'
+export type { UseSetPasswordFlowOptions } from '../authentication/interface/react/hooks/useSetPasswordFlow'
 
 export type { LoginPageProps } from '../components/pages/LoginPage'
 export type { SignupPageProps } from '../components/pages/SignupPage'
@@ -114,14 +114,17 @@ export type {
 } from '../components/templates/AuthLayout'
 export type { PoweredByProps } from '../components/molecules/PoweredBy'
 
-export { AuthProvider, useAuth } from '../auth/interface/react/providers/AuthProvider'
+export {
+  AuthProvider,
+  useAuth,
+} from '../authentication/interface/react/providers/AuthProvider/index'
 export type {
   AuthProviderProps,
   AuthContextValue,
   AuthUser,
   AuthStatus,
   OpenLoginOptions,
-} from '../auth/interface/react/providers/AuthProvider'
+} from '../authentication/interface/react/providers/AuthProvider/index'
 
 export type {
   AuthPresentationProps,
@@ -131,8 +134,8 @@ export type {
 } from '../configuration/authAppearance/types'
 export { useAuthPresentation, useAuthTranslations } from '../contexts/AuthAppearanceContext'
 
-export type { CredentialCapabilities } from '../auth/domain/credentials'
+export type { CredentialCapabilities } from '../collections/ConfiguredAuthCollection/domain'
 
-export type { AuthErrorCode, AuthErrorResponse } from '../auth/contracts/errors'
+export type { AuthErrorCode, AuthErrorReason, AuthErrorResponse } from '../shared/contracts/errors'
 
-export type { PasswordStrengthResult } from '../auth/domain/types'
+export type { PasswordStrengthResult } from '../collections/ConfiguredAuthCollection/domain'

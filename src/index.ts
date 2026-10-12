@@ -1,4 +1,4 @@
-export { authLoginPlugin } from './auth/composition/plugin'
+export { authLoginPlugin } from './wiring/plugin'
 
 export type {
   AuthLoginPluginOptions,
@@ -6,16 +6,13 @@ export type {
   SerializableAuthConfig,
   AuthStyle,
   OtpOptions,
-} from './config'
-export type { AuthErrorCode, AuthErrorResponse } from './auth/contracts/errors'
-export type { GoogleOptions } from './googleOptions'
-export type { AdminOptions, AuthenticationEvidence } from './adminOptions'
-export type { CredentialCapabilities } from './auth/domain/credentials'
+} from './configuration/plugin/config'
+export type { AuthErrorCode, AuthErrorResponse } from './shared/contracts/errors'
+export type { GoogleOptions } from './configuration/plugin/googleOptions'
+export type { AdminOptions, AuthenticationEvidence } from './configuration/plugin/adminOptions'
+export type { CredentialCapabilities } from './collections/ConfiguredAuthCollection/domain'
 
 /** Unforgeable request-local method evidence for consumer server hooks, never a client capability. */
-export { isOtpSessionRequest } from './auth/server/otpSession'
+export { isOtpSessionRequest } from './collections/ConfiguredAuthCollection/index'
 
-export { getAuthenticationEvidence } from './auth/infrastructure/payload/adminPolicy'
-
-/** Offline, account-preserving maintenance cutoff; never exposed through HTTP. */
-export { migrateAuthLogin, type AuthLoginMigrationOptions } from './auth/composition/migration'
+export { getAuthenticationEvidence } from './collections/ConfiguredAuthCollection/index'

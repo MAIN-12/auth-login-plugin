@@ -50,7 +50,7 @@ const modal = import('./Modal');
 it('emits JSON import attributes for native Node rather than relying on Next bundling', async () => {
   const fixture = await mkdtemp(path.join(tmpdir(), 'auth-json-import-'))
   try {
-    const source = path.resolve('src/auth/domain/passwordRules.ts')
+    const source = path.resolve('src/collections/ConfiguredAuthCollection/domain/passwordRules.ts')
     const output = path.join(fixture, 'passwordRules.mjs')
     execFileSync('pnpm', [
       'exec',
@@ -63,7 +63,11 @@ it('emits JSON import attributes for native Node rather than relying on Next bun
     ])
     await writeFile(
       path.join(fixture, 'password-blocklist-eligible.json'),
-      await readFile(path.resolve('src/auth/domain/password-blocklist-eligible.json')),
+      await readFile(
+        path.resolve(
+          'src/collections/ConfiguredAuthCollection/domain/password-blocklist-eligible.json',
+        ),
+      ),
     )
     const compiled = await readFile(output, 'utf8')
     expect(compiled).not.toContain("'./password-blocklist.json'")

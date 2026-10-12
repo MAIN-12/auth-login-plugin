@@ -4,8 +4,8 @@ import { createRoot } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import * as client from '../src/exports/client'
 import { publicConfig } from './auth-test-config'
-import { AuthConfigProvider } from '../src/auth/interface/react/providers/AuthConfigProvider'
-import { AuthFlowContext } from '../src/auth/interface/react/AuthFlowContext'
+import { AuthConfigProvider } from '../src/authentication/interface/react/providers/AuthConfigProvider/index'
+import { AuthFlowContext } from '../src/authentication/interface/react/AuthFlowContext'
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
@@ -360,7 +360,7 @@ it('native modal cycles Tab at enabled visible edges while preserving normal key
   expect(document.activeElement).toBe(trigger)
   trigger.remove()
 })
-import { storePasswordProof } from '../src/auth/interface/client/passwordProof'
+import { storePasswordProof } from '../src/collections/AuthLoginPasswordPermits/interface/client/passwordProof'
 it('password visibility has a comfortable target and localized keyboard toggle for both fields', async () => {
   storePasswordProof(publicConfig, {
     purpose: 'recovery',

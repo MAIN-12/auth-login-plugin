@@ -5,16 +5,16 @@ import { useAuthTranslations } from '../../../contexts/AuthAppearanceContext'
 import { useAuthThemeClasses } from '../../../theme'
 import { authErrorMessage } from '../../../i18n/ui'
 import React from 'react'
-import { useAuthConfig } from '../../../auth/interface/react/providers/AuthConfigProvider'
+import { useAuthConfig } from '../../../authentication/interface/react/providers/AuthConfigProvider/index'
 import {
   AuthLink,
   useAuthSearchParams,
   authRoute,
-} from '../../../auth/interface/react/AuthFlowContext'
+} from '../../../authentication/interface/react/AuthFlowContext'
 import { Button } from '../../atoms'
 import { FormField } from '../../molecules/FormField'
 import { AuthErrorNotice } from '../../molecules/AuthErrorNotice'
-import { useForgotPasswordFlow } from '../../../auth/interface/react/hooks/useForgotPasswordFlow'
+import { useForgotPasswordFlow } from '../../../authentication/interface/react/hooks/useForgotPasswordFlow'
 import type { AuthLocalizationProps } from '../../../configuration/authAppearance/types'
 
 export interface ForgotPasswordFormProps extends AuthLocalizationProps {

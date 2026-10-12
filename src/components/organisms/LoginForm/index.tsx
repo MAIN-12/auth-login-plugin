@@ -1,8 +1,8 @@
 'use client'
 
-import { safeAuthRedirect } from '../../../auth/domain/redirect'
-import { useAuthConfig } from '../../../auth/interface/react/providers/AuthConfigProvider'
-import { useAllowSignup } from '../../../auth/interface/react/providers/AuthSignupConfig'
+import { safeAuthRedirect } from '../../../shared/domain/redirect'
+import { useAuthConfig } from '../../../authentication/interface/react/providers/AuthConfigProvider/index'
+import { useAllowSignup } from '../../../authentication/interface/react/providers/AuthSignupConfig/index'
 
 import { useAuthTranslations } from '../../../contexts/AuthAppearanceContext'
 
@@ -14,12 +14,12 @@ import {
   useAuthSearchParams,
   AuthLink,
   authRoute,
-} from '../../../auth/interface/react/AuthFlowContext'
+} from '../../../authentication/interface/react/AuthFlowContext'
 import { Button, Divider } from '../../atoms'
 import { FormField } from '../../molecules/FormField'
 import { PasswordField } from '../../molecules/PasswordField'
 import { AuthErrorNotice } from '../../molecules/AuthErrorNotice'
-import { useLoginFlow } from '../../../auth/interface/react/hooks/useLoginFlow'
+import { useLoginFlow } from '../../../authentication/interface/react/hooks/useLoginFlow'
 import { GoogleAuthButton } from '../../molecules/GoogleAuthButton'
 import type { AuthLocalizationProps } from '../../../configuration/authAppearance/types'
 

@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { createGoogleFlow } from '../src/auth/application/use-cases/googleFlow'
+import { createGoogleFlow } from '../src/authentication/application/use-cases/googleFlow'
 
 function dependencies(enabled = true) {
   return {
@@ -67,9 +67,9 @@ it('callback commits burn before exchange and never finishes a malformed stable 
   expect(order).toEqual(['consume', 'exchange'])
   expect(ports.finish).not.toHaveBeenCalled()
 })
-import { createGoogleCorrelationCrypto } from '../src/auth/infrastructure/crypto/googleCorrelationCrypto'
-import { createGoogleCorrelations } from '../src/auth/infrastructure/payload/googleCorrelations'
-import type { OtpStore } from '../src/auth/infrastructure/payload/otpLedger'
+import { createGoogleCorrelationCrypto } from '../src/authentication/infrastructure/crypto/googleCorrelationCrypto'
+import { createGoogleCorrelations } from '../src/authentication/infrastructure/payload/googleCorrelations'
+import type { OtpStore } from '../src/collections/AuthLoginOtpSecurity/infrastructure/repositories/otpLedger'
 function durableFixture() {
   const records = new Map<string, Record<string, unknown>>()
   const store: OtpStore = {
@@ -160,4 +160,21 @@ it('durable correlation storage failure cannot fall back or exchange identity', 
   ).rejects.toThrow('storage unavailable')
   expect(ports.provider.exchange).not.toHaveBeenCalled()
   expect(ports.finish).not.toHaveBeenCalled()
+})
+it('invalid callback state explains restarting Google login without revealing correlation internals', async () => {
+  await expect(
+    createGoogleFlow(dependencies()).callback({
+      state: 'invalid',
+      browser: 'one',
+      url: 'https://app.test/callback',
+    }),
+  ).rejects.toMatchObject({ code: 'AUTH_FAILED', reason: 'OAUTH_STATE_INVALID' })
+  const f = durableFixture()
+  await expect(
+    createGoogleFlow(f.ports).callback({
+      state: 'a'.repeat(43),
+      browser: 'one',
+      url: 'https://app.test/callback',
+    }),
+  ).rejects.toMatchObject({ reason: 'OAUTH_STATE_INVALID' })
 })

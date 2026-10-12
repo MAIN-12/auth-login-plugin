@@ -5,14 +5,17 @@ import { useAuthTranslations } from '../../../contexts/AuthAppearanceContext'
 import { useAuthThemeClasses } from '../../../theme'
 import { authErrorMessage } from '../../../i18n/ui'
 import React from 'react'
-import { useAuthConfig } from '../../../auth/interface/react/providers/AuthConfigProvider'
-import { authRoute } from '../../../auth/interface/react/AuthFlowContext'
+import { useAuthConfig } from '../../../authentication/interface/react/providers/AuthConfigProvider/index'
+import { authRoute } from '../../../authentication/interface/react/AuthFlowContext'
 import { AuthLoadingBoundary } from '../AuthCard/AuthLoadingBoundary'
-import { useAuthSearchParams, AuthLink } from '../../../auth/interface/react/AuthFlowContext'
+import {
+  useAuthSearchParams,
+  AuthLink,
+} from '../../../authentication/interface/react/AuthFlowContext'
 import { Button } from '../../atoms'
 import { OtpInput } from '../../molecules/OtpInput'
 import { AuthErrorNotice } from '../../molecules/AuthErrorNotice'
-import { useVerifyOtpFlow } from '../../../auth/interface/react/hooks/useVerifyOtpFlow'
+import { useVerifyOtpFlow } from '../../../authentication/interface/react/hooks/useVerifyOtpFlow'
 import type { AuthLocalizationProps } from '../../../configuration/authAppearance/types'
 
 export interface VerifyOtpFormProps extends AuthLocalizationProps {

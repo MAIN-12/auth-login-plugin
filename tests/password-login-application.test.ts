@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { createPasswordLogin } from '../src/auth/application/use-cases/passwordLogin'
+import { createPasswordLogin } from '../src/authentication/application/use-cases/passwordLogin'
 
 it('authenticates a legacy short password exactly once and returns only a principal', async () => {
   const authenticate = vi.fn(async () => ({ accountID: 7, collection: 'customers', sid: 'sid' }))

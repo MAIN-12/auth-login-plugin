@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { safeAuthRedirect } from '../src/auth/domain/redirect'
+import { safeAuthRedirect } from '../src/shared/domain/redirect'
 it('rejects encoded authority, backslash and controls while preserving local query and hash', () => {
   for (const value of [
     '//evil.test',

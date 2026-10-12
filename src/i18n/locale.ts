@@ -16,7 +16,7 @@
  *   5. Fallback: 'en'
  */
 
-export { normalizeAuthLocale, type SupportedAuthLocale } from '../auth/domain/locale'
+export { normalizeAuthLocale, type SupportedAuthLocale } from '../shared/domain/locale'
 
 const SUPPORTED_FALLBACK = 'en'
 

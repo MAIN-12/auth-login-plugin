@@ -3,9 +3,9 @@ import React, { act } from 'react'
 import { createRoot } from 'react-dom/client'
 import { expect, it, vi } from 'vitest'
 import { publicConfig } from './auth-test-config'
-import { AuthConfigProvider } from '../src/auth/interface/react/providers/AuthConfigProvider'
-import { AuthFlowContext } from '../src/auth/interface/react/AuthFlowContext'
-import { useLoginFlow } from '../src/auth/interface/react/hooks/useLoginFlow'
+import { AuthConfigProvider } from '../src/authentication/interface/react/providers/AuthConfigProvider/index'
+import { AuthFlowContext } from '../src/authentication/interface/react/AuthFlowContext'
+import { useLoginFlow } from '../src/authentication/interface/react/hooks/useLoginFlow'
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),

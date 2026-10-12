@@ -1,7 +1,7 @@
 {
   "name": "@main12/auth-login",
   "version": "3.0.0",
-  "description": "Payload CMS authentication plugin — isolated configuration and guarded native password login",
+  "description": "Payload CMS authentication plugin \u2014 isolated configuration and guarded native password login",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -35,7 +35,8 @@
   "files": [
     "dist",
     "docs/migration.md",
-    "docs/plugin-contracts.md"
+    "docs/plugin-contracts.md",
+    "docs/schema-migrations.md"
   ],
   "scripts": {
     "build": "pnpm clean && pnpm copyfiles && pnpm build:types && pnpm build:swc && pnpm build:fix-esm-imports",
@@ -63,14 +64,14 @@
     "test:oauth:postgres": "AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_OAUTH=1 AUTH_CONSUMER_DB=postgres AUTH_CONSUMER_BUNDLER=webpack tsx scripts/test-consumer.ts",
     "test:oauth:acceptance": "pnpm test:oauth:sqlite && pnpm test:oauth:postgres",
     "test:integration:acceptance": "AUTH_CONSUMER_ISSUE05=1 AUTH_CONSUMER_BUNDLER=webpack tsx scripts/test-consumer.ts",
-    "test:migration:acceptance": "AUTH_CONSUMER_ISSUE06=1 AUTH_CONSUMER_OTP=1 AUTH_CONSUMER_BUNDLER=webpack tsx scripts/test-consumer.ts",
     "prepare": "lefthook install",
     "hooks:install": "lefthook install",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test:consumer:integration": "tsx scripts/test-consumer.ts",
     "release:check": "node scripts/publish-package.mjs --dry-run",
-    "release:publish": "node scripts/publish-package.mjs --publish"
+    "release:publish": "node scripts/publish-package.mjs --publish",
+    "test:schema:adapters": "cross-env AUTH_TEST_SCHEMA_POSTGRES=1 vitest run tests/schema-migration-adapters.test.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
@@ -114,10 +115,14 @@
     "framer-motion": "12.43.0",
     "next": "16.3.6",
     "payload": "3.90.2",
-    "react": "19.2.6"
+    "react": "19.2.6",
+    "tailwindcss": "^4.3.3"
   },
   "peerDependenciesMeta": {
     "@heroui/react": {
+      "optional": true
+    },
+    "tailwindcss": {
       "optional": true
     }
   },

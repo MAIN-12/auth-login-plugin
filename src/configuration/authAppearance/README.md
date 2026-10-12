@@ -10,11 +10,11 @@ not authentication domain rules. This folder holds only types and pure data:
 React adaptation lives in `src/contexts/AuthAppearanceContext`: it provides the
 shared settings and hooks without loading session services. The default image is
 owned by `src/components/atoms/AuthLogo`. The server adapter alongside
-`src/auth/interface/react/providers/AuthProviderServer` uses that same atom with
+`src/authentication/interface/react/providers/AuthProviderServer` uses that same atom with
 its existing `object-contain` class; the client default retains its prior classes.
 Explicit `logo={null}` hides inherited branding; `undefined` inherits it.
 
-Authentication/session integration lives in `src/auth/interface/react/providers`.
+Authentication/session integration lives in `src/authentication/interface/react/providers`.
 RSC visual entries are `server.tsx` beside `AuthCard` and `AuthPages`, not providers.
 `AuthProvider` composes session and appearance contexts. `AuthCard` owns its local
 appearance scope and branding; `AuthLayout` only arranges the page. Server wrappers

@@ -1,6 +1,6 @@
 import { expect, it, vi } from 'vitest'
 import type { PayloadRequest } from 'payload'
-import { readCredentialCapabilities } from '../src/auth/infrastructure/payload/credentialEvidence'
+import { readCredentialCapabilities } from '../src/collections/ConfiguredAuthCollection/infrastructure/payload/credentialEvidence'
 
 it('keeps omitted credentials unknown and never exposes storage secrets', async () => {
   const req = {
@@ -13,7 +13,7 @@ it('keeps omitted credentials unknown and never exposes storage secrets', async 
   })
 })
 
-import { createCapabilitiesScope } from '../src/auth/composition/session'
+import { createCapabilitiesScope } from '../src/authentication/wiring/session'
 
 it('binds own capabilities to the authenticated request and rejects a changed principal', async () => {
   let resolve!: (value: object) => void
@@ -75,7 +75,7 @@ it('does not read storage for anonymous or foreign collection principals', async
   expect(findOne).not.toHaveBeenCalled()
 })
 
-import { createCapabilitiesEndpoint } from '../src/auth/composition/session'
+import { createCapabilitiesEndpoint } from '../src/authentication/wiring/session'
 import { publicConfig } from './auth-test-config'
 it('ignores caller account/collection selectors and returns safe HTTP evidence for only its own principal', async () => {
   const findOne = vi.fn(async () => ({

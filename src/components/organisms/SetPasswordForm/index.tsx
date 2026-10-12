@@ -5,16 +5,16 @@ import { useAuthTranslations } from '../../../contexts/AuthAppearanceContext'
 import { useAuthThemeClasses } from '../../../theme'
 import { authErrorMessage } from '../../../i18n/ui'
 import React from 'react'
-import { useAuthConfig } from '../../../auth/interface/react/providers/AuthConfigProvider'
+import { useAuthConfig } from '../../../authentication/interface/react/providers/AuthConfigProvider/index'
 import {
   AuthLink,
   useAuthSearchParams,
   authRoute,
-} from '../../../auth/interface/react/AuthFlowContext'
+} from '../../../authentication/interface/react/AuthFlowContext'
 import { Button } from '../../atoms'
 import { PasswordField } from '../../molecules/PasswordField'
 import { AuthErrorNotice } from '../../molecules/AuthErrorNotice'
-import { useSetPasswordFlow } from '../../../auth/interface/react/hooks/useSetPasswordFlow'
+import { useSetPasswordFlow } from '../../../authentication/interface/react/hooks/useSetPasswordFlow'
 import type { AuthLocalizationProps } from '../../../configuration/authAppearance/types'
 
 export interface SetPasswordFormProps extends AuthLocalizationProps {
@@ -54,8 +54,7 @@ export function SetPasswordForm({ redirectTo = '/', locale, messages }: SetPassw
   if (requiresReauthentication)
     return (
       <div className="space-y-4">
-        <h2>{t.setPassword}</h2>
-        <p>{t.reauthenticationIntro}</p>
+        <p className={`text-center ${theme.muted} text-sm`}>{t.reauthenticationIntro}</p>
         {error && <AuthErrorNotice>{getErrorMessage(error)}</AuthErrorNotice>}
         <PasswordField
           autoComplete="current-password"
@@ -63,18 +62,24 @@ export function SetPasswordForm({ redirectTo = '/', locale, messages }: SetPassw
           label={t.currentPasswordLabel}
           value={currentPassword}
           onValueChange={setCurrentPassword}
+          variant="secondary"
         />
         <Button variant="primary" isLoading={isLoading} onPress={handleReauthenticate}>
           {t.reauthenticate}
         </Button>
         {config.otpLogin && (
-          <Button variant="bordered" isLoading={isLoading} onPress={handleOtpReauthenticate}>
+          <Button variant="secondary" isLoading={isLoading} onPress={handleOtpReauthenticate}>
             {t.verifyByEmail}
           </Button>
         )}
-        <AuthLink href={authRoute(config.authBasePath, 'login', {}, destination)}>
-          {t.backToLogin}
-        </AuthLink>
+        <div className="text-center mt-6">
+          <AuthLink
+            href={authRoute(config.authBasePath, 'login', {}, destination)}
+            className={`text-sm ${theme.muted} ${theme.hoverForeground} inline-flex items-center gap-1`}
+          >
+            ← {t.backToLogin}
+          </AuthLink>
+        </div>
       </div>
     )
   return (
@@ -92,6 +97,7 @@ export function SetPasswordForm({ redirectTo = '/', locale, messages }: SetPassw
         isRequired
         autoFocus
         autoComplete="new-password"
+        variant="secondary"
       />
 
       {password.length > 0 && (
@@ -116,6 +122,7 @@ export function SetPasswordForm({ redirectTo = '/', locale, messages }: SetPassw
         onValueChange={setConfirmPassword}
         isRequired
         autoComplete="new-password"
+        variant="secondary"
       />
       <Button type="submit" variant="primary" isLoading={isLoading}>
         {t.setPassword}

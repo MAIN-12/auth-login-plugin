@@ -1,9 +1,9 @@
 import { expect, it, vi } from 'vitest'
 import type { PayloadRequest } from 'payload'
-import { otpEndpoints } from '../src/auth/interface/http/otpLogin'
+import { otpEndpoints } from '../src/authentication/interface/http/otpLogin'
 import { publicConfig } from './auth-test-config'
-import type { OtpOptions } from '../src/config'
-import type { createOtpLoginScope } from '../src/auth/composition/otpLogin'
+import type { OtpOptions } from '../src/configuration/plugin/config'
+import type { createOtpLoginScope } from '../src/authentication/wiring/otpLogin'
 const settings = { ...publicConfig, otpLogin: true }
 const options: OtpOptions = { secret: 'private-key'.repeat(4), origin: () => 'trusted-peer' }
 function request(input: unknown) {

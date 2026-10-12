@@ -1,10 +1,10 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import type { PayloadRequest } from 'payload'
-import { createRefreshScope } from '../src/auth/composition/session'
+import { createRefreshScope } from '../src/authentication/wiring/session'
 import {
   getAuthenticationEvidence,
   setAuthenticationEvidence,
-} from '../src/auth/infrastructure/payload/adminPolicy'
+} from '../src/collections/ConfiguredAuthCollection/infrastructure/payload/adminPolicy'
 
 afterEach(() => vi.restoreAllMocks())
 it.each(['success', 'reject'] as const)(
@@ -35,7 +35,7 @@ it.each(['success', 'reject'] as const)(
   },
 )
 
-import { createSessionPolicy } from '../src/auth/infrastructure/payload/sessionPolicy'
+import { createSessionPolicy } from '../src/collections/ConfiguredAuthCollection/infrastructure/payload/sessionPolicy'
 it('caps native refresh at original creation even after a later sliding expiry', async () => {
   vi.spyOn(Date, 'now').mockReturnValue(1000000)
   const req = {
@@ -140,5 +140,70 @@ it.each(['success', 'reject'] as const)(
     scope.dispose()
     req.headers = headers
     expect(getAuthenticationEvidence(req)).toBeUndefined()
+  },
+)
+
+import { decodeJwt, SignJWT } from 'jose'
+import type { Payload } from 'payload'
+it.each(['password', 'otp', 'google'] as const)(
+  'native authentication and refresh preserve %s proof for an existing admin',
+  async (method) => {
+    const now = Math.floor(Date.now() / 1000)
+    const secret = 's'.repeat(32)
+    const user = {
+      id: 1,
+      collection: 'customers',
+      _sid: 'sid',
+      _verified: true,
+      role: 'superadmin',
+      sessions: [
+        { id: 'sid', createdAt: new Date(now * 1000), expiresAt: new Date((now + 100) * 1000) },
+      ],
+    }
+    const token = await new SignJWT({
+      id: 1,
+      collection: 'customers',
+      sid: 'sid',
+      authLoginMethod: method,
+      exp: now + 100,
+    })
+      .setProtectedHeader({ alg: 'HS256' })
+      .sign(new TextEncoder().encode(secret))
+    const admin = vi.fn(async () => true)
+    const payload = {
+      secret,
+      config: { auth: { jwtOrder: ['Bearer'] }, csrf: [], cookiePrefix: 'test' },
+      collections: { customers: { config: { access: { admin } } } },
+      db: { findOne: async () => user },
+      authStrategies: [{ name: 'local-jwt', authenticate: async () => ({ user }) }],
+    } as unknown as Payload
+    const req = {
+      payload,
+      headers: new Headers({ Authorization: `Bearer ${token}` }),
+      context: {},
+    } as PayloadRequest
+    const policy = createSessionPolicy('customers', 100)
+    policy.installStrategy(payload)
+    const authenticated = await payload.authStrategies[0].authenticate({
+      headers: req.headers,
+      req,
+      payload,
+    } as never)
+    expect(authenticated.user).toBe(user)
+    expect(getAuthenticationEvidence(req)?.method).toBe(method)
+    expect(admin).not.toHaveBeenCalled()
+    await policy.beforeOperation({
+      operation: 'refresh',
+      req,
+      args: { req, collection: { config: { auth: { tokenExpiration: 100 } } } },
+    } as never)
+    const refreshed = await policy.afterOperation({
+      operation: 'refresh',
+      req,
+      result: { refreshedToken: token },
+    } as never)
+    expect(
+      decodeJwt((refreshed as { refreshedToken: string }).refreshedToken).authLoginMethod,
+    ).toBe(method)
   },
 )

@@ -1,6 +1,9 @@
 import { expect, it, vi } from 'vitest'
 import type { PayloadRequest } from 'payload'
-import { createPasswordEndpoints, createOwnershipScope } from '../src/auth/composition/ownership'
+import {
+  createPasswordEndpoints,
+  createOwnershipScope,
+} from '../src/authentication/wiring/ownership'
 import { publicConfig } from './auth-test-config'
 
 it('disabled recovery alias is inert even for malformed input and retains METHOD_DISABLED', async () => {

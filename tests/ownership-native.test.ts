@@ -4,26 +4,29 @@ import {
   passwordReauthentication,
   commitPassword,
   commitEmailVerification,
-} from '../src/auth/server/passwordAdapter'
+} from '../src/authentication/infrastructure/payload/passwordAdapter'
 import {
   credentialVersion,
   isCredentialRequest,
   isReauthenticationRequest,
-} from '../src/auth/server/credentialRequest'
-import {
-  installNativeSessionCoordination,
-  type DrizzleDatabase,
-} from '../src/auth/server/otpSession'
+} from '../src/collections/ConfiguredAuthCollection/infrastructure/payload/credentialRequest'
+import { type DrizzleDatabase } from '../src/shared/infrastructure/payload/nativeTransaction'
+import { installNativeSessionCoordination } from '../src/collections/ConfiguredAuthCollection/infrastructure/payload/otpSession'
 const { login } = vi.hoisted(() => ({ login: vi.fn() }))
 vi.mock('payload', async (original) => ({
   ...(await original<typeof import('payload')>()),
   loginOperation: login,
 }))
-vi.mock('../src/auth/server/otpSession', async (original) => ({
-  ...(await original<typeof import('../src/auth/server/otpSession')>()),
-  nativeTransaction: (db: DrizzleDatabase, work: (tx: unknown) => Promise<unknown>) =>
-    db.drizzle.transaction(work),
-}))
+vi.mock(
+  '../src/collections/ConfiguredAuthCollection/infrastructure/payload/otpSession',
+  async (original) => ({
+    ...(await original<
+      typeof import('../src/collections/ConfiguredAuthCollection/infrastructure/payload/otpSession')
+    >()),
+    nativeTransaction: (db: DrizzleDatabase, work: (tx: unknown) => Promise<unknown>) =>
+      db.drizzle.transaction(work),
+  }),
+)
 function fixture() {
   const record = {
     id: 1,
@@ -38,7 +41,7 @@ function fixture() {
     sessions: {},
     tableNameMap: new Map([['customers', 'customers']]),
     drizzle: { transaction: async (work: (tx: unknown) => Promise<unknown>) => work({}) },
-    execute: vi.fn(async () => ({ rows: [] })),
+    execute: vi.fn(async (_args: { raw?: string }) => ({ rows: [] })),
     findOne: vi.fn(async () => ({ ...record })),
     updateOne: vi.fn(async (args: { data: Record<string, unknown> }) => {
       Object.assign(record, args.data)
@@ -158,7 +161,8 @@ it('credential completion rejects generation invalidated after permit decoding b
   expect(db.sessions).toEqual({})
 })
 it('a parsed recovery proof cannot issue a permit after the native credential version changes', async () => {
-  const { grantOwnershipPermit } = await import('../src/auth/server/passwordAdapter')
+  const { grantOwnershipPermit } =
+    await import('../src/authentication/infrastructure/payload/passwordAdapter')
   const { req, record } = fixture()
   const proof = {
     purpose: 'recovery' as const,
@@ -172,7 +176,8 @@ it('a parsed recovery proof cannot issue a permit after the native credential ve
   expect(issue).not.toHaveBeenCalled()
 })
 it('completion rolls back authority when an asynchronous hook substitutes the password after its native write', async () => {
-  const { observeCredentialWrite } = await import('../src/auth/server/credentialIntent')
+  const { observeCredentialWrite } =
+    await import('../src/collections/ConfiguredAuthCollection/infrastructure/payload/credentialIntent')
   const { req, record, update, db } = fixture()
   const permit = {
     purpose: 'recovery' as const,
@@ -198,11 +203,11 @@ it('completion rolls back authority when an asynchronous hook substitutes the pa
 
 it('two real ownership endpoint factories capture secrets/settings and cannot complete a cross-collection permit', async () => {
   const { createOwnershipOtpEndpoint, createOwnershipScope } =
-    await import('../src/auth/composition/ownership')
+    await import('../src/authentication/wiring/ownership')
   const { publicConfig } = await import('./auth-test-config')
   const rows = new Map<string, string>()
   const pool = {
-    query: async () => undefined,
+    query: async (_query: string) => ({ rows: [] }),
     connect: async () => ({
       release: () => {},
       query: async (query: string, args: string[] = []) => {
@@ -232,7 +237,7 @@ it('two real ownership endpoint factories capture secrets/settings and cannot co
         pool,
         sessions: {},
         drizzle: { transaction: async (work: (tx: unknown) => Promise<unknown>) => work({}) },
-        execute: async () => ({ rows: [] }),
+        execute: async (_args: { raw?: string }) => ({ rows: [] }),
         findOne: async () => null,
       },
       create,
@@ -297,7 +302,8 @@ it.each([
 ])(
   'malformed native ownership identity remains unknown and never exposes hash/salt: %j',
   async (identity) => {
-    const { mapOwnershipAccount } = await import('../src/auth/server/ownershipAccount')
+    const { mapOwnershipAccount } =
+      await import('../src/collections/ConfiguredAuthCollection/infrastructure/payload/ownershipAccount')
     const selected = mapOwnershipAccount(
       { ...identity, hash: 'private-native-hash', salt: 'private-native-salt', verified: true },
       'opaque-version',

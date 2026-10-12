@@ -6,8 +6,7 @@ export async function GET(request: Request) {
     process.env.AUTH_CONSUMER_OTP !== '1' &&
     process.env.AUTH_CONSUMER_PASSWORD !== '1' &&
     process.env.AUTH_CONSUMER_OAUTH !== '1' &&
-    process.env.AUTH_CONSUMER_ISSUE05 !== '1' &&
-    process.env.AUTH_CONSUMER_ISSUE06 !== '1'
+    process.env.AUTH_CONSUMER_ISSUE05 !== '1'
   )
     return new Response(null, { status: 404 })
   if (new URL(request.url).searchParams.get('storage') === '1') {
@@ -25,16 +24,6 @@ export async function GET(request: Request) {
       journalMode: journal.rows[0].journal_mode,
       busyTimeout: timeout.rows[0].timeout,
     })
-  }
-  const legacyScope = new URL(request.url).searchParams.get('legacyOtpScope')
-  if (legacyScope && process.env.AUTH_CONSUMER_ISSUE06 === '1') {
-    const payload = await getPayload({ config })
-    const result = await payload.find({
-      collection: 'auth-otps',
-      where: { collection: { equals: legacyScope } },
-      overrideAccess: true,
-    })
-    return Response.json({ count: result.totalDocs })
   }
   const email = new URL(request.url).searchParams.get('email')
   if (email) {
@@ -70,29 +59,10 @@ export async function POST(request: Request) {
     process.env.AUTH_CONSUMER_OTP !== '1' &&
     process.env.AUTH_CONSUMER_PASSWORD !== '1' &&
     process.env.AUTH_CONSUMER_OAUTH !== '1' &&
-    process.env.AUTH_CONSUMER_ISSUE05 !== '1' &&
-    process.env.AUTH_CONSUMER_ISSUE06 !== '1'
+    process.env.AUTH_CONSUMER_ISSUE05 !== '1'
   )
     return new Response(null, { status: 404 })
   const body = await request.json()
-  if (
-    body.migrationLegacyEmail === 'browser-legacy@example.com' &&
-    process.env.AUTH_CONSUMER_ISSUE06 === '1'
-  ) {
-    const payload = await getPayload({ config })
-    await payload.create({
-      collection: 'customers',
-      data: {
-        email: body.migrationLegacyEmail,
-        password: 'legacy password remains unchanged',
-        _verified: false,
-      },
-      disableVerificationEmail: true,
-      overrideAccess: true,
-      context: { authLoginCredentialProvisioning: true },
-    })
-    return Response.json({ created: true })
-  }
   if (typeof body.armLogin === 'string' && process.env.AUTH_CONSUMER_PASSWORD === '1') {
     const payload = await getPayload({ config })
     const actualUpdate = payload.db.updateOne.bind(payload.db)

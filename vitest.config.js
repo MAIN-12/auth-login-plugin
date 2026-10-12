@@ -12,6 +12,7 @@ export default defineConfig(() => {
   return {
     test: {
       environment: 'node',
+      server: { deps: { inline: ['@payloadcms/next'] } },
       include: ['tests/**/*.test.{ts,tsx}'],
       hookTimeout: 30_000,
       testTimeout: 30_000,

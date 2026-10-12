@@ -72,7 +72,7 @@ export async function verifyPasswordAcceptance({
   }
   const noSession = (response: Response) =>
     assert.equal(
-      requiredHeader(response, 'set-cookie'),
+      response.headers.get('set-cookie'),
       null,
       'limited proof must never issue an application cookie',
     )
