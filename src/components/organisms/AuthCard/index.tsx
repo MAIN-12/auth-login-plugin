@@ -10,6 +10,8 @@ import {
 } from '../../../contexts/AuthAppearanceContext'
 import { AuthCardShell, FormRenderer } from './collaborators'
 
+export type { AuthCardTheme } from '../../../shared/contracts/publicConfig'
+
 export interface AuthCardConfig extends AuthPresentationProps {
   cardClassName?: string
   removeBorder?: boolean
@@ -46,6 +48,10 @@ function hasSlug(props: AuthCardProps): props is AuthCardWithSlugProps {
 
 export const AuthCard: React.FC<AuthCardProps> = (props) => {
   const presentation = useAuthPresentation(props)
+  const theme =
+    presentation.style === 'hero-ui' && presentation.theme !== 'inherit'
+      ? presentation.theme
+      : undefined
   const content = hasSlug(props) ? (
     <FormRenderer {...props} />
   ) : (
@@ -55,7 +61,10 @@ export const AuthCard: React.FC<AuthCardProps> = (props) => {
   return (
     <AuthPresentationContext.Provider value={presentation}>
       <div
+        data-auth-theme={presentation.theme ?? 'inherit'}
+        data-theme={theme}
         style={{
+          colorScheme: theme,
           width: '100%',
           minHeight: 'min(28rem, 70svh)',
           display: 'grid',

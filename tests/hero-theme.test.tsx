@@ -3,6 +3,10 @@ import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { AuthPresentationContext } from '../src/contexts/AuthAppearanceContext'
+import { AuthConfigProvider } from '../src/authentication/interface/react/providers/AuthConfigProvider/index'
+import { publicConfig } from './auth-test-config'
+import { resolveAuthConfig } from '../src/configuration/plugin/config'
+import { AuthCard } from '../src/components/organisms/AuthCard'
 import { AuthCardShell } from '../src/components/organisms/AuthCard/AuthCardShell'
 import AuthModalHero from '../src/components/organisms/AuthModal/AuthModalHero'
 import { Button } from '../src/components/atoms/Button/Hero'
@@ -120,5 +124,77 @@ describe('host HeroUI theme inheritance', () => {
     expect(tailwind.foreground).toBe('text-gray-900')
     expect(tailwind.error).toBe('bg-red-50 text-red-700 border-red-200')
     expect(tailwind.strengthActive).toBe('bg-[#D5E855]')
+  })
+})
+
+describe('explicit HeroUI card appearance', () => {
+  it('inherits by default and changes only its own theme without replacing the form', async () => {
+    const card = (theme?: 'inherit' | 'light' | 'dark') => (
+      <AuthCard theme={theme} mobileVariant="card">
+        <input aria-label="Draft email" />
+      </AuthCard>
+    )
+    await render(card())
+    const scope = host.querySelector('[data-auth-theme]') as HTMLElement
+    const input = host.querySelector('input')!
+    input.value = 'draft@example.com'
+    expect(scope.hasAttribute('data-theme')).toBe(false)
+    for (const theme of ['light', 'dark', 'inherit'] as const) {
+      await render(card(theme))
+      expect(host.querySelector('input')).toBe(input)
+      expect(input.value).toBe('draft@example.com')
+      expect(host.dataset.theme).toBe('dark')
+      expect(scope.getAttribute('data-theme')).toBe(theme === 'inherit' ? null : theme)
+      expect(scope.style.colorScheme).toBe(theme === 'inherit' ? '' : theme)
+    }
+  })
+
+  it('does not advertise dark mode for the standalone Tailwind palette', async () => {
+    await render(
+      <AuthCard theme="dark">
+        <input aria-label="Email" />
+      </AuthCard>,
+      'tailwind',
+    )
+    expect(host.querySelector('[data-auth-theme]')?.hasAttribute('data-theme')).toBe(false)
+  })
+})
+
+describe('plugin theme defaults', () => {
+  it('validates and defaults the public plugin setting', () => {
+    const options = {
+      passwordLogin: true,
+      otpLogin: false,
+      providers: { google: false as const },
+      allowSignup: false,
+      recovery: false,
+    }
+    expect(resolveAuthConfig(options).theme).toBe('inherit')
+    expect(resolveAuthConfig({ ...options, theme: 'dark' }).theme).toBe('dark')
+    expect(() => resolveAuthConfig({ ...options, theme: 'invalid' as 'dark' })).toThrow(
+      'invalid theme',
+    )
+  })
+
+  it('uses the plugin theme, allows explicit overrides, and preserves the form', async () => {
+    const card = (theme?: 'inherit' | 'light' | 'dark') => (
+      <AuthConfigProvider publicConfig={{ ...publicConfig, style: 'hero-ui', theme: 'dark' }}>
+        <AuthCard theme={theme}>
+          <input aria-label="Draft" />
+        </AuthCard>
+      </AuthConfigProvider>
+    )
+    await render(card())
+    const input = host.querySelector('input')!
+    input.value = 'draft@example.com'
+    expect(host.querySelector('[data-auth-theme]')?.getAttribute('data-theme')).toBe('dark')
+    for (const theme of ['light', 'inherit', undefined] as const) {
+      await render(card(theme))
+      expect(host.querySelector('[data-auth-theme]')?.getAttribute('data-theme')).toBe(
+        theme === 'inherit' ? null : (theme ?? 'dark'),
+      )
+      expect(host.querySelector('input')).toBe(input)
+      expect(input.value).toBe('draft@example.com')
+    }
   })
 })

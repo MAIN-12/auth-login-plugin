@@ -6,6 +6,7 @@ import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
 
 import { plugins } from './plugins/index'
+import { createDevEmailAdapter } from './email'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -42,7 +43,7 @@ export default buildConfig({
     client: { url: 'file:./dev.db' },
   }),
   editor: lexicalEditor(),
-  // Configure a production email adapter before opting into OTP/signup/recovery.
+  email: createDevEmailAdapter(),
   plugins,
   secret: process.env.PAYLOAD_SECRET || 'dev-secret-key-change-me',
   typescript: {

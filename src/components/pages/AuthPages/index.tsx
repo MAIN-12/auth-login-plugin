@@ -16,6 +16,7 @@ export interface AuthPagesProps extends AuthCardConfig, AuthLayoutConfig {
 
 export default function AuthPages({
   style,
+  theme,
   backgroundClass,
   texture = 'spotlight-dots',
   verticalAlign,
@@ -40,6 +41,7 @@ export default function AuthPages({
     <AuthLayout texture={texture} backgroundClass={backgroundClass} verticalAlign={verticalAlign}>
       <AuthCard
         style={style}
+        theme={theme}
         slug={slug?.[0] ?? 'login'}
         redirectTo={redirectTo}
         logo={logo}

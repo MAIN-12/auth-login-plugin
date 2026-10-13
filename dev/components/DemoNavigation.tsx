@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { ArrowLeft } from 'lucide-react'
 import { usePathname } from 'next/navigation'
 
 export default function DemoNavigation() {
@@ -13,7 +14,7 @@ export default function DemoNavigation() {
         href="/"
         className="inline-flex min-h-11 items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground shadow-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
       >
-        <span aria-hidden="true">←</span> All demos
+        <ArrowLeft size={18} aria-hidden="true" /> All demos
       </Link>
     </nav>
   )

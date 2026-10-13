@@ -11,7 +11,7 @@ import { createNativeOtpLogin } from '../infrastructure/payload/otpLogin'
 import { createOtpLedger } from '../../collections/AuthLoginOtpSecurity/index'
 import { createPayloadOtpStore } from '../../collections/AuthLoginOtpSecurity/index'
 import { readCutoverGeneration } from '../../collections/AuthLoginCutovers/index'
-import { otpEmail } from '../infrastructure/payload/otpEmail'
+import { renderOtpEmail } from '../infrastructure/payload/otpEmail'
 import { AuthOperationFailure } from '../../shared/domain/errors'
 
 export function createOtpLoginScope(
@@ -44,10 +44,16 @@ export function createOtpLoginScope(
           session: adapter.session,
           deliver: async ({ email, code }) => {
             const locale = req.headers.get('accept-language')
-            const mail = otpEmail(code, {
-              ...options!.email!,
-              locale: selectEmailLocale(locale, options!.email!.locale),
-            })
+            const mail = await renderOtpEmail(
+              code,
+              {
+                ...options!.email!,
+                locale: selectEmailLocale(locale, options!.email!.locale),
+              },
+              options!.emails,
+              'login',
+              options!.ttlSeconds,
+            )
             await req.payload.sendEmail({
               to: email,
               ...(options!.email ? { from: options!.email.from } : {}),
@@ -109,6 +115,7 @@ function captureOtpOptions(options?: OtpOptions) {
   return options
     ? Object.freeze({
         ...options,
+        emails: options.emails ? Object.freeze({ ...options.emails }) : undefined,
         email: options.email
           ? Object.freeze({
               ...options.email,

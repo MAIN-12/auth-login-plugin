@@ -6,7 +6,7 @@ import {
 import { getEmailTranslations } from '../src/i18n/email'
 
 it.each(['en', 'es'] as const)(
-  '%s login and password-reset templates localize content, escape dynamic values, and include login OTP in subjects but hide it from preheaders',
+  '%s login and password-reset templates localize content, escape dynamic values, and include OTP in subjects but hide it from preheaders',
   (language) => {
     const translations = getEmailTranslations(language)
     const otp = '918273'
@@ -29,13 +29,13 @@ it.each(['en', 'es'] as const)(
       },
       {
         result: generateOtpEmail({ ...params, purpose: 'password-reset' }),
-        subject: translations.otp.subjectPasswordReset,
+        subject: `${otp}: ${translations.otp.subjectPasswordReset}`,
         preheader: translations.otp.preheader,
         purpose: translations.otp.purposePasswordReset,
       },
       {
         result: generatePasswordResetEmail(params),
-        subject: translations.passwordReset.subject,
+        subject: `${otp}: ${translations.passwordReset.subject}`,
         preheader: translations.passwordReset.preheader,
         purpose: translations.passwordReset.title,
       },

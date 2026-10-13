@@ -15,7 +15,7 @@ import {
   commitEmailVerification,
   grantOwnershipPermit,
 } from '../infrastructure/payload/passwordAdapter'
-import { otpEmail } from '../infrastructure/payload/otpEmail'
+import { renderOtpEmail } from '../infrastructure/payload/otpEmail'
 import { selectEmailLocale } from '../../shared/domain/emailPresentation'
 import { AuthOperationFailure } from '../../shared/domain/errors'
 import { ownershipOtpEndpoint, passwordEndpoints } from '../interface/http/ownership'
@@ -134,10 +134,16 @@ export function createOwnershipScope(
               )
         },
         deliver: async ({ email, code }) => {
-          const mail = otpEmail(code, {
-            ...options!.email!,
-            locale: selectEmailLocale(req.headers.get('accept-language'), options!.email!.locale),
-          })
+          const mail = await renderOtpEmail(
+            code,
+            {
+              ...options!.email!,
+              locale: selectEmailLocale(req.headers.get('accept-language'), options!.email!.locale),
+            },
+            options!.emails,
+            purpose === 'recovery' ? 'password-reset' : purpose,
+            options!.ttlSeconds,
+          )
           await req.payload.sendEmail({ to: email, from: options!.email!.from, ...mail })
         },
         event: (event, correlation) =>
@@ -203,6 +209,7 @@ function captureOptions(options?: OtpOptions) {
   return options
     ? Object.freeze({
         ...options,
+        emails: options.emails ? Object.freeze({ ...options.emails }) : undefined,
         email: options.email
           ? Object.freeze({
               ...options.email,

@@ -5,6 +5,7 @@ export type {
   PublicAuthConfig,
   SerializableAuthConfig,
   AuthStyle,
+  AuthCardTheme,
   OtpOptions,
 } from './configuration/plugin/config'
 export type { AuthErrorCode, AuthErrorResponse } from './shared/contracts/errors'
@@ -16,3 +17,9 @@ export type { CredentialCapabilities } from './collections/ConfiguredAuthCollect
 export { isOtpSessionRequest } from './collections/ConfiguredAuthCollection/index'
 
 export { getAuthenticationEvidence } from './collections/ConfiguredAuthCollection/index'
+
+export type {
+  AuthEmailOverrides,
+  AuthEmailParams,
+  AuthEmailResult,
+} from './shared/domain/emailTemplates'

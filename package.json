@@ -1,7 +1,7 @@
 {
   "name": "@main12/auth-login",
-  "version": "3.0.0",
-  "description": "Payload CMS authentication plugin \u2014 isolated configuration and guarded native password login",
+  "version": "3.1.0",
+  "description": "Payload CMS authentication plugin — isolated configuration and guarded native password login",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -45,7 +45,7 @@
     "build:types": "tsc --outDir dist",
     "clean": "rimraf {dist,*.tsbuildinfo}",
     "copyfiles": "copyfiles -u 1 \"src/**/*.{html,css,scss,ttf,woff,woff2,eot,svg,jpg,png,json}\" dist/",
-    "dev": "next dev dev --turbo",
+    "dev": "pnpm build && next dev dev --turbo",
     "dev:generate-importmap": "pnpm dev:payload generate:importmap",
     "dev:generate-types": "pnpm dev:payload generate:types",
     "dev:payload": "cross-env PAYLOAD_CONFIG_PATH=./dev/payload.config.ts payload",
@@ -78,6 +78,7 @@
     "@heroui/react": "^3.2.2",
     "@heroui/styles": "^3.2.2",
     "@main12/auth-login": "link:.",
+    "@main12/brevo-adapter": "0.1.1",
     "@payloadcms/db-postgres": "3.90.2",
     "@payloadcms/db-sqlite": "3.90.2",
     "@payloadcms/next": "3.90.2",
@@ -89,6 +90,7 @@
     "@types/node": "24.12.3",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
+    "axios": "1.20.0",
     "copyfiles": "2.4.1",
     "cross-env": "10.1.0",
     "eslint": "^9.23.0",
@@ -96,6 +98,7 @@
     "framer-motion": "^12.43.0",
     "happy-dom": "20.11.1",
     "lefthook": "2.1.17",
+    "lucide-react": "1.54.0",
     "next": "16.3.6",
     "payload": "3.90.2",
     "prettier": "3.9.9",
@@ -154,16 +157,6 @@
     },
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts"
-  },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@swc/core",
-      "sharp",
-      "esbuild"
-    ],
-    "overrides": {
-      "payload>undici": "7.29.1"
-    }
   },
   "registry": "https://registry.npmjs.org/",
   "dependencies": {

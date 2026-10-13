@@ -1,25 +1,9 @@
-import { type SocialLink } from '../constants'
-import {
-  wrapInBaseTemplate,
-  escapeEmailText,
-  resolveEmailColors,
-  type BaseTemplateOptions,
-} from '../baseTemplate'
-import { getEmailTranslations, type SupportedLanguage } from '../../../../i18n/email'
+import { withOtpSubject } from '../../../domain/emailPresentation'
+import { wrapInBaseTemplate, escapeEmailText, resolveEmailColors } from '../baseTemplate'
+import { getEmailTranslations } from '../../../../i18n/email'
 
-export interface OtpEmailParams {
-  userName: string
-  otp: string
-  purpose?: 'login' | 'password-reset'
-  language?: SupportedLanguage
-  socialLinks?: SocialLink[]
-  baseOptions?: BaseTemplateOptions
-}
-
-export interface OtpEmailResult {
-  subject: string
-  html: string
-}
+import type { OtpEmailParams, OtpEmailResult } from '../../../domain/emailTemplates'
+export type { OtpEmailParams, OtpEmailResult } from '../../../domain/emailTemplates'
 
 export function generateOtpEmail(params: OtpEmailParams): OtpEmailResult {
   const {
@@ -32,9 +16,15 @@ export function generateOtpEmail(params: OtpEmailParams): OtpEmailResult {
   } = params
   const t = getEmailTranslations(language)
   const colors = resolveEmailColors(baseOptions?.colors)
-  const purposeText = purpose === 'password-reset' ? t.otp.purposePasswordReset : t.otp.purposeLogin
-  const subject =
-    purpose === 'password-reset' ? t.otp.subjectPasswordReset : `${otp}: ${t.otp.subjectLogin}`
+  const verification = purpose === 'signup' || purpose === 'verify-email' || purpose === 'reauth'
+  const purposeText = verification
+    ? language === 'es'
+      ? 'Usa este código para verificar tu correo y continuar:'
+      : 'Use this code to verify your email and continue:'
+    : purpose === 'password-reset'
+      ? t.otp.purposePasswordReset
+      : t.otp.purposeLogin
+  const subject = purpose === 'password-reset' ? t.otp.subjectPasswordReset : t.otp.subjectLogin
 
   const content = `
     <tr>
@@ -45,20 +35,20 @@ export function generateOtpEmail(params: OtpEmailParams): OtpEmailResult {
     </tr>
     <tr>
       <td style="text-align:center;padding-bottom:32px;">
-        <div style="display:inline-block;background-color:${colors.backgroundSecondary};border-radius:12px;padding:20px 32px;">
+        <div style="display:inline-block;background-color:${colors.backgroundSecondary};border:2px solid ${colors.border};border-radius:12px;padding:20px 32px;">
           <span style="font-size:32px;font-weight:600;letter-spacing:6px;color:${colors.text};font-family:'SF Mono',SFMono-Regular,ui-monospace,Menlo,monospace;">${escapeEmailText(otp)}</span>
         </div>
       </td>
     </tr>
     <tr>
       <td style="text-align:center;">
-        <p style="margin:0 0 8px;font-size:14px;color:${colors.textTertiary};">${t.otp.expiresIn} <span style="color:${colors.textSecondary};">5 ${language === 'es' ? 'minutos' : 'minutes'}</span></p>
+        <p style="margin:0 0 8px;font-size:14px;color:${colors.textTertiary};">${t.otp.expiresIn} <span style="color:${colors.textSecondary};">${Math.ceil((params.expiresInSeconds ?? 300) / 60)} ${language === 'es' ? 'minutos' : 'minutes'}</span></p>
         <p style="margin:0;font-size:13px;color:${colors.textTertiary};">${t.otp.ignoreMessage}</p>
       </td>
     </tr>`
 
   return {
-    subject,
+    subject: withOtpSubject(subject, otp),
     html: wrapInBaseTemplate(content, {
       ...baseOptions,
       preheader: t.otp.preheader,

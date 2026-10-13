@@ -59,6 +59,7 @@ export { AuthCard } from '../components/organisms/AuthCard'
 export type {
   AuthCardProps,
   AuthCardConfig,
+  AuthCardTheme,
   AuthCardWithSlugProps,
   AuthCardWithChildrenProps,
 } from '../components/organisms/AuthCard'

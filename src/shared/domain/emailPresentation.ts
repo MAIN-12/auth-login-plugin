@@ -19,7 +19,7 @@ export const DEFAULT_COLORS: EmailColors = {
   textSecondary: '#6e6e73',
   textTertiary: '#86868b',
   background: '#ffffff',
-  backgroundSecondary: '#f5f5f7',
+  backgroundSecondary: '#ffffff',
   border: '#d2d2d7',
 }
 export function escapeEmailText(value: string): string {
@@ -54,4 +54,10 @@ export function resolveEmailColors(colors?: Partial<EmailColors>): EmailColors {
 /** Browser locale is explicit; unsupported values retain the instance fallback. */
 export function selectEmailLocale(locale: string | null, fallback: 'es' | 'en'): 'es' | 'en' {
   return normalizeAuthLocale(locale, fallback)
+}
+
+/** Keep a code already supplied by a custom subject, otherwise make it easy to scan. */
+export function withOtpSubject(subject: string, otp: string): string {
+  if (!otp || /[\r\n]/.test(otp)) throw new Error('auth-login: invalid email OTP')
+  return subject.includes(otp) ? subject : `${otp}: ${subject}`
 }

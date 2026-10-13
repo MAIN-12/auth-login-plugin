@@ -1,24 +1,15 @@
-import { type SocialLink } from '../constants'
-import {
-  wrapInBaseTemplate,
-  escapeEmailText,
-  resolveEmailColors,
-  type BaseTemplateOptions,
-} from '../baseTemplate'
-import { getEmailTranslations, type SupportedLanguage } from '../../../../i18n/email'
+import { withOtpSubject } from '../../../domain/emailPresentation'
+import { wrapInBaseTemplate, escapeEmailText, resolveEmailColors } from '../baseTemplate'
+import { getEmailTranslations } from '../../../../i18n/email'
 
-export interface PasswordResetEmailParams {
-  userName: string
-  otp: string
-  language?: SupportedLanguage
-  socialLinks?: SocialLink[]
-  baseOptions?: BaseTemplateOptions
-}
-
-export interface PasswordResetEmailResult {
-  subject: string
-  html: string
-}
+import type {
+  PasswordResetEmailParams,
+  PasswordResetEmailResult,
+} from '../../../domain/emailTemplates'
+export type {
+  PasswordResetEmailParams,
+  PasswordResetEmailResult,
+} from '../../../domain/emailTemplates'
 
 export function generatePasswordResetEmail(
   params: PasswordResetEmailParams,
@@ -42,7 +33,7 @@ export function generatePasswordResetEmail(
     </tr>
     <tr>
       <td style="text-align:center;padding-bottom:32px;">
-        <div style="display:inline-block;background-color:${colors.backgroundSecondary};border-radius:12px;padding:20px 32px;">
+        <div style="display:inline-block;background-color:${colors.backgroundSecondary};border:2px solid ${colors.border};border-radius:12px;padding:20px 32px;">
           <span style="font-size:32px;font-weight:600;letter-spacing:6px;color:${colors.text};font-family:'SF Mono',SFMono-Regular,ui-monospace,Menlo,monospace;">${escapeEmailText(otp)}</span>
         </div>
       </td>
@@ -55,7 +46,7 @@ export function generatePasswordResetEmail(
     </tr>`
 
   return {
-    subject: t.passwordReset.subject,
+    subject: withOtpSubject(t.passwordReset.subject, otp),
     html: wrapInBaseTemplate(content, {
       ...baseOptions,
       preheader: t.passwordReset.preheader,

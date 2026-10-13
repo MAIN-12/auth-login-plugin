@@ -38,6 +38,7 @@ export function authLoginPlugin(
   const otpOptions = options.otp
     ? Object.freeze({
         ...options.otp,
+        emails: Object.freeze({ ...options.otp.emails, ...options.emails }),
         email: options.otp.email
           ? Object.freeze({
               ...options.otp.email,
@@ -46,9 +47,11 @@ export function authLoginPlugin(
               logoUrl:
                 options.otp.email.logoUrl ??
                 (publicConfig.logoUrl?.startsWith('https://') ? publicConfig.logoUrl : undefined),
-              colors: options.otp.email.colors
-                ? Object.freeze({ ...options.otp.email.colors })
-                : undefined,
+              contactEmail: options.otp.email.contactEmail ?? options.contactEmail,
+              colors: Object.freeze({
+                ...(options.emailAccentColor ? { primary: options.emailAccentColor } : {}),
+                ...options.otp.email.colors,
+              }),
             })
           : undefined,
       })

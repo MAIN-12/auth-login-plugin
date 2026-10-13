@@ -94,7 +94,9 @@ async function proof(email: string, purpose: string, cookie?: string) {
   expect(sent.status).toBe(200)
   const { context } = await sent.json()
   const otp = html.match(/>\s*(\d{6})\s*</)![1]
-  expect(subject).toBe(`${otp}: Your verification code`)
+  expect(subject).toBe(
+    purpose === 'recovery' ? `${otp}: Your password reset code` : `${otp}: Your verification code`,
+  )
   expect(html.match(/display:none[^>]*>([^<]*)/)?.[1]).not.toContain(otp)
   const verified = await request(1, '/otp/verify', { email, purpose, context, otp }, cookie)
   expect(verified.status).toBe(200)

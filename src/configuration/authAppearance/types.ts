@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { AuthStyle } from '../../shared/contracts/publicConfig'
+import type { AuthStyle, AuthCardTheme } from '../../shared/contracts/publicConfig'
 import type { DeepPartial, UiTranslations } from '../../i18n/ui'
 
 export interface AuthLocalizationProps {
@@ -19,6 +19,8 @@ export interface PoweredByConfig {
 
 /** Presentation-only configuration. No session, routing, or API dependencies. */
 export interface AuthPresentationProps extends AuthLocalizationProps {
+  /** Undefined uses the plugin/provider default; inherit follows the surrounding page. */
+  theme?: AuthCardTheme
   style?: AuthStyle
   /** AuthCard renders this node. Pass null to deliberately hide inherited branding. */
   logo?: ReactNode

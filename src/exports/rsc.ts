@@ -95,3 +95,12 @@ export type {
   ResolvedAuthPresentation,
   PoweredByConfig,
 } from '../configuration/authAppearance/types'
+
+export {
+  renderAuthEmail,
+  type AuthEmailOverrides,
+  type AuthEmailParams,
+  type AuthEmailResult,
+} from '../shared/infrastructure/email/renderAuthEmail'
+
+export type { AuthCardTheme } from '../components/organisms/AuthCard'

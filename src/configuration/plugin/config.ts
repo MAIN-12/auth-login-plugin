@@ -1,16 +1,27 @@
+import type { AuthEmailOverrides } from '../../shared/domain/emailTemplates'
 import { resolveEmailColors, validatedEmailUrl } from '../../shared/domain/emailPresentation'
 import type { GoogleOptions } from './googleOptions'
 import type { AdminOptions } from './adminOptions'
 import type { OtpOptions } from './otpOptions'
 export type { OtpOptions } from './otpOptions'
-import type { PublicAuthConfig, AuthStyle } from '../../shared/contracts/publicConfig'
+import type {
+  PublicAuthConfig,
+  AuthStyle,
+  AuthCardTheme,
+} from '../../shared/contracts/publicConfig'
 export type {
   PublicAuthConfig,
   SerializableAuthConfig,
   AuthStyle,
+  AuthCardTheme,
 } from '../../shared/contracts/publicConfig'
 
 export interface AuthLoginPluginOptions {
+  /** Trusted server-only template callbacks; omitted templates use the built-in renderers. */
+  emails?: AuthEmailOverrides
+  /** Default built-in button color; otp.email.colors.primary takes precedence. */
+  emailAccentColor?: string
+  contactEmail?: string
   enabled?: boolean
   collection?: string
   apiPrefix?: string
@@ -18,6 +29,8 @@ export interface AuthLoginPluginOptions {
   /** Frontend auth-page mount. Use '' for root routes such as /login; defaults to /auth. */
   basePath?: string
   locale?: 'es' | 'en'
+  /** HeroUI default; individual components may override it. */
+  theme?: AuthCardTheme
   style?: AuthStyle
   logo?: string
   projectName?: string
@@ -58,6 +71,24 @@ export function resolveAuthConfig(options: AuthLoginPluginOptions): PublicAuthCo
       Array.isArray(options.session))
   )
     throw new Error('auth-login: invalid session')
+  if (options.emails !== undefined) {
+    if (!options.emails || typeof options.emails !== 'object' || Array.isArray(options.emails))
+      throw new Error('auth-login: invalid emails')
+    for (const [key, render] of Object.entries(options.emails)) {
+      if (
+        !['otp', 'welcome', 'passwordReset', 'passwordChanged'].includes(key) ||
+        (render !== undefined && typeof render !== 'function')
+      )
+        throw new Error('auth-login: invalid email renderer')
+    }
+  }
+  if (options.emailAccentColor !== undefined)
+    resolveEmailColors({ primary: options.emailAccentColor })
+  if (
+    options.contactEmail !== undefined &&
+    !/^[^\s<>"'@]+@[^\s<>"'@]+\.[^\s<>"'@]+$/.test(options.contactEmail)
+  )
+    throw new Error('auth-login: invalid contactEmail')
   const google = options.providers?.google
   for (const key of ['passwordLogin', 'otpLogin', 'allowSignup', 'recovery'] as const) {
     if (typeof options[key] !== 'boolean') throw new Error(`auth-login: ${key} must be explicit`)
@@ -174,6 +205,8 @@ export function resolveAuthConfig(options: AuthLoginPluginOptions): PublicAuthCo
     throw new Error('auth-login: invalid collection')
   if (options.style !== undefined && options.style !== 'tailwind' && options.style !== 'hero-ui')
     throw new Error('auth-login: invalid style')
+  if (options.theme !== undefined && !['inherit', 'light', 'dark'].includes(options.theme))
+    throw new Error('auth-login: invalid theme')
   if (options.logo !== undefined && typeof options.logo !== 'string')
     throw new Error(
       'auth-login: logo must be a serializable URL; pass React branding directly to UI',
@@ -192,6 +225,7 @@ export function resolveAuthConfig(options: AuthLoginPluginOptions): PublicAuthCo
     authBasePath: frontendBasePath === '' ? '' : path(frontendBasePath, 'basePath'),
     locale: options.locale ?? options.otp?.email?.locale ?? 'en',
     style: options.style ?? 'tailwind',
+    theme: options.theme ?? 'inherit',
     logoUrl: options.logo,
     projectName: options.projectName,
     passwordLogin: options.passwordLogin,

@@ -37,11 +37,22 @@ Login, signup, OTP, reset and Google share local-safe destination handling. Loca
 
 OTP UI stores six positions, with spaces representing blank slots internally. Send only `/^\d{6}$/` complete values to the server. Borrar/backspace and out-of-order edits preserve later positions. Paste/autofill supports complete codes; automatic/manual verification share one in-flight guard. A missing/malformed context renders a localized recovery action, not an empty screen. Responsive presentation mounts a single live form tree.
 
+## Email customization (3.1.0)
+
+`AuthLoginPluginOptions.emails` captures per-template server callbacks at factory
+creation. Omitted templates retain built-ins. `renderAuthEmail` from `/rsc`
+exposes the same async rendering contract for previews and manual delivery;
+`AuthEmailOverrides`, `AuthEmailParams`, and `AuthEmailResult` are exported types.
+OTP callbacks receive request locale, flow purpose, configured expiry and branding.
+Welcome/password-changed/manual password-reset renderers do not introduce new
+notifications into native credential transactions. Consumers deliver these after
+successful operations using their Payload email adapter.
+
 ## Safe email exports
 
 RSC generator export names remain stable (`generateOtpEmail`, `generatePasswordResetEmail`, `generateWelcomeEmail`, `generatePasswordChangedEmail`, `wrapInBaseTemplate`). Dynamic inputs are escaped by generators; URL/color/contact validation is shared with plugin configuration. **`wrapInBaseTemplate(content)` accepts trusted template HTML**, not untrusted user markup. Callers composing custom HTML must escape their own content.
 
-Supply real HTTPS `domain`/`loginUrl` to welcome/password-changed templates; the placeholder `https://example.com/login` is not your application destination. `getBaseUrl(base?)` and `getSenderEmail(sender?)` no longer read environment variables. Pass consumer configuration explicitly. Registration and login OTP codes appear at the start of the subject. Explicit password-reset template subjects and all preheaders remain code-free. Standalone template expiry copy uses the approved five-minute default; consumers customizing server TTL must communicate their own policy separately.
+Supply real HTTPS `domain`/`loginUrl` to welcome/password-changed templates; the placeholder `https://example.com/login` is not your application destination. `getBaseUrl(base?)` and `getSenderEmail(sender?)` no longer read environment variables. Pass consumer configuration explicitly. OTP and password-reset subjects start with the code, including custom renderer results unless they already contain it; built-in preheaders remain code-free. Standalone template expiry copy uses the approved five-minute default; consumers customizing server TTL must communicate their own policy separately.
 
 Email contact uses the validated `contactUrl` with a localized label when configured; otherwise it uses `contactEmail` as a mailto link. Configuring both intentionally gives the URL precedence.
 
