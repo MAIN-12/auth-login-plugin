@@ -2,10 +2,13 @@
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { beforeEach, afterEach, expect, it, vi } from 'vitest'
-import { AuthConfigProvider } from '../src/auth/interface/react/providers/AuthConfigProvider'
-import { AuthFlowContext } from '../src/auth/interface/react/AuthFlowContext'
+import { AuthConfigProvider } from '../src/authentication/interface/react/providers/AuthConfigProvider/index'
+import { AuthFlowContext } from '../src/authentication/interface/react/AuthFlowContext'
 import { SetPasswordForm } from '../src/components/organisms/SetPasswordForm'
-import { storePasswordProof, readPasswordProof } from '../src/auth/interface/client/passwordProof'
+import {
+  storePasswordProof,
+  readPasswordProof,
+} from '../src/collections/AuthLoginPasswordPermits/interface/client/passwordProof'
 import { publicConfig } from './auth-test-config'
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),

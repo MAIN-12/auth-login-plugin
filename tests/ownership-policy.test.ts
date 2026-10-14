@@ -1,5 +1,5 @@
 import { expect, it, vi } from 'vitest'
-import { createOwnershipPolicy } from '../src/auth/application/use-cases/ownership'
+import { createOwnershipPolicy } from '../src/authentication/application/use-cases/ownership'
 
 it('internal ownership callers reject disabled methods before constructing storage or delivery', async () => {
   const protocol = vi.fn()
@@ -26,9 +26,11 @@ it('internal ownership callers reject disabled methods before constructing stora
 
 it('portable ownership uses explicit credential evidence and binds a verified exact principal', async () => {
   const { createOwnershipVerification } =
-    await import('../src/auth/application/use-cases/ownershipVerification')
-  const { createOtpCodec } = await import('../src/auth/infrastructure/crypto/otpCodec')
-  const { createOtpLedger } = await import('../src/auth/infrastructure/payload/otpLedger')
+    await import('../src/authentication/application/use-cases/ownershipVerification')
+  const { createOtpCodec } =
+    await import('../src/collections/AuthLoginOtpSecurity/infrastructure/crypto/otpCodec')
+  const { createOtpLedger } =
+    await import('../src/collections/AuthLoginOtpSecurity/infrastructure/repositories/otpLedger')
   const rows = new Map<string, Record<string, unknown>>()
   const deliver = vi.fn()
   const grant = vi.fn(async (proof) => proof)
@@ -76,7 +78,7 @@ it('portable ownership uses explicit credential evidence and binds a verified ex
 
 it('direct password completion preserves the new-password policy and opaque permit expiry without credential effects on denial', async () => {
   const { createPasswordPermitCodec } =
-    await import('../src/auth/infrastructure/crypto/passwordPermitCodec')
+    await import('../src/collections/AuthLoginPasswordPermits/infrastructure/crypto/passwordPermitCodec')
   let now = 1000
   const permits = createPasswordPermitCodec({
     collection: 'customers',

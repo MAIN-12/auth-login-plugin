@@ -1,19 +1,21 @@
 import { beforeEach, expect, it, vi } from 'vitest'
 import type { PayloadRequest } from 'payload'
-import { createGoogleScope } from '../src/auth/composition/google'
+import { createGoogleScope } from '../src/authentication/wiring/google'
 import { publicConfig } from './auth-test-config'
-import type { OtpStore } from '../src/auth/infrastructure/payload/otpLedger'
+import type { OtpStore } from '../src/collections/AuthLoginOtpSecurity/infrastructure/repositories/otpLedger'
 const doubles = vi.hoisted(() => ({
   session: vi.fn(),
   commit: vi.fn(),
   stores: new WeakMap<object, OtpStore>(),
 }))
-vi.mock('../src/auth/server/otpSession', () => ({ createOtpSession: doubles.session }))
-vi.mock('../src/auth/infrastructure/payload/googleAccountCommit', () => ({
+vi.mock('../src/collections/ConfiguredAuthCollection/infrastructure/payload/otpSession', () => ({
+  createOtpSession: doubles.session,
+}))
+vi.mock('../src/authentication/infrastructure/payload/googleAccountCommit', () => ({
   resolveGoogleAccount: doubles.commit,
   methodPermits: vi.fn(),
 }))
-vi.mock('../src/auth/server/otpStore', () => ({
+vi.mock('../src/collections/AuthLoginOtpSecurity/infrastructure/repositories/otpStore', () => ({
   createPayloadOtpStore: (req: PayloadRequest) => doubles.stores.get(req.payload)!,
 }))
 beforeEach(() => {
@@ -24,9 +26,10 @@ function fixture(nativeRequest = false) {
   const records = new Map<string, Record<string, unknown>>()
   const db = {
     name: 'postgres',
+    findOne: vi.fn(async () => null),
     drizzle: {},
     sessions: {},
-    execute: vi.fn(async () => ({ rows: [] })),
+    execute: vi.fn(async (_args: { raw?: string }) => ({ rows: [] })),
   }
   const req = Object.assign(
     nativeRequest
@@ -63,6 +66,23 @@ function fixture(nativeRequest = false) {
     )
   return { req, provider, scope, db }
 }
+it('login identifies a cutover change during its native account commit', async () => {
+  const f = fixture()
+  const start = await f.scope().start({ browser: 'one' })
+  f.db.findOne
+    .mockResolvedValueOnce(null)
+    .mockResolvedValueOnce({ generation: 'a'.repeat(64) } as never)
+  doubles.commit.mockImplementationOnce(async (...args) => {
+    await args[6]()
+    return { account: { id: 1, email: 'owner@main12.com' } }
+  })
+  const callback = f.scope()
+  await expect(
+    callback.callback(start.state, 'one', 'https://app.test/callback'),
+  ).rejects.toMatchObject({ code: 'AUTH_FAILED', reason: 'AUTH_CONFIGURATION_CHANGED' })
+  expect(doubles.session).not.toHaveBeenCalled()
+  expect(() => callback.takeReceipt()).toThrow('AUTH_UNAVAILABLE')
+})
 it('disabled native scope performs zero storage/provider effects and exposes no receipt', async () => {
   const f = fixture()
   const scope = f.scope(false)
@@ -137,7 +157,11 @@ it.each([false, true])(
       collection: publicConfig.collection,
       _sid: 'sid',
     } as PayloadRequest['user']
-    Object.assign(f.db, { findOne: vi.fn(async () => account) })
+    Object.assign(f.db, {
+      findOne: vi.fn(async (args: { collection: string }) =>
+        args.collection === 'auth-login-cutovers' ? null : account,
+      ),
+    })
     const auth = vi.fn(async () => ({
       user: { ...account, collection: publicConfig.collection, _sid: 'changed' },
     }))
@@ -219,7 +243,11 @@ it.each([false, true])(
       collection: publicConfig.collection,
       _sid: 'sid',
     } as PayloadRequest['user']
-    Object.assign(f.db, { findOne: vi.fn(async () => account) })
+    Object.assign(f.db, {
+      findOne: vi.fn(async (args: { collection: string }) =>
+        args.collection === 'auth-login-cutovers' ? null : account,
+      ),
+    })
     const originalUser = f.req.user
     const originalHeaders = f.req.headers
     const descriptor = Object.getOwnPropertyDescriptor(f.req, 'headers')
@@ -266,7 +294,11 @@ it.each(['auth', 'commit'])(
       collection: publicConfig.collection,
       _sid: 'sid',
     } as PayloadRequest['user']
-    Object.assign(f.db, { findOne: vi.fn(async () => account) })
+    Object.assign(f.db, {
+      findOne: vi.fn(async (args: { collection: string }) =>
+        args.collection === 'auth-login-cutovers' ? null : account,
+      ),
+    })
     const originalUser = f.req.user
     const originalHeaders = f.req.headers
     Object.assign(f.req.payload, {
@@ -303,7 +335,11 @@ it('non-configurable headers fail closed without authenticating or changing the 
     collection: publicConfig.collection,
     _sid: 'sid',
   } as PayloadRequest['user']
-  Object.assign(f.db, { findOne: vi.fn(async () => account) })
+  Object.assign(f.db, {
+    findOne: vi.fn(async (args: { collection: string }) =>
+      args.collection === 'auth-login-cutovers' ? null : account,
+    ),
+  })
   const originalUser = f.req.user
   const originalHeaders = f.req.headers
   Object.defineProperty(f.req, 'headers', {
@@ -326,3 +362,25 @@ it('non-configurable headers fail closed without authenticating or changing the 
   expect(f.req.user).toBe(originalUser)
   expect(() => callback.takeReceipt()).toThrow('AUTH_UNAVAILABLE')
 })
+it.each([true, false])(
+  'native session failure identifies denial, not infrastructure failure: %s',
+  async (expected) => {
+    const { APIError } = await import('payload')
+    const f = fixture()
+    doubles.commit.mockResolvedValueOnce({ account: { id: 1, email: 'owner@example.com' } })
+    doubles.session.mockRejectedValueOnce(
+      expected ? new APIError('private hook text', 401) : new Error('private transport text'),
+    )
+    const start = await f.scope().start({ browser: 'one' })
+    const callback = f.scope()
+    await expect(
+      callback.callback(start.state, 'one', 'https://app.test/callback'),
+    ).rejects.toMatchObject(
+      expected
+        ? { code: 'AUTH_FAILED', reason: 'SESSION_LOGIN_DENIED' }
+        : { message: 'private transport text' },
+    )
+    expect(() => callback.takeReceipt()).toThrow('AUTH_UNAVAILABLE')
+    expect(f.req.user).toBeUndefined()
+  },
+)

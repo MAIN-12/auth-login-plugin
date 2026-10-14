@@ -6,8 +6,8 @@ import {
   AuthProvider,
   useAuth,
   type AuthContextValue,
-} from '../src/auth/interface/react/providers/AuthProvider'
-import { AuthProvider as ServerAuthProvider } from '../src/auth/interface/react/providers/AuthProviderServer'
+} from '../src/authentication/interface/react/providers/AuthProvider/index'
+import { AuthProvider as ServerAuthProvider } from '../src/authentication/interface/react/providers/AuthProviderServer/index'
 import { AuthCard, AuthPages, AuthClientInit, useAuthConfig } from '../src/exports/client'
 import { AuthCard as ServerAuthCard } from '../src/components/organisms/AuthCard/server'
 import ServerAuthPages from '../src/components/pages/AuthPages/server'
@@ -28,7 +28,7 @@ import SetPasswordPage from '../src/components/pages/SetPasswordPage'
 import { useAuthPresentation, useAuthTranslations } from '../src/contexts/AuthAppearanceContext'
 import { getUiTranslations } from '../src/i18n/ui'
 import { publicConfig } from './auth-test-config'
-import { AuthConfigProvider } from '../src/auth/interface/react/providers/AuthConfigProvider'
+import { AuthConfigProvider } from '../src/authentication/interface/react/providers/AuthConfigProvider/index'
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -381,7 +381,7 @@ describe('forms and standalone pages', () => {
       getUiTranslations('es').forgotPassword.sendResetCode,
     ],
     ['OTP form', <VerifyOtpForm />, getUiTranslations('es').verifyOtp.verify],
-    ['set password form', <SetPasswordForm />, getUiTranslations('es').setPassword.setPassword],
+    ['set password form', <SetPasswordForm />, getUiTranslations('es').setPassword.reauthenticate],
     ['login page', <LoginPage onPasswordLogin={login} />, getUiTranslations('es').login.title],
     ['signup page', <SignupPage onSignup={signup} />, getUiTranslations('es').signup.title],
     ['forgot password page', <ForgotPasswordPage />, getUiTranslations('es').forgotPassword.title],

@@ -2,7 +2,7 @@
 import React from 'react'
 import { SignupForm } from '../../organisms/SignupForm'
 import { useAuthTranslations } from '../../../contexts/AuthAppearanceContext'
-import { useAuthConfig } from '../../../auth/interface/react/providers/AuthConfigProvider'
+import { useAuthConfig } from '../../../authentication/interface/react/providers/AuthConfigProvider/index'
 import { AuthLayout, type AuthLayoutConfig } from '../../templates/AuthLayout'
 import { AuthCard, type AuthCardConfig } from '../../organisms/AuthCard'
 export interface SignupPageProps extends AuthLayoutConfig, AuthCardConfig {

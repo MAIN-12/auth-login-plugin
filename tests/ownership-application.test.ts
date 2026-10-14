@@ -1,12 +1,12 @@
-import { createOtpCodec } from '../src/auth/infrastructure/crypto/otpCodec'
-import { createOtpLedger } from '../src/auth/infrastructure/payload/otpLedger'
+import { createOtpCodec } from '../src/collections/AuthLoginOtpSecurity/infrastructure/crypto/otpCodec'
+import { createOtpLedger } from '../src/collections/AuthLoginOtpSecurity/infrastructure/repositories/otpLedger'
 import {
   mapOwnershipAccount,
   type LegacyOwnershipAccount,
-} from '../src/auth/server/ownershipAccount'
+} from '../src/collections/ConfiguredAuthCollection/infrastructure/payload/ownershipAccount'
 import { expect, it } from 'vitest'
-import { createOwnershipVerification } from '../src/auth/application/use-cases/ownershipVerification'
-import type { OtpStore } from '../src/auth/infrastructure/payload/otpLedger'
+import { createOwnershipVerification } from '../src/authentication/application/use-cases/ownershipVerification'
+import type { OtpStore } from '../src/collections/AuthLoginOtpSecurity/infrastructure/repositories/otpLedger'
 function fixture(
   purpose: 'signup' | 'recovery' | 'reauth',
   account: LegacyOwnershipAccount | null,

@@ -16,7 +16,7 @@
 ## Unreleased — issues01–06 hardening candidate
 
 - Preserve legacy credentials while verifying public-account email ownership through a verification-only OTP purpose: no password replacement or automatic login.
-- Add offline `migrateAuthLogin` for account-preserving native-session/legacy-code cutover and collection-scoped proof invalidation without global key rotation; document safe restore/rollback.
+- Keep schema and runtime proof invalidation in the plugin; data migration, legacy cleanup and deployment cutover are consumer-owned. No data-migration API is exported.
 - Pin runtime peers to the exact integration target; map every requirement/scenario to evidence without advertising pending runtime passes.
 - Version the Node22/24 and SQLite/PostgreSQL CI target; configured jobs are not a claim of successful remote execution.
 - Keep human screen-reader/real-device acceptance pending rather than substituting automated axe/browser results.

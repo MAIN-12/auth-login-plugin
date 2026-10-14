@@ -40,8 +40,8 @@ it('requires trusted server-origin configuration before enabling OTP', () => {
 })
 
 import type { PayloadRequest } from 'payload'
-import { resolveAuthConfig } from '../src/config'
-import { createGoogleEndpoints } from '../src/auth/composition/google'
+import { resolveAuthConfig } from '../src/configuration/plugin/config'
+import { createGoogleEndpoints } from '../src/authentication/wiring/google'
 it('correlates callback rejection with a server-generated safe ID, never provider secrets', async () => {
   const options = {
     enabled: true,
@@ -70,7 +70,20 @@ it('correlates callback rejection with a server-generated safe ID, never provide
   const requestId = response.headers.get('X-Auth-Request-ID')
   expect(response.status).toBe(401)
   expect(requestId).toMatch(/^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/)
-  expect(events).toEqual([{ event: 'auth_login_google_callback_rejected', requestId }])
+  expect(await response.json()).toEqual({
+    success: false,
+    code: 'AUTH_FAILED',
+    reason: 'OAUTH_CALLBACK_INVALID',
+    requestId,
+  })
+  expect(events).toEqual([
+    {
+      event: 'auth_login_google_callback_rejected',
+      requestId,
+      code: 'AUTH_FAILED',
+      reason: 'OAUTH_CALLBACK_INVALID',
+    },
+  ])
   expect(JSON.stringify(events)).not.toMatch(
     /raw-state-secret|raw-code-secret|private-cookie|private-secret|caller-controlled/,
   )
@@ -106,7 +119,12 @@ it('keeps a callback rejection and cookie cleanup safe when the consumer logger 
   // Missing storage rejects before provider traffic, after extracting the correlation state.
   const response = await createGoogleEndpoints(settings, options).at(-1)!.handler(req)
   expect(response.status).toBe(503)
-  expect(await response.json()).toEqual({ success: false, code: 'AUTH_UNAVAILABLE' })
+  expect(await response.json()).toEqual({
+    success: false,
+    code: 'AUTH_UNAVAILABLE',
+    reason: 'AUTHENTICATION_UNAVAILABLE',
+    requestId: response.headers.get('X-Auth-Request-ID'),
+  })
   expect(response.headers.get('X-Auth-Request-ID')).toMatch(
     /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/,
   )

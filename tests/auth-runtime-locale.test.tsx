@@ -5,9 +5,9 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import {
   AuthConfigProvider,
   useAuthConfig,
-} from '../src/auth/interface/react/providers/AuthConfigProvider'
+} from '../src/authentication/interface/react/providers/AuthConfigProvider/index'
 import { AuthConfigContext } from '../src/contexts/AuthConfigContext'
-import { createAuthService } from '../src/auth/interface/client/authService'
+import { createAuthService } from '../src/authentication/interface/client/authService'
 import { AuthCard } from '../src/components/organisms/AuthCard'
 import { AuthPresentationContext, useAuthTranslations } from '../src/contexts/AuthAppearanceContext'
 import {
@@ -17,11 +17,11 @@ import {
   useAuthService,
   type AuthService,
   type AuthServiceScope,
-} from '../src/auth/interface/react/AuthServiceContext'
+} from '../src/authentication/interface/react/AuthServiceContext'
 import { getUiTranslations } from '../src/i18n/ui'
 import { normalizeAuthLocale } from '../src/i18n/locale'
-import { selectEmailLocale } from '../src/auth/domain/emailPresentation'
-import { otpEmail } from '../src/auth/server/otpEmail'
+import { selectEmailLocale } from '../src/shared/domain/emailPresentation'
+import { otpEmail } from '../src/authentication/infrastructure/payload/otpEmail'
 import { publicConfig } from './auth-test-config'
 
 let root: Root

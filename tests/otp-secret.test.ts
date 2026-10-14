@@ -1,7 +1,10 @@
 import { createHmac, hkdfSync } from 'node:crypto'
 import { expect, it } from 'vitest'
-import { createOtpCodec, resolveOtpSecret } from '../src/auth/infrastructure/crypto/otpCodec'
-import { resolveAuthConfig, type AuthLoginPluginOptions } from '../src/config'
+import {
+  createOtpCodec,
+  resolveOtpSecret,
+} from '../src/collections/AuthLoginOtpSecurity/infrastructure/crypto/otpCodec'
+import { resolveAuthConfig, type AuthLoginPluginOptions } from '../src/configuration/plugin/config'
 
 const root = 'root-payload-secret-with-high-entropy-32-characters'
 const options: AuthLoginPluginOptions = {

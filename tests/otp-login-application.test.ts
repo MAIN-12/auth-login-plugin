@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest'
-import { createOtpLogin } from '../src/auth/application/use-cases/otpLogin'
+import { createOtpLogin } from '../src/authentication/application/use-cases/otpLogin'
 
 it('disabled direct OTP calls deny before consulting evidence, generation or storage', async () => {
   const touched: string[] = []
@@ -24,9 +24,9 @@ it('disabled direct OTP calls deny before consulting evidence, generation or sto
   expect(touched).toEqual([])
 })
 
-import { createOtpProtocol } from '../src/auth/application/use-cases/otpProtocol'
-import { createOtpCodec } from '../src/auth/infrastructure/crypto/otpCodec'
-import { createOtpLedger } from '../src/auth/infrastructure/payload/otpLedger'
+import { createOtpProtocol } from '../src/collections/AuthLoginOtpSecurity/application/use-cases/otpProtocol'
+import { createOtpCodec } from '../src/collections/AuthLoginOtpSecurity/infrastructure/crypto/otpCodec'
+import { createOtpLedger } from '../src/collections/AuthLoginOtpSecurity/infrastructure/repositories/otpLedger'
 
 function fixture() {
   let now = 1_000_000

@@ -3,7 +3,7 @@ import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, expect, it, vi } from 'vitest'
 import { AuthCard, AuthPages, AuthConfigProvider } from '../src/exports/client'
-import { AuthFlowContext } from '../src/auth/interface/react/AuthFlowContext'
+import { AuthFlowContext } from '../src/authentication/interface/react/AuthFlowContext'
 import { publicConfig } from './auth-test-config'
 
 vi.mock('next/navigation', () => ({
@@ -92,6 +92,13 @@ it.each(['tailwind', 'hero-ui'] as const)(
     )
     await enter(email, 'member@example.test')
     await submit()
+    await vi.waitFor(
+      async () => {
+        await act(async () => {})
+        expect(host.querySelector('input[type="password"]')).not.toBeNull()
+      },
+      { timeout: 5000 },
+    )
     const password = host.querySelector<HTMLInputElement>('input[type="password"]')!
     expect(host.querySelector(`label[for="${password.id}"]`)?.textContent).toContain('Contraseña')
     expect(host.querySelector('a[href*="forgot-password"]')?.getAttribute('href')).toBe(
@@ -128,12 +135,26 @@ it.each(['tailwind', 'hero-ui'] as const)(
     )
     await enter(host.querySelector('input')!, 'member@example.test')
     await submit()
+    await vi.waitFor(
+      async () => {
+        await act(async () => {})
+        expect(host.querySelector('input[type="password"]')).not.toBeNull()
+      },
+      { timeout: 5000 },
+    )
     await enter(host.querySelector('input[type="password"]')!, 'wrong-password')
     await submit()
     expect(host.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled).toBe(true)
     await submit()
     expect(login).toHaveBeenCalledTimes(1)
     await act(async () => reject(new Error('failure')))
+    await vi.waitFor(
+      async () => {
+        await act(async () => {})
+        expect(host.querySelector('input[type="password"]')).not.toBeNull()
+      },
+      { timeout: 5000 },
+    )
     const password = host.querySelector<HTMLInputElement>('input[type="password"]')!
     expect(password.getAttribute('aria-invalid')).toBe('true')
     const description = document.getElementById(password.getAttribute('aria-describedby')!)!

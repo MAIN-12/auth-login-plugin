@@ -4,7 +4,7 @@ import { LoginForm } from '../../organisms/LoginForm'
 import { useAuthTranslations } from '../../../contexts/AuthAppearanceContext'
 import { AuthLayout } from '../../templates/AuthLayout'
 import { AuthCard } from '../../organisms/AuthCard'
-import { useAuthConfig } from '../../../auth/interface/react/providers/AuthConfigProvider'
+import { useAuthConfig } from '../../../authentication/interface/react/providers/AuthConfigProvider/index'
 import type { AuthLayoutConfig } from '../../templates/AuthLayout'
 import type { AuthCardConfig } from '../../organisms/AuthCard'
 

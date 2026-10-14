@@ -42,7 +42,9 @@ it('atoms and molecules cannot reach workflow, transport or higher visual owners
         .filter(
           (target) =>
             forbidden.test(target) ||
-            /^auth\/(interface|application|composition|server|infrastructure)\//.test(target),
+            /^(?:collections\/[^/]+|authentication|shared)\/(interface|application|wiring|infrastructure)\//.test(
+              target,
+            ),
         )
       expect(invalid, path.relative(root, file)).toEqual([])
     }
@@ -78,7 +80,7 @@ it('the migrated visual and presentation dependency graph has no cycles', () => 
 
 it('modal and dispatcher integration consume definitive visual owners directly', () => {
   const expected: Record<string, string[]> = {
-    'auth/interface/react/providers/AuthProvider/index.tsx': [
+    'authentication/interface/react/providers/AuthProvider/index.tsx': [
       'components/organisms/AuthModal/index.tsx',
       'components/organisms/AuthCard/index.tsx',
     ],
@@ -154,7 +156,20 @@ it('appearance configuration and data-only handshake contexts do not render UI o
   for (const name of ['AuthConfigContext', 'AuthCardLoadingContext']) {
     const file = path.join(root, 'contexts', name, 'index.ts')
     expect(edges(file).map((target) => path.relative(root, target))).not.toEqual(
-      expect.arrayContaining([expect.stringMatching(/^(?:components|auth\/interface)\//)]),
+      expect.arrayContaining([
+        expect.stringMatching(
+          /^(?:components\/|(?:collections\/[^/]+|authentication|shared)\/interface\/)/,
+        ),
+      ]),
     )
   }
+})
+
+it('plugin options have one folder owner while public entrypoints stay at the root', () => {
+  const options = ['config.ts', 'adminOptions.ts', 'googleOptions.ts', 'otpOptions.ts']
+  expect(readdirSync(path.join(root, 'configuration')).sort()).toEqual(['authAppearance', 'plugin'])
+  expect(readdirSync(path.join(root, 'configuration', 'plugin')).sort()).toEqual(options.sort())
+  for (const name of options) expect(existsSync(path.join(root, name)), name).toBe(false)
+  for (const name of ['index.ts', 'proxy.ts', 'css.d.ts'])
+    expect(existsSync(path.join(root, name)), name).toBe(true)
 })

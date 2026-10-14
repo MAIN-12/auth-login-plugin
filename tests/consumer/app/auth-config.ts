@@ -35,10 +35,9 @@ export const fixture = (fixtureGlobal.__otpAcceptance ??= {
 })
 export const inbox = fixture.inbox
 export const capturedLogs = fixture.logs
-const migration = process.env.AUTH_CONSUMER_ISSUE06 === '1'
 const integration = process.env.AUTH_CONSUMER_ISSUE05 === '1'
-const oauthEnabled = process.env.AUTH_CONSUMER_OAUTH === '1' || integration || migration
-const lifecycle = process.env.AUTH_CONSUMER_PASSWORD === '1' || integration || migration
+const oauthEnabled = process.env.AUTH_CONSUMER_OAUTH === '1' || integration
+const lifecycle = process.env.AUTH_CONSUMER_PASSWORD === '1' || integration
 const otpEnabled = process.env.AUTH_CONSUMER_OTP === '1' || lifecycle || oauthEnabled
 
 const port = Number(process.env.AUTH_CONSUMER_PORT)
@@ -98,11 +97,9 @@ export const plugin = authLoginPlugin({
   ...(oauthEnabled
     ? {
         admin: {
-          authorize: ({ req, evidence }) => {
+          authorize: ({ req }) => {
             if (fixture.adminUnavailable) throw new Error('fixture unavailable policy')
-            return Boolean(
-              fixture.adminEligible && req.user?.role === 'admin' && evidence.method !== 'otp',
-            )
+            return Boolean(fixture.adminEligible && req.user?.role === 'admin')
           },
           collections: [
             { slug: 'administrative-records', operations: ['read', 'create', 'update', 'delete'] },
@@ -213,25 +210,6 @@ export const config = buildConfig({
         ],
       },
     },
-    ...(migration
-      ? [
-          {
-            slug: 'auth-otps',
-            access: {
-              read: () => false,
-              create: () => false,
-              update: () => false,
-              delete: () => false,
-            },
-            fields: [
-              { name: 'collection', type: 'text' as const },
-              { name: 'email', type: 'text' as const },
-              { name: 'otp', type: 'text' as const },
-            ],
-          },
-          { slug: 'outsiders', auth: { useSessions: true }, fields: [] },
-        ]
-      : []),
     ...(oauthEnabled
       ? [
           {
@@ -279,43 +257,6 @@ export const config = buildConfig({
           context: { authLoginCredentialProvisioning: true },
         })
     }
-    if (migration) {
-      const outsiders = await payload.find({ collection: 'outsiders', overrideAccess: true })
-      if (!outsiders.docs.length)
-        await payload.create({
-          collection: 'outsiders',
-          data: {
-            email: 'unrelated@example.com',
-            password: 'unrelated password remains unchanged',
-          },
-          overrideAccess: true,
-        })
-      const legacy = await payload.find({ collection: 'auth-otps', overrideAccess: true })
-      if (!legacy.docs.length)
-        for (const collection of ['customers', 'outsiders'])
-          await payload.create({
-            collection: 'auth-otps',
-            data: { collection, email: 'legacy-code@example.com', otp: '123456' },
-            overrideAccess: true,
-          })
-      const users = await payload.find({
-        collection: 'customers',
-        where: { email: { equals: 'unverified-legacy@example.com' } },
-        overrideAccess: true,
-      })
-      if (!users.docs.length)
-        await payload.create({
-          collection: 'customers',
-          data: {
-            email: 'unverified-legacy@example.com',
-            password: 'legacy password remains unchanged',
-            _verified: false,
-          },
-          disableVerificationEmail: true,
-          overrideAccess: true,
-          context: { authLoginCredentialProvisioning: true },
-        })
-    }
     if (oauthEnabled) {
       const existing = await payload.find({
         collection: 'administrative-records',
@@ -327,13 +268,12 @@ export const config = buildConfig({
           data: { name: 'protected' },
           overrideAccess: true,
         })
-      if (!migration)
-        await payload.update({
-          collection: 'customers',
-          where: { email: { equals: 'browser@example.com' } },
-          data: { role: 'admin' },
-          overrideAccess: true,
-        })
+      await payload.update({
+        collection: 'customers',
+        where: { email: { equals: 'browser@example.com' } },
+        data: { role: 'admin' },
+        overrideAccess: true,
+      })
     }
     if (lifecycle) {
       for (const [email, password] of [

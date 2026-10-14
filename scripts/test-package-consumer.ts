@@ -61,7 +61,7 @@ try {
   await writeFile(
     join(consumer, 'imports.tsx'),
     `// Compile the public package surface without any Next app/router/configuration.
-import { authLoginPlugin, migrateAuthLogin, type PublicAuthConfig } from '@main12/auth-login'
+import { authLoginPlugin, type PublicAuthConfig } from '@main12/auth-login'
 import { AuthCard, createAuthService, type AuthUser } from '@main12/auth-login/client'
 import { AuthProvider, type AuthProviderProps } from '@main12/auth-login/rsc'
 import { createAuthProxy, type AuthProxyOptions } from '@main12/auth-login/proxy'
@@ -80,7 +80,6 @@ const provider: AuthProviderProps = { publicConfig: config, initialUser: user }
 const proxy: AuthProxyOptions = { publicConfig: config }
 export const surface = {
   plugin,
-  migrateAuthLogin,
   service: createAuthService(config),
   proxy: createAuthProxy(proxy),
   card: <AuthCard slug="login" />,
@@ -111,7 +110,7 @@ export const surface = {
           'clean tarball contents and export targets',
           'external installation',
           'all public subpath resolution',
-          'native ESM root/migration',
+          'native ESM root',
           'public declarations',
         ],
       },

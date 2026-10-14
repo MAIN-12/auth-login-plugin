@@ -1,12 +1,12 @@
 import { readFile } from 'node:fs/promises'
 import { expect, it } from 'vitest'
-import corpus from '../src/auth/domain/password-blocklist.json' with { type: 'json' }
-import eligible from '../src/auth/domain/password-blocklist-eligible.json' with { type: 'json' }
+import corpus from '../src/collections/ConfiguredAuthCollection/domain/password-blocklist.json' with { type: 'json' }
+import eligible from '../src/collections/ConfiguredAuthCollection/domain/password-blocklist-eligible.json' with { type: 'json' }
 import {
   evaluatePasswordStrength,
   isPasswordValid,
   MIN_PASSWORD_LENGTH,
-} from '../src/auth/domain/passwordRules'
+} from '../src/collections/ConfiguredAuthCollection/domain/passwordRules'
 
 it('keeps the generated runtime subset synchronized with the licensed corpus and minimum length', () => {
   // ASCII case variants preserve length; fail visibly if future corpus updates need
@@ -53,7 +53,7 @@ it('preserves full-corpus policy for every entry and uppercase variant through b
 
 it('keeps the full provenance corpus out of the runtime password-rules import graph', async () => {
   const source = await readFile(
-    new URL('../src/auth/domain/passwordRules.ts', import.meta.url),
+    new URL('../src/collections/ConfiguredAuthCollection/domain/passwordRules.ts', import.meta.url),
     'utf8',
   )
   expect(source).toContain("from './password-blocklist-eligible.json'")

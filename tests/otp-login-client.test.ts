@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { createAuthService } from '../src/auth/interface/client/authService'
+import { createAuthService } from '../src/authentication/interface/client/authService'
 import { publicConfig } from './auth-test-config'
 afterEach(() => vi.unstubAllGlobals())
 it('OTP send refuses malformed context before a form can navigate with it', async () => {

@@ -1,8 +1,11 @@
 import { expect, it, vi } from 'vitest'
 import type { PayloadRequest } from 'payload'
-import { createOtpSession, isProvenSessionRequest } from '../src/auth/server/otpSession'
-import { credentialVersion } from '../src/auth/server/credentialRequest'
-import { selectOtpEvidence } from '../src/auth/infrastructure/payload/otpLogin'
+import {
+  createOtpSession,
+  isProvenSessionRequest,
+} from '../src/collections/ConfiguredAuthCollection/infrastructure/payload/otpSession'
+import { credentialVersion } from '../src/collections/ConfiguredAuthCollection/infrastructure/payload/credentialRequest'
+import { selectOtpEvidence } from '../src/authentication/infrastructure/payload/otpLogin'
 vi.mock('payload', async (original) => ({
   ...(await original<typeof import('payload')>()),
   jwtSign: async () => ({ token: 'private-native-token', exp: 9_999_999_999 }),
@@ -22,7 +25,7 @@ function fixture() {
   const beforeLogin: Array<(args: { req: PayloadRequest }) => Promise<void>> = []
   const afterLogin: Array<() => Promise<void>> = []
   const tx = {}
-  const execute = vi.fn(async () => undefined)
+  const execute = vi.fn(async (_args: { raw?: string }) => undefined)
   const write = vi.fn(async () => undefined)
   const db = {
     name: 'postgres',
@@ -30,7 +33,9 @@ function fixture() {
     sessions: {},
     drizzle: { transaction: async (work: (tx: unknown) => Promise<unknown>) => work(tx) },
     execute,
-    findOne: vi.fn(async () => ({ ...record })),
+    findOne: vi.fn(async (args: { collection: string }) =>
+      args.collection === 'auth-login-cutovers' ? null : { ...record },
+    ),
     updateOne: write,
   }
   const originalUser = { id: 'original' }
@@ -62,7 +67,6 @@ function fixture() {
       record.email,
       credentialVersion(req.payload.secret, record),
       { method: 'otp' },
-      undefined,
       assertCurrent,
     )
   return { record, req, originalUser, db, tx, execute, write, beforeLogin, afterLogin, open }
@@ -155,13 +159,13 @@ it('native account locks bind the proven account value and quote trusted adapter
   expect(query.sql).not.toContain("o'hara")
 })
 
-import { createNativeOtpLogin } from '../src/auth/infrastructure/payload/otpLogin'
+import { createNativeOtpLogin } from '../src/authentication/infrastructure/payload/otpLogin'
 it('request-bound OTP receipts stay isolated and restore temporary native authority', async () => {
   const first = fixture()
   const second = fixture()
   second.record.id = 'account-B'
-  first.execute.mockImplementation(async () => ({ rows: [] }) as never)
-  second.execute.mockImplementation(async () => ({ rows: [] }) as never)
+  first.execute.mockImplementation(async (_args) => ({ rows: [] }) as never)
+  second.execute.mockImplementation(async (_args) => ({ rows: [] }) as never)
   const a = createNativeOtpLogin(first.req, 'customers', '')
   const b = createNativeOtpLogin(second.req, 'customers', '')
   const referenceA = await a.findAccount(first.record.email)
@@ -196,13 +200,13 @@ it.each([
   expect(selectOtpEvidence(record).state).toBe('unknown')
 })
 
-import { createOtpEndpoints } from '../src/auth/composition/otpLogin'
-import type { OtpOptions } from '../src/config'
+import { createOtpEndpoints } from '../src/authentication/wiring/otpLogin'
+import type { OtpOptions } from '../src/configuration/plugin/config'
 import { publicConfig } from './auth-test-config'
 it('two real OTP endpoint factories capture independent settings/secrets and interleave isolated request scopes', async () => {
   const rows = new Map<string, string>()
   const pool = {
-    query: async () => undefined,
+    query: async (_query: string) => ({ rows: [] }),
     connect: async () => ({
       release: () => {},
       query: async (sql: string, args: string[] = []) => {
@@ -229,7 +233,7 @@ it('two real OTP endpoint factories capture independent settings/secrets and int
     collections[collection] = collections.customers
     f.db.tableNameMap.set(collection, collection)
     Object.assign(f.db, { pool })
-    f.execute.mockImplementation(async () => ({ rows: [] }) as never)
+    f.execute.mockImplementation(async (_args) => ({ rows: [] }) as never)
     const mail: string[] = []
     Object.assign(f.req.payload, {
       sendEmail: async (message: { html: string }) => {
@@ -302,4 +306,29 @@ it('two real OTP endpoint factories capture independent settings/secrets and int
   expect(b.req.transactionID).toBeUndefined()
   expect(a.db.sessions).toEqual({})
   expect(b.db.sessions).toEqual({})
+})
+
+it('creates a valid OTP session for an existing admin without changing credentials or role', async () => {
+  const f = fixture()
+  Object.assign(f.record, { role: 'superadmin' })
+  f.req.payload.collections.customers.config.access.admin = async () => true
+  const receipt = await f.open()
+  expect(receipt.user).toMatchObject({
+    id: f.record.id,
+    role: 'superadmin',
+    authLoginMethod: 'otp',
+  })
+  expect(receipt.token).toBe('private-native-token')
+  expect(f.record.hash).toBe('unchanged-hash')
+  expect(f.record.salt).toBe('unchanged-salt')
+})
+
+it('authenticates a passwordless existing superadmin by OTP without establishing a password', async () => {
+  const f = fixture()
+  Object.assign(f.record, { role: 'superadmin', hash: undefined, salt: undefined })
+  f.req.payload.collections.customers.config.access.admin = async () => true
+  const receipt = await f.open()
+  expect(receipt.user).toMatchObject({ role: 'superadmin', authLoginMethod: 'otp' })
+  expect(f.record.hash).toBeUndefined()
+  expect(f.record.salt).toBeUndefined()
 })

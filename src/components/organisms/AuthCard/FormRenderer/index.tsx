@@ -1,12 +1,12 @@
 'use client'
 
 import React, { useState } from 'react'
-import { useAllowSignup } from '../../../../auth/interface/react/providers/AuthSignupConfig'
-import { useAuthService } from '../../../../auth/interface/react/AuthServiceContext'
+import { useAllowSignup } from '../../../../authentication/interface/react/providers/AuthSignupConfig/index'
+import { useAuthService } from '../../../../authentication/interface/react/AuthServiceContext'
 import {
   useAuthConfig,
   AuthConfigProvider,
-} from '../../../../auth/interface/react/providers/AuthConfigProvider'
+} from '../../../../authentication/interface/react/providers/AuthConfigProvider/index'
 import { useAuthPresentation } from '../../../../contexts/AuthAppearanceContext'
 import { getUiTranslations, type DeepPartial, type UiTranslations } from '../../../../i18n/ui'
 import { AUTH_FORMS, type AuthFormSlug } from '../forms'

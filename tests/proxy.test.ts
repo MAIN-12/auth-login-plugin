@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { NextRequest } from 'next/server'
 import { createAuthProxy } from '../src/proxy'
 import { publicConfig } from './auth-test-config'
-import { safeAuthRedirect } from '../src/auth/domain/redirect'
+import { safeAuthRedirect } from '../src/shared/domain/redirect'
 
 describe('explicit proxy configuration', () => {
   it.each(['/login', '/signup', '/auth/login', '/admin/login'])(

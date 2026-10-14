@@ -15,7 +15,8 @@ export function FormField({ label, help, error, ...props }: ResolvedFormFieldPro
       )}
       <Input
         {...props}
-        aria-invalid={Boolean(error) || props['aria-invalid']}
+        className={`${props.className ?? ''} ${error ? 'border-red-500 focus:border-red-500 focus:ring-red-500/30' : ''}`}
+        aria-invalid={Boolean(error) || Boolean(props['aria-invalid'])}
         aria-describedby={fieldDescriptions({ ...props, help, error })}
       />
       {help && (
@@ -24,7 +25,7 @@ export function FormField({ label, help, error, ...props }: ResolvedFormFieldPro
         </span>
       )}
       {error && (
-        <span id={`${props.id}-error`} className="sr-only">
+        <span id={`${props.id}-error`} className="block text-sm text-red-600 mt-1">
           {error}
         </span>
       )}

@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { resolveAuthConfig, type AuthLoginPluginOptions } from '../src/config'
-import { authRoute } from '../src/auth/interface/react/AuthFlowContext'
-import { createAuthService } from '../src/auth/interface/client/authService'
+import { resolveAuthConfig, type AuthLoginPluginOptions } from '../src/configuration/plugin/config'
+import { authRoute } from '../src/authentication/interface/react/AuthFlowContext'
+import { createAuthService } from '../src/authentication/interface/client/authService'
 
 const options: AuthLoginPluginOptions = {
   passwordLogin: true,

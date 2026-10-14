@@ -1,8 +1,11 @@
 import { expect, it } from 'vitest'
-import { createOtpProtocol } from '../src/auth/application/use-cases/otpProtocol'
-import type { OtpProtocolDependencies } from '../src/auth/application/ports/otp'
-import { createOtpCodec } from '../src/auth/infrastructure/crypto/otpCodec'
-import { createOtpLedger, type OtpStore } from '../src/auth/infrastructure/payload/otpLedger'
+import { createOtpProtocol } from '../src/collections/AuthLoginOtpSecurity/application/use-cases/otpProtocol'
+import type { OtpProtocolDependencies } from '../src/collections/AuthLoginOtpSecurity/application/ports/otp'
+import { createOtpCodec } from '../src/collections/AuthLoginOtpSecurity/infrastructure/crypto/otpCodec'
+import {
+  createOtpLedger,
+  type OtpStore,
+} from '../src/collections/AuthLoginOtpSecurity/infrastructure/repositories/otpLedger'
 function protocol<T>(
   options: Omit<OtpProtocolDependencies<T>, 'codec' | 'ledger' | 'now'> & {
     secret: string
@@ -31,6 +34,7 @@ const fixture = () => {
       }),
   }
   const mail: string[] = []
+  const deadlines: number[] = []
   const flow = protocol({
     collection: 'customers',
     secret: 'a'.repeat(32),
@@ -39,7 +43,8 @@ const fixture = () => {
     random: () => '123456',
     context: () => 'a'.repeat(64),
     findAccount: async (email) => (email === 'user@example.com' ? 'user-1' : null),
-    deliver: async ({ code }) => {
+    deliver: async ({ code, expiresAt }) => {
+      deadlines.push(expiresAt)
       mail.push(code)
     },
     session: async (id) => ({ id }),
@@ -48,6 +53,7 @@ const fixture = () => {
   return {
     flow,
     mail,
+    deadlines,
     tick: (ms: number) => {
       now += ms
     },
@@ -288,4 +294,22 @@ it('the durable account emission quota survives email changes', async () => {
   now += 1001
   await flow.send({ email: 'after@example.com', purpose: 'login' }, 'peer')
   expect(deliveries).toBe(1)
+})
+
+it('late resend delivers the original deadline and never extends authorization', async () => {
+  const { flow, mail, deadlines, tick } = fixture()
+  const sent = await flow.send({ email: 'user@example.com', purpose: 'login' }, 'peer')
+  tick(270_000)
+  await flow.send({ email: 'user@example.com', purpose: 'login', context: sent.context }, 'peer')
+  expect(mail).toEqual(['123456', '123456'])
+  expect(deadlines).toEqual([1_300_000, 1_300_000])
+  tick(30_000)
+  await expect(
+    flow.verify({
+      email: 'user@example.com',
+      purpose: 'login',
+      context: sent.context,
+      otp: '123456',
+    }),
+  ).rejects.toThrow('AUTH_FAILED')
 })

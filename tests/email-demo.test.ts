@@ -1,7 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 
 vi.mock('@main12/auth-login/rsc', async () => ({
-  renderAuthEmail: (await import('../src/auth/infrastructure/email/renderAuthEmail'))
+  renderAuthEmail: (await import('../src/shared/infrastructure/email/renderAuthEmail'))
     .renderAuthEmail,
 }))
 vi.mock('../dev/email', () => ({ sendDevTestEmail: vi.fn() }))

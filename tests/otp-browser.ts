@@ -95,7 +95,7 @@ export async function verifyOtpAcceptance({
   const challenge = await send(email)
   const message = (await forAccount(email))[0]
   const code = codeFrom(message)
-  assert.ok(String(message.subject).includes(code))
+  assert.ok(String(message.subject).startsWith(`${code}: `))
   const login = await verify(email, challenge.context, code, origin2)
   assert.equal(login.status, 200, await login.clone().text())
   const identity = await login.json()

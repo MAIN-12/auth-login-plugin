@@ -1,9 +1,9 @@
-import { createGoogleCorrelationCrypto } from '../src/auth/infrastructure/crypto/googleCorrelationCrypto'
-import { createGoogleCorrelations } from '../src/auth/infrastructure/payload/googleCorrelations'
+import { createGoogleCorrelationCrypto } from '../src/authentication/infrastructure/crypto/googleCorrelationCrypto'
+import { createGoogleCorrelations } from '../src/authentication/infrastructure/payload/googleCorrelations'
 const crypto = createGoogleCorrelationCrypto()
 import { expect, it } from 'vitest'
-import { createGoogleFlow } from '../src/auth/application/use-cases/googleFlow'
-import type { OtpStore } from '../src/auth/infrastructure/payload/otpLedger'
+import { createGoogleFlow } from '../src/authentication/application/use-cases/googleFlow'
+import type { OtpStore } from '../src/collections/AuthLoginOtpSecurity/infrastructure/repositories/otpLedger'
 const records = new Map<string, Record<string, unknown>>()
 const store: OtpStore = {
   transaction: async (_keys, work) =>
@@ -91,14 +91,14 @@ it('expires correlation after ten minutes and burns provider failures without ac
   ).rejects.toThrow('AUTH_FAILED')
   expect(calls).toBe(0)
 })
-import { authorizeGoogleAccount } from '../src/auth/domain/googleAccountPolicy'
-it('a matching verified Google email never authorizes a local account without explicit linking', () => {
+import { authorizeGoogleAccount } from '../src/authentication/domain/googleAccountPolicy'
+it('a matching verified external Google email requires explicit linking without Workspace authority', () => {
   expect(() =>
     authorizeGoogleAccount({
       purpose: 'login',
       signup: true,
       linked: null,
-      emailAccountExists: true,
+      emailAccount: { id: 1, verified: true, deleted: false },
       identity: { sub: 'subject', email: 'local@example.com', emailVerified: true },
     }),
   ).toThrow('AUTH_FAILED')

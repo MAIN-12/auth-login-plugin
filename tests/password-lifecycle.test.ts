@@ -1,8 +1,8 @@
 import { expect, it } from 'vitest'
-import { createOwnershipPolicy } from '../src/auth/application/use-cases/ownership'
-import { createPasswordPermitCodec } from '../src/auth/infrastructure/crypto/passwordPermitCodec'
-import type { PasswordPermit } from '../src/auth/domain/passwordPermit'
-import type { CredentialCommit } from '../src/auth/application/ports/ownership'
+import { createOwnershipPolicy } from '../src/authentication/application/use-cases/ownership'
+import { createPasswordPermitCodec } from '../src/collections/AuthLoginPasswordPermits/infrastructure/crypto/passwordPermitCodec'
+import type { PasswordPermit } from '../src/collections/AuthLoginPasswordPermits/domain/passwordPermit'
+import type { CredentialCommit } from '../src/authentication/application/ports/ownership'
 function fixture(options: {
   secret: string
   collection: string

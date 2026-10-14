@@ -1,25 +1,26 @@
 'use client'
 
-import { safeAuthRedirect } from '../../../auth/domain/redirect'
-import { useAuthConfig } from '../../../auth/interface/react/providers/AuthConfigProvider'
-import { useAllowSignup } from '../../../auth/interface/react/providers/AuthSignupConfig'
+import { safeAuthRedirect } from '../../../shared/domain/redirect'
+import { useAuthConfig } from '../../../authentication/interface/react/providers/AuthConfigProvider/index'
+import { useAllowSignup } from '../../../authentication/interface/react/providers/AuthSignupConfig/index'
 
 import { useAuthTranslations } from '../../../contexts/AuthAppearanceContext'
 
 import { useAuthThemeClasses } from '../../../theme'
 import { authErrorMessage } from '../../../i18n/ui'
 import React from 'react'
+import { isExistingPasswordValid } from '../../../authentication/interface/react/formValidation'
 import { AuthLoadingBoundary } from '../AuthCard/AuthLoadingBoundary'
 import {
   useAuthSearchParams,
   AuthLink,
   authRoute,
-} from '../../../auth/interface/react/AuthFlowContext'
+} from '../../../authentication/interface/react/AuthFlowContext'
 import { Button, Divider } from '../../atoms'
 import { FormField } from '../../molecules/FormField'
 import { PasswordField } from '../../molecules/PasswordField'
 import { AuthErrorNotice } from '../../molecules/AuthErrorNotice'
-import { useLoginFlow } from '../../../auth/interface/react/hooks/useLoginFlow'
+import { useLoginFlow } from '../../../authentication/interface/react/hooks/useLoginFlow'
 import { GoogleAuthButton } from '../../molecules/GoogleAuthButton'
 import type { AuthLocalizationProps } from '../../../configuration/authAppearance/types'
 
@@ -66,6 +67,8 @@ function LoginFormContent({
   const {
     step,
     email,
+    emailError,
+    isEmailValid,
     password,
     error,
     isLoading,
@@ -101,13 +104,7 @@ function LoginFormContent({
         <div className="animate-[fadeIn_0.3s_ease-out]">
           {showGoogleOAuth && config.googleOAuthEnabled && (
             <>
-              <GoogleAuthButton
-                fullWidth
-                variant="secondary"
-                size="lg"
-                className="mb-4 [--button-fg:var(--foreground)]"
-                onPress={handleGoogleLogin}
-              >
+              <GoogleAuthButton onPress={handleGoogleLogin} isDisabled={isLoading}>
                 {t.continueWithGoogle}
               </GoogleAuthButton>
               {(config.passwordLogin || config.otpLogin) && (
@@ -120,18 +117,24 @@ function LoginFormContent({
             </>
           )}
           {(config.passwordLogin || config.otpLogin) && (
-            <form onSubmit={handleEmailSubmit} className="space-y-4">
+            <form noValidate onSubmit={handleEmailSubmit} className="space-y-4">
               {error && <AuthErrorNotice>{getErrorMessage(error)}</AuthErrorNotice>}
               <FormField
                 type="email"
-                error={getErrorMessage(error)}
+                error={getErrorMessage(emailError || error)}
                 label={t.emailLabel}
                 value={email}
                 onValueChange={setEmail}
+                onBlur={() => setEmail(email)}
                 isRequired
                 variant="secondary"
               />
-              <Button type="submit" variant="primary" isLoading={isLoading}>
+              <Button
+                type="submit"
+                variant="primary"
+                isLoading={isLoading}
+                isDisabled={!isEmailValid}
+              >
                 {t.continue}
               </Button>
             </form>
@@ -165,7 +168,7 @@ function LoginFormContent({
               {t.edit}
             </button>
           </div>
-          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+          <form noValidate onSubmit={handlePasswordSubmit} className="space-y-4">
             {error && <AuthErrorNotice>{getErrorMessage(error)}</AuthErrorNotice>}
             <PasswordField
               error={getErrorMessage(error)}
@@ -186,12 +189,22 @@ function LoginFormContent({
                 </AuthLink>
               </div>
             )}
-            <Button type="submit" variant="primary" isLoading={isLoading}>
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isLoading}
+              isDisabled={!isExistingPasswordValid(password) || isSendingOtp}
+            >
               {t.continue}
             </Button>
           </form>
           {config.otpLogin && (
-            <Button variant="secondary" isLoading={isSendingOtp} onPress={handleSendOtp}>
+            <Button
+              variant="secondary"
+              isLoading={isSendingOtp}
+              isDisabled={isLoading || !isEmailValid}
+              onPress={handleSendOtp}
+            >
               {t.sendCode}
             </Button>
           )}
@@ -220,7 +233,12 @@ function LoginFormContent({
               <p className={`text-sm ${theme.noticeText}`}>{t.verificationNotice}</p>
             </div>
           </div>
-          <Button variant="primary" isLoading={isSendingOtp} onPress={handleSendOtp}>
+          <Button
+            variant="primary"
+            isLoading={isSendingOtp}
+            isDisabled={isLoading || !isEmailValid}
+            onPress={handleSendOtp}
+          >
             {isSendingOtp ? t.sendingCode : t.sendCode}
           </Button>
         </div>

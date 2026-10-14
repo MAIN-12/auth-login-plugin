@@ -35,6 +35,8 @@ export interface UiTranslations {
     noAccountFound: string
     otpSendFailed: string
     genericError: string
+    invalidEmail: string
+    passwordTooWeak: string
     invalidCredentials: string
     passwordMismatch: string
     invalidOtp: string
@@ -126,6 +128,9 @@ const en: UiTranslations = {
     noAccountFound: 'No account found with this email. Please sign up.',
     otpSendFailed: 'Failed to send verification code. Please try again.',
     genericError: 'Something went wrong. Please try again.',
+    invalidEmail: 'Enter a valid email address.',
+    passwordTooWeak:
+      'Use at least 15 characters and avoid common or compromised passwords (maximum 1024 characters).',
     invalidCredentials: 'Invalid email or password.',
     passwordMismatch: 'Passwords do not match.',
     invalidOtp: 'Invalid verification code. Please try again.',
@@ -214,6 +219,9 @@ const es: UiTranslations = {
     noAccountFound: 'No se encontró una cuenta con este correo. Por favor regístrate.',
     otpSendFailed: 'Error al enviar el código de verificación. Intenta de nuevo.',
     genericError: 'Algo salió mal. Por favor intenta de nuevo.',
+    invalidEmail: 'Ingresa un correo electrónico válido.',
+    passwordTooWeak:
+      'Usa al menos 15 caracteres y evita contraseñas comunes o comprometidas (máximo 1024 caracteres).',
     invalidCredentials: 'Correo o contraseña inválidos.',
     passwordMismatch: 'Las contraseñas no coinciden.',
     invalidOtp: 'Código de verificación inválido. Intenta de nuevo.',

@@ -13,16 +13,26 @@ const externalServer =
   /^(?:node:crypto|crypto|payload(?:\/|$)|drizzle-orm(?:\/|$)|@libsql\/client|jose|oauth4webapi)/
 const externalImpure =
   /^(?:node:|payload(?:\/|$)|drizzle-orm(?:\/|$)|@libsql\/|react(?:\/|$)|react-dom(?:\/|$)|next(?:\/|$)|jose(?:\/|$)|oauth4webapi(?:\/|$)|crypto$)/
+const layeredRoot = '(?:collections/[^/]+|authentication|shared)'
+const pureModule = new RegExp(
+  `^${layeredRoot}/(?:domain|application)/|^(?:collections/[^/]+|authentication)/(?:domain|application)\\.ts$`,
+)
+const domainModule = new RegExp(
+  `^${layeredRoot}/domain/|^(?:collections/[^/]+|authentication)/domain\\.ts$`,
+)
+const httpModule = new RegExp(`^${layeredRoot}/interface/http/`)
+const wiringModule = /^(?:(?:collections\/[^/]+|authentication)\/wiring\/|wiring\/)/
+
 const portableForbidden =
-  /^(?:auth\/(?:infrastructure|interface|composition|server|contracts)\/|components\/|(?:configuration|contexts|hoc|theme)\/|i18n\/|endpoints\/|(?:config|otpOptions|googleOptions|adminOptions)\.)/
+  /^(?:(?:collections\/[^/]+|authentication|shared)\/(?:infrastructure|interface|composition|wiring|server|contracts)\/|components\/|(?:configuration|contexts|hoc|theme)\/|i18n\/|endpoints\/|(?:config|otpOptions|googleOptions|adminOptions)\.)/
 const serverImplementation =
-  /^(?:auth\/(?:infrastructure|composition|server)\/|endpoints\/|index\.)/
+  /^(?:(?:(?:collections\/[^/]+|authentication|shared)\/(?:infrastructure|composition|wiring|server)\/|wiring\/|(?:collections\/[^/]+|authentication)\/index\.)|configuration\/plugin\/|endpoints\/|index\.)/
 const clientEntry =
-  /^(?:exports\/client\.|auth\/interface\/(?:client|react)\/|components\/|(?:configuration|contexts|hoc|theme)\/|i18n\/)/
+  /^(?:exports\/client\.|(?:collections\/[^/]+|authentication|shared)\/interface\/(?:client|react)\/|(?:collections\/[^/]+|authentication)\/client\.|components\/|configuration\/authAppearance\/|(?:contexts|hoc|theme)\/|i18n\/)/
 // Server entries sit next to their client owner, but remain RSC-only modules.
 const reactServerEntry =
-  /^(?:components\/(?:organisms\/AuthCard|pages\/AuthPages)\/server\.tsx$|auth\/interface\/react\/providers\/AuthProviderServer\/)/
-const emailModule = /^auth\/infrastructure\/email\//
+  /^(?:components\/(?:organisms\/AuthCard|pages\/AuthPages)\/server\.tsx$|(?:collections\/[^/]+|authentication|shared)\/interface\/react\/providers\/AuthProviderServer\/)/
+const emailModule = /^shared\/infrastructure\/email\//
 
 function sources(directory: string): string[] {
   if (!fs.existsSync(directory)) return []
@@ -108,13 +118,67 @@ export function inspectArchitecture(
   }
   for (const file of files) {
     const name = relative(file)
-    const pure = name.startsWith('auth/domain/') || name.startsWith('auth/application/')
-    const domain = name.startsWith('auth/domain/')
-    const http = name.startsWith('auth/interface/http/')
+    // Production SQL drivers belong to storage seams; test/script fixtures may use drivers.
+    const productionSource = file.startsWith(src + path.sep)
+    const storage =
+      /^(?:collections\/[^/]+|authentication)\/infrastructure\/(?:repositories|queries)\//.test(
+        name,
+      )
+    const nativeTransaction = name === 'shared/infrastructure/payload/nativeTransaction.ts'
+    for (const edge of graph.get(file) ?? []) {
+      if (
+        productionSource &&
+        edge.specifier &&
+        /^(?:drizzle-orm(?:\/|$)|@libsql\/client)/.test(edge.specifier) &&
+        !storage &&
+        !nativeTransaction
+      )
+        report(file, 'storage-boundary', [name, edge.specifier])
+    }
+    const pure = pureModule.test(name)
+    const domain = domainModule.test(name)
+    const http = httpModule.test(name)
     const rsc = name === 'exports/rsc.ts' || reactServerEntry.test(name)
     const client = clientEntry.test(name) && !emailModule.test(name) && !reactServerEntry.test(name)
     const proxy = name === 'proxy.ts'
-    if (!pure && !http && !client && !rsc && !proxy) continue
+    const ownerOf = (module: string) =>
+      /^collections\/([^/]+)\//.exec(module)?.[1] ??
+      (module.startsWith('authentication/') ? 'authentication' : undefined)
+    const owner = ownerOf(name)
+    // Walk every resolved edge, including type imports and alias barrels. A public
+    // collection seam may access its own implementation; a foreign barrel may not.
+    const ownerVisited = new Set<string>()
+    const walkOwner = (current: string, trail: string[]) => {
+      if (ownerVisited.has(current)) return
+      ownerVisited.add(current)
+      for (const edge of graph.get(current) ?? []) {
+        if (!edge.local) continue
+        const target = relative(edge.local)
+        const next = [...trail, target]
+        const targetOwner = /^collections\/([^/]+)\/(.+)$/.exec(target)
+        if (name.startsWith('shared/') && (targetOwner || target.startsWith('authentication/'))) {
+          report(file, 'shared-owner-boundary', next)
+          continue
+        }
+        if (owner === 'ConfiguredAuthCollection' && target.startsWith('authentication/')) {
+          report(file, 'collection-workflow-boundary', next)
+          continue
+        }
+        if (
+          productionSource &&
+          targetOwner &&
+          ownerOf(relative(current)) !== targetOwner[1] &&
+          !/^(?:index|domain|application|client|rsc)\.ts$/.test(targetOwner[2])
+        ) {
+          report(file, 'collection-owner-boundary', next)
+          continue
+        }
+        walkOwner(edge.local, next)
+      }
+    }
+    walkOwner(file, [name])
+    const shared = name.startsWith('shared/')
+    if (!pure && !http && !client && !rsc && !proxy && !shared) continue
     const visited = new Set<string>()
     const walk = (current: string, trail: string[]) => {
       if (visited.has(current)) return
@@ -131,7 +195,7 @@ export function inspectArchitecture(
           (externalImpure.test(target) ||
             isBuiltin(target) ||
             (edge.local && portableForbidden.test(target)) ||
-            (domain && target.startsWith('auth/application/')))
+            (domain && /^(?:collections\/[^/]+|authentication|shared)\/application\//.test(target)))
         ) {
           report(file, domain ? 'domain-boundary' : 'application-boundary', next)
           continue
@@ -139,13 +203,15 @@ export function inspectArchitecture(
         if (
           http &&
           edge.local &&
-          /^(?:auth\/(?:infrastructure|server)\/|endpoints\/)/.test(target)
+          /^(?:(?:collections\/[^/]+|authentication|shared)\/(?:infrastructure|server)\/|endpoints\/)/.test(
+            target,
+          )
         ) {
           report(file, 'http-boundary', next)
           continue
         }
         // Types of a composed HTTP scope are allowed; concrete factory calls belong only to composition.
-        if (http && edge.local && target.startsWith('auth/composition/') && !edge.typeOnly) {
+        if (http && edge.local && wiringModule.test(target) && !edge.typeOnly) {
           report(file, 'http-composition', next)
           continue
         }
@@ -153,14 +219,18 @@ export function inspectArchitecture(
           (client || rsc || proxy) &&
           ((edge.local &&
             serverImplementation.test(target) &&
-            !(rsc && emailModule.test(target))) ||
+            !(rsc && emailModule.test(target)) &&
+            !(rsc && edge.typeOnly && target.startsWith('configuration/plugin/'))) ||
             (!edge.local &&
               (externalServer.test(target) || isBuiltin(target)) &&
               !(
                 edge.typeOnly &&
                 rsc &&
                 target === 'payload' &&
-                ['adminOptions.ts', 'otpOptions.ts'].includes(relative(current))
+                [
+                  'configuration/plugin/adminOptions.ts',
+                  'configuration/plugin/otpOptions.ts',
+                ].includes(relative(current))
               )))
         ) {
           report(file, 'runtime-boundary', next)
@@ -170,7 +240,7 @@ export function inspectArchitecture(
           report(file, 'runtime-boundary', next)
           continue
         }
-        if (edge.local && !(http && edge.typeOnly && target.startsWith('auth/composition/')))
+        if (edge.local && !(http && edge.typeOnly && wiringModule.test(target)))
           walk(edge.local, next)
       }
     }

@@ -28,15 +28,15 @@ export default [
   {
     files: [
       'src/components/**/*.{ts,tsx}',
-      'src/configuration/**/*.{ts,tsx}',
+      'src/configuration/authAppearance/**/*.{ts,tsx}',
       'src/contexts/**/*.{ts,tsx}',
       'src/hoc/**/*.{ts,tsx}',
       'src/theme/**/*.{ts,tsx}',
       'src/i18n/**/*.ts',
-      'src/auth/interface/client/**/*.{ts,tsx}',
-      'src/auth/interface/react/**/*.{ts,tsx}',
+      'src/{collections/*,authentication,shared}/interface/client/**/*.{ts,tsx}',
+      'src/{collections/*,authentication,shared}/interface/react/**/*.{ts,tsx}',
     ],
-    ignores: ['src/auth/interface/client/authService.ts'],
+    ignores: ['src/authentication/interface/client/authService.ts'],
     rules: {
       'no-restricted-globals': [
         'error',
@@ -53,7 +53,10 @@ export default [
     },
   },
   {
-    files: ['src/auth/domain/**/*.{ts,tsx}', 'src/config.ts'],
+    files: [
+      'src/{collections/*,authentication,shared}/domain/**/*.{ts,tsx}',
+      'src/configuration/plugin/config.ts',
+    ],
     rules: {
       'no-restricted-properties': [
         'error',
@@ -79,7 +82,7 @@ export default [
             '**/hoc/**',
             '**/theme/**',
             '**/i18n/**',
-            '**/auth/server/**',
+            '**/infrastructure/payload/**',
             '**/application/**',
           ],
         },
@@ -89,30 +92,30 @@ export default [
   {
     files: [
       'src/exports/client.ts',
-      'src/auth/application/**/*.{ts,tsx}',
+      'src/{collections/*,authentication,shared}/application/**/*.{ts,tsx}',
       'src/components/**/*.{ts,tsx}',
-      'src/configuration/**/*.{ts,tsx}',
+      'src/configuration/authAppearance/**/*.{ts,tsx}',
       'src/contexts/**/*.{ts,tsx}',
       'src/hoc/**/*.{ts,tsx}',
       'src/theme/**/*.{ts,tsx}',
       'src/i18n/**/*.ts',
-      'src/auth/interface/client/**/*.{ts,tsx}',
-      'src/auth/interface/react/**/*.{ts,tsx}',
+      'src/{collections/*,authentication,shared}/interface/client/**/*.{ts,tsx}',
+      'src/{collections/*,authentication,shared}/interface/react/**/*.{ts,tsx}',
     ],
     rules: {
       'no-restricted-imports': [
         'error',
-        { patterns: ['payload', 'payload/*', '**/auth/server/**', '**/endpoints/**'] },
+        { patterns: ['payload', 'payload/*', '**/infrastructure/payload/**', '**/endpoints/**'] },
       ],
     },
   },
   {
     files: [
-      'src/auth/application/**/*.ts',
-      'src/auth/domain/**/*.ts',
-      'src/auth/domain/errors.ts',
-      'src/auth/domain/passwordLoginRules.ts',
-      'src/auth/domain/otpRules.ts',
+      'src/{collections/*,authentication,shared}/application/**/*.ts',
+      'src/{collections/*,authentication,shared}/domain/**/*.ts',
+      'src/{collections/*,authentication,shared}/domain/errors.ts',
+      'src/{collections/*,authentication,shared}/domain/passwordLoginRules.ts',
+      'src/{collections/*,authentication,shared}/domain/otpRules.ts',
     ],
     rules: {
       'no-restricted-imports': [

@@ -1,5 +1,7 @@
 # Migrating existing accounts
 
+**The consumer owns data migration, legacy cleanup, authentication cutover and rollback.** The plugin supplies collection schema and runtime authentication safeguards, not a migration runner or an offline data-conversion API. Apply the [consumer-generated Payload migrations](schema-migrations.md) first.
+
 ## Passwords and verification evidence
 
 The hardened plugin requires `auth.useSessions: true`, `auth.verify: true` and the email local strategy. Preserve existing account IDs, native `hash`/`salt`, trustworthy `_verified` evidence and provider associations. Do not populate `_verified: true` from the presence of a password, email address or prior login. Unknown verification blocks new access until ownership is proven.
@@ -20,31 +22,19 @@ Announce the access interruption. Stop every web instance, worker, scheduled tas
 
 Take an adapter-native backup while writers are stopped and rehearse restoring it in an isolated environment. Inventory all authentication collections, old OTP collections and host-defined grants; the previous plugin stored OTPs in `auth-otps`. Preserve accounts and passwords, invalidate native sessions and legacy OTP/reset/verification authorization, and retain provider associations. Never restore an old authorization artifact into live traffic merely because it was present in a backup.
 
-### Offline package API
+### Consumer-owned security state
 
-```ts
-import { migrateAuthLogin } from '@main12/auth-login'
+Implement and review the migration in the consuming application, using its actual schema, adapter and legacy inventory. Preserve account IDs, hash/salt, trustworthy verification evidence and provider mappings. Coordinate invalidation of native sessions, reset/verification tokens, legacy codes and host-defined grants; do not remove unrelated tenants' data or reset shared account/origin quotas. Keep consumed-proof ledgers and durable security records across upgrades.
 
-// Run only after all instances and writers are stopped and a native backup exists.
-const report = await migrateAuthLogin(payload, {
-  collection: 'customers',
-  maintenance: true,
-  // Optional, explicitly inventoried legacy collection and target-only filter:
-  legacyOtpCollection: { slug: 'auth-otps', where: { scope: { equals: 'customers' } } },
-})
-```
+The runtime reads the `auth-login-cutovers` collection as a collection-scoped proof generation. A missing record is the initial baseline; a stored generation must be 64 lowercase hexadecimal characters. The consumer's stopped-writer security cutover must establish a fresh cryptographically random generation for each affected auth collection together with its revocations. The plugin does not publish generations or orchestrate this work. OTP challenges, Google correlations and method permits bind that generation, and read failures fail closed. Preserve this schema/runtime safeguard rather than treating it as a data-migration service.
 
-This is a trusted server-only operational API, not an endpoint. `maintenance: true` attests the operator has actually stopped writers; the helper cannot stop deployments. Its result is `{success: true, collection, accounts, legacyCodesDeleted, generation}`. It requires SQLite/PostgreSQL plus native sessions/verification. It does not require changing Payload or OTP secrets, environment variables or `/dev`.
-
-One native transaction preserves target accounts, hash/salt, verification evidence and provider associations while clearing native sessions, `resetPasswordToken`, `resetPasswordExpiration` and `_verificationToken`, deleting only explicitly inventoried legacy codes and storing a fresh cryptographically random collection generation. Direct native storage writes bypass host change hooks intentionally: migration is not credential provisioning. Failure rolls back all effects; retry preserves accounts and generates another cutoff rather than restoring authority. Schema initialization may remain after failure but grants no access.
-
-The collection generation binds OTP challenge keys, Google correlation state and the encryption key for signup/recovery/reauthentication permits. No process-local cache serves stale generations, and a failed generation read is not treated as the baseline. Existing security rows remain encrypted and inert rather than globally purged; consumed-permit records are retained. Account and trusted-origin quota keys/budgets are **not** reset, other collections are untouched, and provider associations are not deleted. Plan adapter-native storage retention separately; this API does not promise garbage collection. An empty legacy filter is appropriate only when that collection is exclusively dedicated to the target; absent configuration does not claim arbitrary host authorization has been inventoried.
+Test the application's migration and restore procedure against its real database before deployment. A failed migration must leave traffic disabled until the consumer can verify a consistent, security-equivalent state.
 
 ### Rollback rehearsal and deployment
 
 1. Keep all writers stopped and public traffic in maintenance.
 2. Restore the backup into the isolated rehearsal environment or intended rollback database.
-3. Run a security-equivalent hardened build and **rerun `migrateAuthLogin`** against the restored database before serving requests. Use the same inventoried legacy filter. Each call chooses a fresh random generation, even after restoring an older backup and with unchanged host keys.
+3. Use a security-equivalent hardened build and rerun the **consumer-owned revocation/cutover procedure** against the restored database before serving requests. Reuse the verified inventory but establish a fresh generation; a restored epoch alone cannot prevent replay.
 4. Check account counts/credential preservation, stale sessions/codes/permits rejected, unrelated collections intact, and verified/unverified accounts follow the expected login/ownership policies.
 5. Resume only after those checks and the release gates pass.
 
@@ -54,11 +44,9 @@ Restoring an old database and immediately serving it can revive its old sessions
 
 ## Compatibility when deploying the auth-clean refactor
 
-The internal maintenance split preserves the public helper, one native commit and
-its rollback. Application validates explicit operator intent; concrete storage/filters
-stay server-only. The new tests use adapter doubles and retain historical SQLite/HTTP
-fixtures; they do not certify production writer shutdown or multiprocess rollback.
-No migration ran against a real service as part of this refactor.
+The plugin no longer provides an offline account-maintenance or data-migration API.
+Consumers must own and test their preservation, revocation and rollback procedures.
+The collection schema and runtime generation checks remain unchanged.
 
 Google correlations created before exact principal binding was required cannot finish
 link/reauthentication after upgrade. Drain eligible flows before rollout or start fresh
@@ -66,6 +54,6 @@ login/link/reauthentication. Never accept an unbound legacy correlation or resto
 consumed permit to rescue a callback. Code rollback is safe only to a build preserving
 these checks and current generation; it cannot revive sessions/correlations/permits.
 
-Only unpublished internal forwarding imports were removed. Published exports, inert
-legacy client functions, HTTP compatibility stubs, schema and proof formats remain.
+Apart from the removed public migration helper, authentication exports, inert legacy client functions and HTTP compatibility stubs,
+schema and proof formats remain.
 A pre-cutover backup still requires the stopped-writer re-cutover procedure above.

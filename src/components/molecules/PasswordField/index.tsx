@@ -1,35 +1,16 @@
 'use client'
 
 import React from 'react'
-import { FormField, type FormFieldProps } from '../FormField'
-import { useAuthThemeClasses } from '../../../theme'
+import { withAuthStyle } from '../../../hoc/withAuthStyle'
+import { PasswordField as TailwindPasswordField } from './Tailwind'
+import type { PasswordFieldProps, ResolvedPasswordFieldProps } from './types'
 
-/** Masked by default; optional controlled visibility preserves password establishment. */
-export function PasswordField({
-  visible = false,
-  onToggleVisibility,
-  visibilityLabel,
-  ...props
-}: Omit<FormFieldProps, 'type'> & {
-  visible?: boolean
-  onToggleVisibility?: () => void
-  visibilityLabel?: string
-}) {
-  const theme = useAuthThemeClasses()
-  const field = <FormField {...props} type={visible ? 'text' : 'password'} />
-  if (!onToggleVisibility) return field
-  return (
-    <div className="relative">
-      {field}
-      <button
-        type="button"
-        aria-label={visibilityLabel}
-        onClick={onToggleVisibility}
-        style={{ width: 40, height: 40 }}
-        className={`absolute right-2 top-7 flex items-center justify-center rounded-md ${theme.muted} ${theme.hoverForeground} focus-visible:outline-2`}
-      >
-        {visible ? '🙈' : '👁'}
-      </button>
-    </div>
-  )
+const StyledPasswordField = withAuthStyle<ResolvedPasswordFieldProps>(TailwindPasswordField, () =>
+  import('./Hero').then((module) => ({ default: module.PasswordField })),
+)
+
+/** Controlled visibility is shared; each visual adapter owns its native input composition. */
+export function PasswordField(props: PasswordFieldProps) {
+  const generatedId = React.useId()
+  return <StyledPasswordField {...props} id={props.id ?? generatedId} />
 }

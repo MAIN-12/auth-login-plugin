@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { AuthStyle, AuthCardTheme } from '../../auth/contracts/publicConfig'
+import type { AuthStyle, AuthCardTheme } from '../../shared/contracts/publicConfig'
 import type { DeepPartial, UiTranslations } from '../../i18n/ui'
 
 export interface AuthLocalizationProps {

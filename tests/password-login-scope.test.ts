@@ -1,7 +1,7 @@
 import { expect, it, vi } from 'vitest'
 import type { PayloadRequest } from 'payload'
-import { createPasswordLoginScope } from '../src/auth/composition/passwordLogin'
-import { resolveAuthConfig } from '../src/config'
+import { createPasswordLoginScope } from '../src/authentication/wiring/passwordLogin'
+import { resolveAuthConfig } from '../src/configuration/plugin/config'
 const settings = resolveAuthConfig({
   passwordLogin: true,
   otpLogin: false,

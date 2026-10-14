@@ -37,7 +37,23 @@ export async function buildConsumerPackage(root: string, packageDir: string) {
     ),
     'tarball must exclude stale/source/test/development files',
   )
-  const normativeDocs = ['package/docs/migration.md', 'package/docs/plugin-contracts.md']
+  assert.ok(
+    !packedEntries.some((entry) => /^package\/dist\/migrations\.(js|d\.ts)$/.test(entry)),
+    'tarball must not ship database migration implementation',
+  )
+  assert.ok(
+    !packedEntries.some(
+      (entry) =>
+        entry.startsWith('package/dist/auth/') ||
+        entry.startsWith('package/dist/collections/AuthenticatedUsers/'),
+    ),
+    'tarball must not retain the retired auth trees',
+  )
+  const normativeDocs = [
+    'package/docs/migration.md',
+    'package/docs/plugin-contracts.md',
+    'package/docs/schema-migrations.md',
+  ]
   for (const doc of normativeDocs)
     assert.ok(packedEntries.includes(doc), `${doc} must ship with the package`)
   assert.ok(
@@ -96,8 +112,10 @@ export function verifyNativePackage(directory: string) {
     }
     const pkg = await import('@main12/auth-login');
     assert.equal(typeof pkg.authLoginPlugin, 'function');
-    assert.equal(typeof pkg.migrateAuthLogin, 'function');
-    console.log('Packed export resolution and native ESM root/migration GREEN');
+    assert.equal('migrateAuthLogin' in pkg, false);
+    await assert.rejects(import('@main12/auth-login/schema'), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' });
+    await assert.rejects(import('@main12/auth-login/migrations'), { code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' });
+    console.log('Packed export resolution and native ESM root GREEN');
   `,
     ],
     { cwd: directory, stdio: 'inherit' },

@@ -1,4 +1,4 @@
-import { resolveAuthConfig } from '../src/config'
+import { resolveAuthConfig } from '../src/configuration/plugin/config'
 export const publicConfig = resolveAuthConfig({
   passwordLogin: true,
   otpLogin: false,

@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
-import { createAuthService } from '../src/auth/interface/client/authService'
+import { createAuthService } from '../src/authentication/interface/client/authService'
 import { publicConfig } from './auth-test-config'
 afterEach(() => vi.unstubAllGlobals())
 it('uses configured routes and locale per instance and captures caller configuration', async () => {
@@ -42,3 +42,23 @@ it.each([{}, { success: 'true' }])('denies malformed login success: %j', async (
     createAuthService(publicConfig).login({ email: 'a@b.test', password: 'x' }),
   ).rejects.toMatchObject({ code: 'AUTH_UNAVAILABLE', status: 503 })
 })
+it.each(['SESSION_LOGIN_DENIED', 'private provider secret'])(
+  'client preserves known safe reasons and ignores unrecognized text: %s',
+  async (reason) => {
+    const requestId = '6511e40a-61f2-4efe-953b-326979b0cc36'
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        Response.json({ success: false, code: 'AUTH_FAILED', reason, requestId }, { status: 401 }),
+      ),
+    )
+    await expect(
+      createAuthService(publicConfig).login({ email: 'a@b.test', password: 'x' }),
+    ).rejects.toMatchObject({
+      code: 'AUTH_FAILED',
+      status: 401,
+      reason: reason === 'SESSION_LOGIN_DENIED' ? reason : undefined,
+      requestId,
+    })
+  },
+)

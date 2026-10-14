@@ -1,8 +1,8 @@
 import { expect, it, vi } from 'vitest'
 import type { PayloadRequest } from 'payload'
 import { AuthenticationError } from 'payload'
-import { createPasswordLoginScope } from '../src/auth/composition/passwordLogin'
-import { passwordLoginEndpoint } from '../src/auth/interface/http/passwordLogin'
+import { createPasswordLoginScope } from '../src/authentication/wiring/passwordLogin'
+import { passwordLoginEndpoint } from '../src/authentication/interface/http/passwordLogin'
 import { publicConfig } from './auth-test-config'
 
 function request(body: unknown, removeToken = true, origin = 'https://app.test') {

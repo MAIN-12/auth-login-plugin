@@ -4,6 +4,7 @@ export interface InputProps {
   id?: string
   type?: string
   value: string
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void
   onValueChange?: (value: string) => void
   isRequired?: boolean

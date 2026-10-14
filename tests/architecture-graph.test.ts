@@ -11,9 +11,10 @@ it('rejects a domain dependency hidden by a type import and an alias barrel', ()
       'tsconfig.json': JSON.stringify({
         compilerOptions: { baseUrl: '.', paths: { '@/*': ['src/*'] } },
       }),
-      'src/auth/domain/rule.ts': "import type { Port } from '@/bridge'\nexport const result = 1",
-      'src/bridge.ts': "export type { Port } from './auth/application/ports/port'",
-      'src/auth/application/ports/port.ts': 'export interface Port { run(): void }',
+      'src/collections/Fixture/domain/rule.ts':
+        "import type { Port } from '@/bridge'\nexport const result = 1",
+      'src/bridge.ts': "export type { Port } from './collections/Fixture/application/ports/port'",
+      'src/collections/Fixture/application/ports/port.ts': 'export interface Port { run(): void }',
     }
     for (const [name, source] of Object.entries(files)) {
       const file = path.join(root, name)
@@ -62,9 +63,11 @@ it.each([
 ])('rejects application reaching concrete adapters through a valid alias barrel: %s', (source) => {
   fixture(
     {
-      'src/auth/application/run.ts': source,
-      'src/bridge.ts': "export type { Port } from './auth/infrastructure/payload/port'",
-      'src/auth/infrastructure/payload/port.ts': 'export interface Port { run(): void }',
+      'src/collections/Fixture/application/run.ts': source,
+      'src/bridge.ts':
+        "export type { Port } from './collections/Fixture/infrastructure/payload/port'",
+      'src/collections/Fixture/infrastructure/payload/port.ts':
+        'export interface Port { run(): void }',
     },
     (root) => {
       expect(inspectArchitecture(root).map((finding: { rule: string }) => finding.rule)).toContain(
@@ -79,8 +82,10 @@ it.each(['exports/client.ts', 'exports/rsc.ts', 'proxy.ts'])(
     fixture(
       {
         ['src/' + entry]: "export type { Port } from '@/bridge'",
-        'src/bridge.ts': "export type { Port } from './auth/server/ledger'",
-        'src/auth/server/ledger.ts': 'export interface Port { consume(): void }',
+        'src/bridge.ts':
+          "export type { Port } from './collections/Fixture/infrastructure/payload/ledger'",
+        'src/collections/Fixture/infrastructure/payload/ledger.ts':
+          'export interface Port { consume(): void }',
       },
       (root) => {
         expect(
@@ -93,14 +98,15 @@ it.each(['exports/client.ts', 'exports/rsc.ts', 'proxy.ts'])(
 it('accepts portable policy, injected ports, client DTOs, and type-only HTTP scope contracts', () => {
   fixture(
     {
-      'src/auth/domain/rule.ts': 'export const allowed = true',
-      'src/auth/application/ports/port.ts': 'export interface Port { run(): void }',
-      'src/auth/application/run.ts':
+      'src/collections/Fixture/domain/rule.ts': 'export const allowed = true',
+      'src/collections/Fixture/application/ports/port.ts': 'export interface Port { run(): void }',
+      'src/collections/Fixture/application/run.ts':
         "import { allowed } from '../domain/rule'; import type { Port } from './ports/port'; export function run(port: Port) { if (allowed) port.run() }",
-      'src/auth/interface/http/run.ts':
-        "import type { Scope } from '../../composition/run'; export function run(scope: Scope) { scope.run() }",
-      'src/auth/composition/run.ts': 'export interface Scope { run(): void }',
-      'src/exports/client.ts': "export { allowed } from '../auth/domain/rule'",
+      'src/collections/Fixture/interface/http/run.ts':
+        "import type { Scope } from '../../wiring/run'; export function run(scope: Scope) { scope.run() }",
+      'src/collections/Fixture/wiring/run.ts': 'export interface Scope { run(): void }',
+      'src/exports/client.ts': "export { allowed } from '../collections/Fixture/domain'",
+      'src/collections/Fixture/domain.ts': "export { allowed } from './domain/rule'",
     },
     (root) => {
       expect(inspectArchitecture(root)).toEqual([])
@@ -110,7 +116,7 @@ it('accepts portable policy, injected ports, client DTOs, and type-only HTTP sco
 it('cannot hide a protected dependency behind an unresolved local or nonliteral import', () => {
   fixture(
     {
-      'src/auth/application/run.ts':
+      'src/collections/Fixture/application/run.ts':
         "declare const name: string; export const run = () => import(name); export { x } from './missing'",
     },
     (root) => {
@@ -136,9 +142,9 @@ it('lint uses the same graph to reject an unsaved type import through a server b
   try {
     for (const [name, source] of Object.entries({
       'tsconfig.json': '{}',
-      'src/auth/domain/rule.ts': 'export const allowed = true',
-      'src/bridge.ts': "export type { Port } from './auth/application/ports/port'",
-      'src/auth/application/ports/port.ts': 'export interface Port { run(): void }',
+      'src/collections/Fixture/domain/rule.ts': 'export const allowed = true',
+      'src/bridge.ts': "export type { Port } from './collections/Fixture/application/ports/port'",
+      'src/collections/Fixture/application/ports/port.ts': 'export interface Port { run(): void }',
     })) {
       const file = path.join(root, name)
       mkdirSync(path.dirname(file), { recursive: true })
@@ -158,11 +164,11 @@ it('lint uses the same graph to reject an unsaved type import through a server b
     })
     const [denied] = await lint.lintText(
       "import type { Port } from '../../bridge'; export type Result = Port",
-      { filePath: 'src/auth/domain/rule.ts' },
+      { filePath: 'src/collections/Fixture/domain/rule.ts' },
     )
     expect(denied.messages.map((message) => message.ruleId)).toEqual(['architecture/boundaries'])
     const [valid] = await lint.lintText('export const allowed = true', {
-      filePath: 'src/auth/domain/rule.ts',
+      filePath: 'src/collections/Fixture/domain/rule.ts',
     })
     expect(valid.messages).toEqual([])
   } finally {
@@ -201,7 +207,7 @@ it('published entrypoints use explicit exports and only authService owns client 
         ((ts.isIdentifier(node.expression) && node.expression.text === 'fetch') ||
           (ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === 'fetch'))
       )
-        expect(path.relative('.', file)).toBe('src/auth/interface/client/authService.ts')
+        expect(path.relative('.', file)).toBe('src/authentication/interface/client/authService.ts')
       ts.forEachChild(node, visit)
     }
     visit(ast)
@@ -219,13 +225,14 @@ it('published entrypoints use explicit exports and only authService owns client 
   walk(path.resolve('src/exports/client.ts'))
 })
 
-it.each(['contexts', 'configuration', 'hoc', 'theme'])(
+it.each(['contexts', 'configuration/authAppearance', 'hoc', 'theme'])(
   '%s support cannot hide server state from the browser graph',
   (directory) => {
     fixture(
       {
-        [`src/${directory}/bridge.ts`]: "export type { Port } from '../auth/server/ledger'",
-        'src/auth/server/ledger.ts': 'export interface Port { consume(): void }',
+        [`src/${directory}/bridge.ts`]: `export type { Port } from '${directory.includes('/') ? '../../' : '../'}collections/Fixture/infrastructure/payload/ledger'`,
+        'src/collections/Fixture/infrastructure/payload/ledger.ts':
+          'export interface Port { consume(): void }',
       },
       (root) => {
         expect(
@@ -239,7 +246,7 @@ it.each(['contexts', 'configuration', 'hoc', 'theme'])(
 it.each([
   'components/organisms/AuthCard/server.tsx',
   'components/pages/AuthPages/server.tsx',
-  'auth/interface/react/providers/AuthProviderServer/index.tsx',
+  'authentication/interface/react/providers/AuthProviderServer/index.tsx',
 ])('preserves RSC isolation for colocated server entry %s', (serverEntry) => {
   fixture(
     {
@@ -256,5 +263,275 @@ it.each([
         findings.filter((finding: { file: string }) => finding.file.endsWith('exports/client.ts')),
       ).toHaveLength(1)
     },
+  )
+})
+
+it('rejects deep cross-collection implementation imports including type-only references', () => {
+  fixture(
+    {
+      'src/collections/Users/wiring/run.ts':
+        "import type { State } from '../../Otp/infrastructure/payload/store'",
+      'src/collections/Otp/infrastructure/payload/store.ts':
+        'export interface State { value: string }',
+    },
+    (root) => {
+      expect(inspectArchitecture(root).map((item) => item.rule)).toContain(
+        'collection-owner-boundary',
+      )
+    },
+  )
+})
+
+it('rejects shared-to-owner coupling hidden through an alias barrel', () => {
+  fixture(
+    {
+      'src/shared/contracts/input.ts': "export type { Input } from '@/bridge'",
+      'src/bridge.ts': "export type { Input } from './collections/Users/application/ports/input'",
+      'src/collections/Users/application/ports/input.ts':
+        'export interface Input { value: string }',
+    },
+    (root) => {
+      expect(inspectArchitecture(root).map((item) => item.rule)).toContain('shared-owner-boundary')
+    },
+  )
+})
+
+it('enforces portable and client runtime rules at the new collection paths', () => {
+  fixture(
+    {
+      'src/collections/Otp/domain/rule.ts': "import type { Payload } from 'payload'",
+      'src/collections/Users/interface/client/service.ts':
+        "import { run } from '../../infrastructure/payload/run'",
+      'src/collections/Users/infrastructure/payload/run.ts': 'export const run = () => 1',
+    },
+    (root) => {
+      const rules = inspectArchitecture(root).map((item) => item.rule)
+      expect(rules).toContain('domain-boundary')
+      expect(rules).toContain('runtime-boundary')
+    },
+  )
+})
+
+it('accepts explicit portable cross-owner seams without exposing infrastructure', () => {
+  fixture(
+    {
+      'src/collections/Users/application/use-cases/run.ts':
+        "import { allowed } from '../../../Otp/domain'",
+      'src/collections/Otp/domain.ts': "export { allowed } from './domain/rule'",
+      'src/collections/Otp/domain/rule.ts': 'export const allowed = true',
+    },
+    (root) => {
+      expect(inspectArchitecture(root)).toEqual([])
+    },
+  )
+})
+
+it.each([
+  'domain/rule.ts',
+  'application/run.ts',
+  'interface/http/run.ts',
+  'infrastructure/payload/workflow.ts',
+])('authentication cannot import SQL drivers outside repositories/queries: %s', (entry) => {
+  fixture(
+    {
+      ['src/authentication/' + entry]:
+        "import { sql } from 'drizzle-orm'; export const value = sql`SELECT 1`",
+    },
+    (root) => {
+      expect(inspectArchitecture(root).map((item) => item.rule)).toContain('storage-boundary')
+    },
+  )
+})
+it('authentication HTTP cannot reach persistence through its server barrel', () => {
+  fixture(
+    {
+      'src/authentication/interface/http/run.ts': "import { run } from '../../index'",
+      'src/authentication/index.ts': "export { run } from './infrastructure/repositories/run'",
+      'src/authentication/infrastructure/repositories/run.ts': 'export const run = () => 1',
+    },
+    (root) => expect(inspectArchitecture(root).map((item) => item.rule)).toContain('http-boundary'),
+  )
+})
+it('shared cannot depend on authentication orchestration', () => {
+  fixture(
+    {
+      'src/shared/contracts/input.ts':
+        "export type { Input } from '../../authentication/application/input'",
+      'src/authentication/application/input.ts': 'export interface Input { value: string }',
+    },
+    (root) =>
+      expect(inspectArchitecture(root).map((item) => item.rule)).toContain('shared-owner-boundary'),
+  )
+})
+it('authentication composes explicit collection seams instead of deep storage imports', () => {
+  fixture(
+    {
+      'src/authentication/wiring/run.ts':
+        "import { lock } from '../../collections/Locks/infrastructure/repositories/lock'",
+      'src/collections/Locks/infrastructure/repositories/lock.ts': 'export const lock = () => 1',
+    },
+    (root) =>
+      expect(inspectArchitecture(root).map((item) => item.rule)).toContain(
+        'collection-owner-boundary',
+      ),
+  )
+})
+
+it.each([
+  'exports/client.ts',
+  'proxy.ts',
+  'configuration/authAppearance/bridge.ts',
+  'contexts/bridge.ts',
+  'theme/bridge.ts',
+])('cannot hide plugin configuration behind a type-only support barrel from %s', (entry) => {
+  fixture(
+    {
+      ['src/' + entry]: "export type { Options } from '@/bridge'",
+      'src/bridge.ts': "export type { Options } from './configuration/plugin/config'",
+      'src/configuration/plugin/config.ts': 'export interface Options { secret: string }',
+    },
+    (root) =>
+      expect(inspectArchitecture(root).map((item) => item.rule)).toContain('runtime-boundary'),
+  )
+})
+
+it('RSC may expose plugin option types without granting runtime access to configuration', () => {
+  fixture(
+    {
+      'src/exports/rsc.ts': "export type { Options } from '../configuration/plugin/config'",
+      'src/configuration/plugin/config.ts':
+        "import type { OtpOptions } from './otpOptions'; export interface Options { otp: OtpOptions }; export const resolve = () => 1",
+      'src/configuration/plugin/otpOptions.ts':
+        "import type { PayloadRequest } from 'payload'; export interface OtpOptions { origin: (req: PayloadRequest) => string }",
+    },
+    (root) => {
+      expect(inspectArchitecture(root)).toEqual([])
+      const file = path.join(root, 'src/exports/rsc.ts')
+      expect(
+        inspectArchitecture(
+          root,
+          new Map([[file, "export { resolve } from '../configuration/plugin/config'"]]),
+        ).map((item) => item.rule),
+      ).toContain('runtime-boundary')
+    },
+  )
+})
+
+it('the RSC option type exception cannot hide a runtime Payload import', () => {
+  fixture(
+    {
+      'src/exports/rsc.ts': "export type { Options } from '../configuration/plugin/otpOptions'",
+      'src/configuration/plugin/otpOptions.ts':
+        "import { getPayload } from 'payload'; export interface Options { secret: string }; export const run = getPayload",
+    },
+    (root) =>
+      expect(inspectArchitecture(root).map((item) => item.rule)).toContain('runtime-boundary'),
+  )
+})
+
+it('RSC option type exceptions still reject transitive server infrastructure', () => {
+  fixture(
+    {
+      'src/exports/rsc.ts': "export type { Options } from '../configuration/plugin/config'",
+      'src/configuration/plugin/config.ts': "export type { Options } from '@/bridge'",
+      'src/bridge.ts': "export type { Options } from './authentication/infrastructure/options'",
+      'src/authentication/infrastructure/options.ts': 'export interface Options { secret: string }',
+    },
+    (root) =>
+      expect(inspectArchitecture(root).map((item) => item.rule)).toContain('runtime-boundary'),
+  )
+})
+
+it('production SQL storage rule does not reject ESLint source overrides for test fixtures', () => {
+  fixture(
+    {
+      'src/authentication/domain/rule.ts': 'export const allowed = true',
+      'tests/native-storage.test.ts':
+        "import { sql } from 'drizzle-orm'; export const query = sql`SELECT 1`",
+    },
+    (root) => {
+      const file = path.join(root, 'tests/native-storage.test.ts')
+      expect(inspectArchitecture(root, new Map([[file, readFileSync(file, 'utf8')]]))).toEqual([])
+    },
+  )
+})
+
+it.each([
+  ['src/authentication/wiring/run.ts', 'collection-owner-boundary'],
+  ['src/collections/Otp/wiring/run.ts', 'collection-owner-boundary'],
+  ['src/shared/contracts/run.ts', 'shared-owner-boundary'],
+  ['src/exports/client.ts', 'runtime-boundary'],
+  ['src/proxy.ts', 'runtime-boundary'],
+])('protects the configured auth collection owner from %s', (entry, rule) => {
+  fixture(
+    {
+      ['' + entry]: "export type { State } from '@/bridge'",
+      'src/bridge.ts':
+        "export type { State } from './collections/ConfiguredAuthCollection/infrastructure/payload/state'",
+      'src/collections/ConfiguredAuthCollection/infrastructure/payload/state.ts':
+        'export interface State { id: string }',
+    },
+    (root) => expect(inspectArchitecture(root).map((item) => item.rule)).toContain(rule),
+  )
+})
+it('configured auth collection state cannot depend back on authentication even through a portable seam', () => {
+  fixture(
+    {
+      'src/collections/ConfiguredAuthCollection/infrastructure/payload/store.ts':
+        "export type { State } from '@/bridge'",
+      'src/bridge.ts': "export type { State } from './authentication/application'",
+      'src/authentication/application.ts': 'export interface State { id: string }',
+    },
+    (root) =>
+      expect(inspectArchitecture(root).map((item) => item.rule)).toContain(
+        'collection-workflow-boundary',
+      ),
+  )
+})
+it('authentication may compose the explicit configured collection server and portable seams', () => {
+  fixture(
+    {
+      'src/authentication/wiring/run.ts':
+        "export { run } from '../../collections/ConfiguredAuthCollection/index'",
+      'src/authentication/application/run.ts':
+        "export type { State } from '../../collections/ConfiguredAuthCollection/domain'",
+      'src/collections/ConfiguredAuthCollection/index.ts':
+        "export { run } from './infrastructure/payload/store'",
+      'src/collections/ConfiguredAuthCollection/infrastructure/payload/store.ts':
+        'export const run = () => 1',
+      'src/collections/ConfiguredAuthCollection/domain.ts':
+        "export type { State } from './domain/state'",
+      'src/collections/ConfiguredAuthCollection/domain/state.ts':
+        'export interface State { id: string }',
+    },
+    (root) => expect(inspectArchitecture(root)).toEqual([]),
+  )
+})
+it.each(['domain/rule.ts', 'application/run.ts', 'infrastructure/payload/run.ts'])(
+  'configured auth collection SQL drivers remain restricted to storage seams: %s',
+  (entry) =>
+    fixture(
+      {
+        ['src/collections/ConfiguredAuthCollection/' + entry]:
+          "import { sql } from 'drizzle-orm'; export const run = sql`SELECT 1`",
+      },
+      (root) =>
+        expect(inspectArchitecture(root).map((item) => item.rule)).toContain('storage-boundary'),
+    ),
+)
+
+it('all collection owners reject private imports hidden behind foreign barrels', () => {
+  fixture(
+    {
+      'src/collections/Otp/wiring/run.ts': "export type { State } from '@/bridge'",
+      'src/bridge.ts':
+        "export type { State } from './collections/Identities/infrastructure/payload/state'",
+      'src/collections/Identities/infrastructure/payload/state.ts':
+        'export interface State { id: string }',
+    },
+    (root) =>
+      expect(inspectArchitecture(root).map((item) => item.rule)).toContain(
+        'collection-owner-boundary',
+      ),
   )
 })

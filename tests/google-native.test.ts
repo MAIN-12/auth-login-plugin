@@ -4,15 +4,23 @@ import { PgDialect } from 'drizzle-orm/pg-core'
 import {
   resolveGoogleAccount,
   methodPermits,
-} from '../src/auth/infrastructure/payload/googleAccountCommit'
-import { credentialVersion, isCredentialRequest } from '../src/auth/server/credentialRequest'
-import type { DrizzleDatabase } from '../src/auth/server/otpSession'
+} from '../src/authentication/infrastructure/payload/googleAccountCommit'
+import {
+  credentialVersion,
+  isCredentialRequest,
+} from '../src/collections/ConfiguredAuthCollection/infrastructure/payload/credentialRequest'
+import type { DrizzleDatabase } from '../src/shared/infrastructure/payload/nativeTransaction'
 import { publicConfig } from './auth-test-config'
-vi.mock('../src/auth/server/otpSession', async (original) => ({
-  ...(await original<typeof import('../src/auth/server/otpSession')>()),
-  nativeTransaction: (db: DrizzleDatabase, work: (tx: unknown) => Promise<unknown>) =>
-    db.drizzle.transaction(work),
-}))
+vi.mock(
+  '../src/collections/ConfiguredAuthCollection/infrastructure/payload/otpSession',
+  async (original) => ({
+    ...(await original<
+      typeof import('../src/collections/ConfiguredAuthCollection/infrastructure/payload/otpSession')
+    >()),
+    nativeTransaction: (db: DrizzleDatabase, work: (tx: unknown) => Promise<unknown>) =>
+      db.drizzle.transaction(work),
+  }),
+)
 function fixture() {
   const tx = {}
   const record = {
@@ -34,18 +42,27 @@ function fixture() {
     execute: vi.fn(async (args: Parameters<DrizzleDatabase['execute']>[0]) => {
       if (args.sql) {
         const query = dialect.sqlToQuery(args.sql)
-        if (query.sql.includes('auth_login_google_identities')) {
+        if (query.sql.includes('auth_login_identities')) {
           expect(query.sql).not.toContain("sub'quoted")
+          expect(query.params[1]).toBe('google')
           if (query.sql.startsWith('SELECT'))
             return { rows: associated ? [{ account: associated }] : [] }
           expect(args.db).toBe(tx)
           inserts.push(query.params)
-          associated = String(query.params[2])
+          associated = String(query.params[3])
         }
       }
       return { rows: [] }
     }),
-    findOne: vi.fn(async () => ({ ...record })),
+    findOne: vi.fn(async (args: { collection: string }) =>
+      args.collection === 'auth-login-cutovers' ? null : { ...record },
+    ),
+    create: vi.fn(async (args: { collection: string; req: PayloadRequest }) => {
+      expect(args.collection).toBe('auth-login-password-permits')
+      expect(args.req).toBe(req)
+      expect(args.req.transactionID).toBeDefined()
+      return null
+    }),
     updateOne: vi.fn(),
   }
   const create = vi.fn()
@@ -53,6 +70,12 @@ function fixture() {
     user: { ...record, collection: 'customers', _sid: 'sid' },
     payload: {
       db,
+      find: vi.fn(async (args: { collection: string; overrideAccess: boolean; req: unknown }) => {
+        expect(args.collection).toBe('auth-login-identities')
+        expect(args.overrideAccess).toBe(true)
+        expect(args.req).toBe(req)
+        return { docs: associated ? [{ account: associated }] : [] }
+      }),
       create,
       secret: 'test-secret',
       collections: { customers: { config: { auth: { maxLoginAttempts: 0 } } } },
@@ -138,14 +161,14 @@ it('explicit link uses bound collection/sub/account values and real req, then cl
       () => 1000,
     ),
   ).resolves.toMatchObject({ account: { id: 1 } })
-  expect(f.inserts).toEqual([['customers', "sub'quoted", '1']])
+  expect(f.inserts).toEqual([['customers', 'google', "sub'quoted", '1']])
   for (const [args] of f.db.findOne.mock.calls as unknown as [{ req: PayloadRequest }][])
     expect(args.req).toBe(f.req)
   expect(f.db.sessions).toEqual({})
   expect(f.req.transactionID).toBeUndefined()
   expect(isCredentialRequest(f.req)).toBe(false)
 })
-it('matching email cannot auto-link or provision an existing local account', async () => {
+it('external matching email without Workspace authority cannot auto-link or provision a local account', async () => {
   const f = fixture()
   await expect(
     resolveGoogleAccount(
@@ -175,9 +198,7 @@ it('native uniqueness rejection throws once without retrying permit or identity 
   f.db.execute.mockImplementation(async (args) => {
     if (
       args.sql &&
-      new PgDialect()
-        .sqlToQuery(args.sql)
-        .sql.startsWith('INSERT INTO auth_login_google_identities')
+      new PgDialect().sqlToQuery(args.sql).sql.startsWith('INSERT INTO auth_login_identities')
     ) {
       attempts++
       await Promise.resolve()
@@ -216,9 +237,7 @@ it('a rival subject association observed after insert denies the native commit a
     const result = await originalExecute(args)
     if (
       args.sql &&
-      new PgDialect()
-        .sqlToQuery(args.sql)
-        .sql.startsWith('INSERT INTO auth_login_google_identities')
+      new PgDialect().sqlToQuery(args.sql).sql.startsWith('INSERT INTO auth_login_identities')
     )
       f.associate('rival-account')
     return result
@@ -237,3 +256,275 @@ it('a rival subject association observed after insert denies the native commit a
   expect(f.db.sessions).toEqual({})
   expect(isCredentialRequest(f.req)).toBe(false)
 })
+
+it.each([
+  { email: 'owner@gmail.com', hostedDomain: undefined },
+  { email: 'owner@company.com', hostedDomain: 'company.com' },
+])(
+  'authoritative email associates verified local account with signup closed: $email',
+  async ({ email, hostedDomain }) => {
+    const f = fixture()
+    f.record.email = email
+    Object.assign(f.record, { roles: ['superadmin'] })
+    const original = f.req.user
+    const before = { ...f.record }
+    await expect(
+      resolveGoogleAccount(
+        f.req,
+        { ...f.settings, allowSignup: false },
+        { ...f.identity, email, hostedDomain },
+        { ...f.correlation, purpose: 'login', principal: undefined },
+        () => 1000,
+      ),
+    ).resolves.toMatchObject({
+      account: {
+        id: 1,
+        email,
+        _verified: true,
+        hash: 'hash',
+        salt: 'salt',
+        sessions: before.sessions,
+        roles: ['superadmin'],
+      },
+    })
+    expect(f.inserts).toEqual([['customers', 'google', "sub'quoted", '1']])
+    expect(f.record).toEqual(before)
+    expect(f.create).not.toHaveBeenCalled()
+    expect(f.db.updateOne).not.toHaveBeenCalled()
+    expect(f.req.user).toBe(original)
+    expect(f.req.transactionID).toBeUndefined()
+    expect(f.db.sessions).toEqual({})
+  },
+)
+
+it.each([
+  ['different-string', '2'],
+  ['numeric', 1],
+  ['null', null],
+  [
+    'object',
+    {
+      id: 'private-object',
+      toString: () => {
+        throw new Error('must not convert')
+      },
+    },
+  ],
+  ['unsafe-string', 'private@example.com'],
+  ['long-string', 'a'.repeat(129)],
+] as const)(
+  'association conflict rejects %s without disclosing identity data or retaining request state',
+  async (_kind, observed) => {
+    const f = fixture()
+    const originalUser = f.req.user
+    const find = f.req.payload.find
+    vi.mocked(find).mockImplementation(
+      async () =>
+        ({
+          docs: f.inserts.length ? [{ account: observed }] : [],
+        }) as Awaited<ReturnType<typeof find>>,
+    )
+    await expect(
+      resolveGoogleAccount(
+        f.req,
+        f.settings,
+        { ...f.identity, email: f.record.email, hostedDomain: 'example.com' },
+        { ...f.correlation, purpose: 'login', principal: undefined },
+        () => 1000,
+      ),
+    ).rejects.toMatchObject({
+      code: 'AUTH_FAILED',
+      message: 'AUTH_FAILED',
+      reason: 'GOOGLE_ASSOCIATION_CONFLICT',
+      status: 401,
+    })
+    expect(f.create).not.toHaveBeenCalled()
+    expect(f.db.updateOne).not.toHaveBeenCalled()
+    expect(f.req.user).toBe(originalUser)
+    expect(f.req.transactionID).toBeUndefined()
+    expect(f.db.sessions).toEqual({})
+    expect(isCredentialRequest(f.req)).toBe(false)
+  },
+)
+
+it('a stale association with missing native accounts still rejects a rival post-association owner', async () => {
+  const f = fixture()
+  const originalUser = f.req.user
+  const findOne = f.db.findOne.getMockImplementation()!
+  f.db.findOne.mockImplementation(async (args) => {
+    const where = (args as { where?: { id?: unknown } }).where
+    if (args.collection === 'customers' && where?.id && !f.inserts.length) return undefined as never
+    return findOne(args)
+  })
+  const find = f.req.payload.find
+  vi.mocked(find).mockImplementation(
+    async () =>
+      ({
+        docs: [{ account: f.inserts.length ? '2' : '1' }],
+      }) as Awaited<ReturnType<typeof find>>,
+  )
+  await expect(
+    resolveGoogleAccount(
+      f.req,
+      f.settings,
+      { ...f.identity, email: f.record.email, hostedDomain: 'example.com' },
+      { ...f.correlation, purpose: 'login', principal: undefined },
+      () => 1000,
+    ),
+  ).rejects.toMatchObject({ reason: 'GOOGLE_ASSOCIATION_CONFLICT' })
+  expect(f.req.user).toBe(originalUser)
+  expect(f.req.transactionID).toBeUndefined()
+  expect(f.db.sessions).toEqual({})
+  expect(isCredentialRequest(f.req)).toBe(false)
+})
+it.each(['unverified', 'deleted', 'locked', 'unverified-google', 'external-email'])(
+  'autolink refuses %s before identity writes',
+  async (kind) => {
+    const f = fixture()
+    f.record.email = 'owner@gmail.com'
+    if (kind === 'unverified') f.record._verified = false
+    if (kind === 'deleted') Object.assign(f.record, { deletedAt: new Date().toISOString() })
+    if (kind === 'locked') {
+      Object.assign(f.record, {
+        lockUntil: new Date(Date.now() + 60000).toISOString(),
+        loginAttempts: 10,
+      })
+      f.req.payload.collections.customers.config.auth.maxLoginAttempts = 5
+    }
+    await expect(
+      resolveGoogleAccount(
+        f.req,
+        f.settings,
+        {
+          ...f.identity,
+          email: kind === 'external-email' ? 'owner@outlook.com' : f.record.email,
+          emailVerified: kind !== 'unverified-google',
+        },
+        { ...f.correlation, purpose: 'login', principal: undefined },
+        () => 1000,
+      ),
+    ).rejects.toThrow()
+    expect(f.inserts).toEqual([])
+    expect(f.db.updateOne).not.toHaveBeenCalled()
+    expect(f.create).not.toHaveBeenCalled()
+    expect(f.req.transactionID).toBeUndefined()
+  },
+)
+it.each(['subject-owner', 'account-provider', 'credential-change'])(
+  'autolink rejects %s conflict without provisioning or altering credentials',
+  async (kind) => {
+    const f = fixture()
+    f.record.email = 'owner@gmail.com'
+    const execute = f.db.execute.getMockImplementation()!
+    f.db.execute.mockImplementation(async (args) => {
+      if (
+        args.sql &&
+        new PgDialect().sqlToQuery(args.sql).sql.startsWith('INSERT INTO auth_login_identities')
+      ) {
+        if (kind === 'account-provider') throw new Error('account provider unique conflict')
+        const result = await execute(args)
+        if (kind === 'subject-owner') f.associate('rival-account')
+        if (kind === 'credential-change') f.record.hash = 'changed'
+        return result
+      }
+      return execute(args)
+    })
+    await expect(
+      resolveGoogleAccount(
+        f.req,
+        f.settings,
+        { ...f.identity, email: f.record.email },
+        { ...f.correlation, purpose: 'login', principal: undefined },
+        () => 1000,
+      ),
+    ).rejects.toThrow(
+      kind === 'account-provider' ? 'account provider unique conflict' : 'AUTH_FAILED',
+    )
+    expect(f.create).not.toHaveBeenCalled()
+    expect(f.db.updateOne).not.toHaveBeenCalled()
+    expect(f.req.transactionID).toBeUndefined()
+    expect(f.db.sessions).toEqual({})
+  },
+)
+it('native lockout is reported as account login denial without changing permission checks', async () => {
+  const f = fixture()
+  f.record.email = 'owner@main12.com'
+  Object.assign(f.record, {
+    roles: ['superadmin'],
+    lockUntil: new Date(Date.now() + 60000).toISOString(),
+    loginAttempts: 10,
+  })
+  f.req.payload.collections.customers.config.auth.maxLoginAttempts = 5
+  await expect(
+    resolveGoogleAccount(
+      f.req,
+      f.settings,
+      { ...f.identity, email: f.record.email, hostedDomain: 'main12.com' },
+      { ...f.correlation, purpose: 'login', principal: undefined },
+      () => 1000,
+    ),
+  ).rejects.toMatchObject({
+    code: 'AUTH_FAILED',
+    reason: 'ACCOUNT_LOGIN_DENIED',
+    message: 'AUTH_FAILED',
+  })
+  expect(f.inserts).toEqual([])
+})
+
+it.each([
+  ['missing', 'ACCOUNT_NOT_FOUND'],
+  ['email', 'ACCOUNT_EMAIL_CHANGED'],
+  ['deleted', 'ACCOUNT_UNAVAILABLE'],
+  ['verification', 'ACCOUNT_NOT_VERIFIED'],
+  ['credentials', 'ACCOUNT_CREDENTIALS_CHANGED'],
+  ['association-missing', 'GOOGLE_ASSOCIATION_NOT_PERSISTED'],
+  ['association-owner', 'GOOGLE_ASSOCIATION_CONFLICT'],
+] as const)(
+  'Workspace login identifies the exact post-association %s failure',
+  async (kind, reason) => {
+    const f = fixture()
+    f.record.email = 'owner@main12.com'
+    Object.assign(f.record, { roles: ['superadmin'] })
+    const original = f.req.user
+    const before = { ...f.record }
+    const findOne = f.db.findOne.getMockImplementation()!
+    f.db.findOne.mockImplementation(async (args) => {
+      if (args.collection === 'customers' && f.inserts.length) {
+        if (kind === 'missing') return null
+        return {
+          ...f.record,
+          ...(kind === 'email' ? { email: 'changed@main12.com' } : {}),
+          ...(kind === 'deleted' ? { deletedAt: new Date(1000).toISOString() } : {}),
+          ...(kind === 'verification' ? { _verified: false } : {}),
+          ...(kind === 'credentials' ? { hash: 'changed' } : {}),
+        }
+      }
+      return findOne(args)
+    })
+    const find = f.req.payload.find
+    vi.mocked(find).mockImplementation(
+      async () =>
+        ({
+          docs:
+            !f.inserts.length || kind === 'association-missing'
+              ? []
+              : [{ account: kind === 'association-owner' ? 'rival' : '1' }],
+        }) as Awaited<ReturnType<typeof find>>,
+    )
+    await expect(
+      resolveGoogleAccount(
+        f.req,
+        { ...f.settings, allowSignup: false },
+        { ...f.identity, email: f.record.email, hostedDomain: 'main12.com' },
+        { ...f.correlation, purpose: 'login', principal: undefined },
+        () => 1000,
+      ),
+    ).rejects.toMatchObject({ code: 'AUTH_FAILED', reason, status: 401 })
+    expect(f.record).toEqual(before)
+    expect(f.create).not.toHaveBeenCalled()
+    expect(f.db.updateOne).not.toHaveBeenCalled()
+    expect(f.req.user).toBe(original)
+    expect(f.req.transactionID).toBeUndefined()
+    expect(f.db.sessions).toEqual({})
+  },
+)

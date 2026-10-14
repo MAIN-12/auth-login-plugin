@@ -6,8 +6,11 @@ import {
   guardCredentialIntent,
   observeCredentialWrite,
   assertCredentialIntent,
-} from '../src/auth/server/credentialIntent'
-import { credentialRequests, isCredentialRequest } from '../src/auth/server/credentialRequest'
+} from '../src/collections/ConfiguredAuthCollection/infrastructure/payload/credentialIntent'
+import {
+  credentialRequests,
+  isCredentialRequest,
+} from '../src/collections/ConfiguredAuthCollection/infrastructure/payload/credentialRequest'
 
 const active: PayloadRequest[] = []
 function fixture() {

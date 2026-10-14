@@ -39,6 +39,7 @@ export default buildConfig({
     },
   ],
   db: sqliteAdapter({
+    push: false,
     client: { url: 'file:./dev.db' },
   }),
   editor: lexicalEditor(),

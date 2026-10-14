@@ -10,7 +10,7 @@ import {
 } from '../../../contexts/AuthAppearanceContext'
 import { AuthCardShell, FormRenderer } from './collaborators'
 
-export type { AuthCardTheme } from '../../../auth/contracts/publicConfig'
+export type { AuthCardTheme } from '../../../shared/contracts/publicConfig'
 
 export interface AuthCardConfig extends AuthPresentationProps {
   cardClassName?: string

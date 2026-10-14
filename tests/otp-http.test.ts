@@ -23,6 +23,11 @@ const options = {
   providers: { google: false as const },
   allowSignup: false,
   recovery: false,
+  admin: {
+    authorize: ({ req }: { req: import('payload').PayloadRequest }) =>
+      adminEligible.has(String(req.user?.email)),
+    collections: [],
+  },
   otp: {
     secret: 'test-dedicated-otp-key-32-characters-long',
     origin: () => 'trusted-peer',
@@ -74,7 +79,8 @@ beforeAll(async () => {
       telemetry: false,
     })
     const key = `otp-http-${i}`
-    instances.push({ payload: await getPayload({ config, key }), config, key })
+    const payload = await getPayload({ config, key })
+    instances.push({ payload, config, key })
   }
   for (const email of [
     'user@example.com',
@@ -247,8 +253,8 @@ it('sanitizes mail branding and contracts, rejects other purpose/context, and ho
   expect(denied.status).toBe(401)
   expect(await denied.json()).toEqual({ success: false, code: 'AUTH_FAILED' })
   expect(denied.headers.get('set-cookie')).toBeNull()
-  for (const path of ['/auth-login-otp-security', '/auth_login_otp_security'])
-    expect((await request(0, path)).status).toBe(404)
+  expect((await request(0, '/auth-login-otp-security')).status).toBe(501)
+  expect((await request(0, '/auth_login_otp_security')).status).toBe(404)
 })
 it('overlapping password login and OTP login preserve both sessions instead of overwriting native arrays', async () => {
   for (let round = 0; round < 3; round++) {
@@ -311,7 +317,7 @@ it('overlapping OTP, refresh and logout never resurrect revoked native sessions'
   expect((await request(1, '/customers/refresh-token', {}, revokedCookie)).status).toBe(401)
 })
 
-it('OTP cannot bypass native locks, unverified accounts or admin-only eligibility', async () => {
+it('OTP cannot bypass native locks or unverified accounts, but permits existing admins', async () => {
   for (let i = 0; i < 2; i++)
     expect(
       (
@@ -321,7 +327,7 @@ it('OTP cannot bypass native locks, unverified accounts or admin-only eligibilit
         })
       ).status,
     ).toBe(401)
-  for (const email of ['locked@example.com', 'unverified@example.com', 'admin@example.com']) {
+  for (const email of ['locked@example.com', 'unverified@example.com']) {
     const sent = await send(email)
     const otp = code()
     const denied = await request(1, '/access/otp/verify', {
@@ -343,6 +349,22 @@ it('OTP cannot bypass native locks, unverified accounts or admin-only eligibilit
     ).status,
   ).toBe(200)
 })
+it('existing admin authenticates by OTP and receives native admin permission', async () => {
+  const sent = await send('admin@example.com')
+  const login = await request(1, '/access/otp/verify', {
+    email: 'admin@example.com',
+    purpose: 'login',
+    context: sent.context,
+    otp: code(),
+  })
+  expect(login.status).toBe(200)
+  const cookie = login.headers.get('set-cookie')!.split(';')[0]
+  expect((await (await request(0, '/customers/me', undefined, cookie)).json()).user.email).toBe(
+    'admin@example.com',
+  )
+  expect((await (await request(0, '/access', undefined, cookie)).json()).canAccessAdmin).toBe(true)
+})
+
 it('logout-all revokes every preexisting session without stale-write resurrection during OTP overlap', async () => {
   now += 60_000
   const prior = await Promise.all(
@@ -372,7 +394,7 @@ it('logout-all revokes every preexisting session without stale-write resurrectio
   // Overlapping newly authorized OTP may legally linearize after logout-all; old tokens never revive.
 })
 
-it('signed OTP method survives refresh and denies native admin eligibility changes on later requests', async () => {
+it('signed OTP method survives refresh while current permissions independently decide admin access', async () => {
   const sent = await send('dynamic@example.com')
   const otp = code()
   const login = await request(0, '/access/otp/verify', {
@@ -390,11 +412,19 @@ it('signed OTP method survives refresh and denies native admin eligibility chang
   for (const tokenCookie of [cookie, refreshedCookie]) {
     expect(
       (await (await request(0, '/customers/me', undefined, tokenCookie)).json()).user,
-    ).toBeNull()
-    expect((await request(1, '/customers/refresh-token', {}, tokenCookie)).status).toBe(401)
-    const administrative = await request(1, '/customers/access', undefined, tokenCookie)
-    expect(administrative.status).toBe(403)
+    ).toMatchObject({ email: 'dynamic@example.com' })
+    expect((await request(1, '/customers/refresh-token', {}, tokenCookie)).status).toBe(200)
+    const administrative = await request(1, '/access', undefined, tokenCookie)
+    expect(administrative.status).toBe(200)
+    expect((await administrative.json()).canAccessAdmin).toBe(true)
   }
+  adminEligible.delete('dynamic@example.com')
+  const deniedAccess = await request(1, '/access', undefined, refreshedCookie)
+  expect(deniedAccess.status).toBe(200)
+  expect(Boolean((await deniedAccess.json()).canAccessAdmin)).toBe(false)
+  expect(
+    (await (await request(0, '/customers/me', undefined, refreshedCookie)).json()).user.email,
+  ).toBe('dynamic@example.com')
 })
 
 it('real HTTP OTP issued before email reassignment cannot authenticate the replacement account', async () => {
@@ -512,10 +542,6 @@ it('logs sanitized OTP unavailability when real generation storage fails before 
     events.push(event)
     if (loggerFails) throw new Error('private logger failure')
   }) as typeof originalInfo
-  await db.execute({
-    db: db.drizzle,
-    raw: 'CREATE TABLE IF NOT EXISTS auth_login_cutovers (collection TEXT PRIMARY KEY, generation TEXT NOT NULL)',
-  })
   await db.execute({
     db: db.drizzle,
     raw: 'ALTER TABLE auth_login_cutovers RENAME TO fixture_preserved_cutovers',
