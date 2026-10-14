@@ -298,9 +298,9 @@ it.each([
 )
 
 it.each([
-  ['different-string', '2', 'string', '2', false],
-  ['numeric', 1, 'number', 1, true],
-  ['null', null, 'null', undefined, false],
+  ['different-string', '2'],
+  ['numeric', 1],
+  ['null', null],
   [
     'object',
     {
@@ -309,18 +309,14 @@ it.each([
         throw new Error('must not convert')
       },
     },
-    'object',
-    undefined,
-    false,
   ],
-  ['unsafe-string', 'private@example.com', 'string', undefined, false],
-  ['long-string', 'a'.repeat(129), 'string', undefined, false],
+  ['unsafe-string', 'private@example.com'],
+  ['long-string', 'a'.repeat(129)],
 ] as const)(
-  'association conflict logs a safe tagged snapshot for %s',
-  async (_kind, observed, type, safeID, convertedMatch) => {
+  'association conflict rejects %s without disclosing identity data or retaining request state',
+  async (_kind, observed) => {
     const f = fixture()
-    const info = vi.fn()
-    f.req.payload.logger = { info } as unknown as PayloadRequest['payload']['logger']
+    const originalUser = f.req.user
     const find = f.req.payload.find
     vi.mocked(find).mockImplementation(
       async () =>
@@ -336,97 +332,24 @@ it.each([
         { ...f.correlation, purpose: 'login', principal: undefined },
         () => 1000,
       ),
-    ).rejects.toMatchObject({ reason: 'GOOGLE_ASSOCIATION_CONFLICT' })
-    expect(info).toHaveBeenCalledTimes(1)
-    expect(info).toHaveBeenCalledWith({
-      event: '[DEBUG-google-association]',
-      lookups: [
-        {
-          phase: 'initial',
-          associationFound: false,
-          associationAccountType: 'undefined',
-          nativeAccountFound: false,
-          nativeAccountIdType: 'undefined',
-          matchesExpected: false,
-          matchesAfterStringConversion: false,
-        },
-        {
-          phase: 'locked',
-          associationFound: false,
-          associationAccountType: 'undefined',
-          nativeAccountFound: false,
-          nativeAccountIdType: 'undefined',
-          matchesExpected: false,
-          matchesAfterStringConversion: false,
-        },
-        {
-          phase: 'post-association',
-          associationFound: true,
-          associationAccountType: type,
-          nativeAccountFound: true,
-          nativeAccountIdType: 'number',
-          expectedAccountId: 1,
-          ...(safeID === undefined ? {} : { observedAssociationAccount: safeID }),
-          matchesExpected: false,
-          matchesAfterStringConversion: convertedMatch,
-        },
-      ],
+    ).rejects.toMatchObject({
+      code: 'AUTH_FAILED',
+      message: 'AUTH_FAILED',
+      reason: 'GOOGLE_ASSOCIATION_CONFLICT',
+      status: 401,
     })
-    expect(JSON.stringify(info.mock.calls)).not.toMatch(
-      /private|owner|sub|hash|salt|nonce|verifier/,
-    )
+    expect(f.create).not.toHaveBeenCalled()
+    expect(f.db.updateOne).not.toHaveBeenCalled()
+    expect(f.req.user).toBe(originalUser)
     expect(f.req.transactionID).toBeUndefined()
     expect(f.db.sessions).toEqual({})
+    expect(isCredentialRequest(f.req)).toBe(false)
   },
 )
 
-it('a throwing diagnostic logger cannot change association-conflict rejection or cleanup', async () => {
+it('a stale association with missing native accounts still rejects a rival post-association owner', async () => {
   const f = fixture()
-  const info = vi.fn(() => {
-    throw new Error('private logger failure')
-  })
-  f.req.payload.logger = { info } as unknown as PayloadRequest['payload']['logger']
-  const find = f.req.payload.find
-  vi.mocked(find).mockImplementation(
-    async () =>
-      ({
-        docs: f.inserts.length ? [{ account: '2' }] : [],
-      }) as Awaited<ReturnType<typeof find>>,
-  )
-  await expect(
-    resolveGoogleAccount(
-      f.req,
-      f.settings,
-      { ...f.identity, email: f.record.email, hostedDomain: 'example.com' },
-      { ...f.correlation, purpose: 'login', principal: undefined },
-      () => 1000,
-    ),
-  ).rejects.toMatchObject({ reason: 'GOOGLE_ASSOCIATION_CONFLICT' })
-  expect(info).toHaveBeenCalledTimes(1)
-  expect(f.req.transactionID).toBeUndefined()
-  expect(f.db.sessions).toEqual({})
-})
-
-it('successful association stays quiet while the temporary conflict probe is installed', async () => {
-  const f = fixture()
-  const info = vi.fn()
-  f.req.payload.logger = { info } as unknown as PayloadRequest['payload']['logger']
-  await expect(
-    resolveGoogleAccount(
-      f.req,
-      f.settings,
-      { ...f.identity, email: f.record.email, hostedDomain: 'example.com' },
-      { ...f.correlation, purpose: 'login', principal: undefined },
-      () => 1000,
-    ),
-  ).resolves.toMatchObject({ account: { id: 1 } })
-  expect(info).not.toHaveBeenCalled()
-})
-
-it('the conflict snapshot treats undefined initial and locked native accounts as missing', async () => {
-  const f = fixture()
-  const info = vi.fn()
-  f.req.payload.logger = { info } as unknown as PayloadRequest['payload']['logger']
+  const originalUser = f.req.user
   const findOne = f.db.findOne.getMockImplementation()!
   f.db.findOne.mockImplementation(async (args) => {
     const where = (args as { where?: { id?: unknown } }).where
@@ -449,26 +372,10 @@ it('the conflict snapshot treats undefined initial and locked native accounts as
       () => 1000,
     ),
   ).rejects.toMatchObject({ reason: 'GOOGLE_ASSOCIATION_CONFLICT' })
-  expect(info).toHaveBeenCalledWith({
-    event: '[DEBUG-google-association]',
-    lookups: [
-      expect.objectContaining({
-        phase: 'initial',
-        nativeAccountFound: false,
-        nativeAccountIdType: 'undefined',
-      }),
-      expect.objectContaining({
-        phase: 'locked',
-        nativeAccountFound: false,
-        nativeAccountIdType: 'undefined',
-      }),
-      expect.objectContaining({
-        phase: 'post-association',
-        nativeAccountFound: true,
-        nativeAccountIdType: 'number',
-      }),
-    ],
-  })
+  expect(f.req.user).toBe(originalUser)
+  expect(f.req.transactionID).toBeUndefined()
+  expect(f.db.sessions).toEqual({})
+  expect(isCredentialRequest(f.req)).toBe(false)
 })
 it.each(['unverified', 'deleted', 'locked', 'unverified-google', 'external-email'])(
   'autolink refuses %s before identity writes',

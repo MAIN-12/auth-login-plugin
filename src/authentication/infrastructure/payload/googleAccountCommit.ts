@@ -40,47 +40,6 @@ function checkAccountLoginPermission(input: Parameters<typeof checkLoginPermissi
 }
 type User = NonNullable<PayloadRequest['user']>
 
-/** TEMPORARY [DEBUG-google-association]: local IDs only; never stringify unknown objects. */
-function safeDiagnosticID(value: unknown): string | number | undefined {
-  if (typeof value === 'number')
-    return Number.isSafeInteger(value) && value >= 0 ? value : undefined
-  return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(value)
-    ? value
-    : undefined
-}
-function associationSnapshot(
-  phase: 'initial' | 'locked' | 'post-association',
-  association: unknown,
-  account: User | null,
-) {
-  const expected = account?.id
-  const expectedID = safeDiagnosticID(expected)
-  const observedID = safeDiagnosticID(association)
-  const primitiveExpected = typeof expected === 'string' || typeof expected === 'number'
-  const primitiveObserved = typeof association === 'string' || typeof association === 'number'
-  return {
-    phase,
-    associationFound: association !== undefined,
-    associationAccountType: association === null ? 'null' : typeof association,
-    nativeAccountFound: account != null,
-    nativeAccountIdType: expected === null ? 'null' : typeof expected,
-    ...(expectedID === undefined ? {} : { expectedAccountId: expectedID }),
-    ...(observedID === undefined ? {} : { observedAssociationAccount: observedID }),
-    matchesExpected: primitiveExpected && association === String(expected),
-    matchesAfterStringConversion:
-      primitiveExpected && primitiveObserved && String(association) === String(expected),
-  }
-}
-function logAssociationConflict(
-  req: PayloadRequest,
-  lookups: ReturnType<typeof associationSnapshot>[],
-) {
-  try {
-    req.payload.logger?.info?.({ event: '[DEBUG-google-association]', lookups })
-  } catch {
-    // TEMPORARY [DEBUG-google-association]: probes cannot change rejection or rollback.
-  }
-}
 export async function methodPermits(
   req: PayloadRequest,
   settings: PublicAuthConfig,
@@ -112,7 +71,6 @@ export async function resolveGoogleAccount(
   let linked = associated
     ? await findNativeAccountById<User>(req, settings.collection, associated)
     : null
-  const initialLookup = associationSnapshot('initial', associated, linked)
   const email = correlation.principal?.email ?? linked?.email ?? identity.email
   if (typeof email !== 'string' || !email)
     throw new AuthFailure('AUTH_FAILED', 401, 'GOOGLE_IDENTITY_REJECTED')
@@ -123,7 +81,6 @@ export async function resolveGoogleAccount(
       linked = accountID
         ? await findNativeAccountById<User>(req, settings.collection, accountID)
         : null
-      const lockedLookup = associationSnapshot('locked', accountID, linked)
       if (correlation.purpose !== 'login') {
         const principal = correlation.principal
         if (
@@ -260,13 +217,7 @@ export async function resolveGoogleAccount(
           'google',
           identity.sub,
         )
-        if (committedAssociation !== String(emailAccount.id)) {
-          if (committedAssociation !== undefined)
-            logAssociationConflict(req, [
-              initialLookup,
-              lockedLookup,
-              associationSnapshot('post-association', committedAssociation, committed),
-            ])
+        if (committedAssociation !== String(emailAccount.id))
           throw new AuthFailure(
             'AUTH_FAILED',
             401,
@@ -274,7 +225,6 @@ export async function resolveGoogleAccount(
               ? 'GOOGLE_ASSOCIATION_NOT_PERSISTED'
               : 'GOOGLE_ASSOCIATION_CONFLICT',
           )
-        }
         checkAccountLoginPermission({ req, user: committed })
         return { account: committed }
       }
