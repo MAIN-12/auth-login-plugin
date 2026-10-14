@@ -14,6 +14,7 @@ import {
   passwordReauthentication,
   commitEmailVerification,
   grantOwnershipPermit,
+  type PasswordCommitStage,
 } from '../infrastructure/payload/passwordAdapter'
 import { renderOtpEmail } from '../infrastructure/payload/otpEmail'
 import { selectEmailLocale } from '../../shared/domain/emailPresentation'
@@ -31,6 +32,14 @@ export function createOwnershipScope(
   options = captureOptions(options)
   let active = true
   let used = false
+  let completionStage:
+    | PasswordCommitStage
+    | 'completion-policy'
+    | 'permit-generation-read'
+    | 'permit-read'
+    | 'generation-check'
+    | 'principal-check'
+    | undefined
   let receipt: Awaited<ReturnType<typeof commitPassword>> | undefined
   const principal =
     req.user?.collection === settings.collection
@@ -77,7 +86,12 @@ export function createOwnershipScope(
             if (permit.purpose === 'reauth') assertPrincipal()
           },
         ),
-      read: async (purpose, encoded) => (await codec()).read(purpose, encoded),
+      read: async (purpose, encoded) => {
+        if (completionStage) completionStage = 'permit-generation-read'
+        const permits = await codec()
+        if (completionStage) completionStage = 'permit-read'
+        return permits.read(purpose, encoded)
+      },
     },
     commit: async (permit, password) => {
       if (permitGeneration === undefined) throw new AuthOperationFailure('AUTH_FAILED')
@@ -90,9 +104,20 @@ export function createOwnershipScope(
         options?.now,
         assertPublicAccount,
         async () => {
+          const previousStage = completionStage
+          if (completionStage) completionStage = 'generation-check'
           await assertCurrent(generation)
-          if (permit.purpose === 'reauth') assertPrincipal()
+          if (permit.purpose === 'reauth') {
+            if (completionStage) completionStage = 'principal-check'
+            assertPrincipal()
+          }
+          completionStage = previousStage
         },
+        completionStage
+          ? (stage) => {
+              completionStage = stage
+            }
+          : undefined,
       )
       return { success: true }
     },
@@ -162,7 +187,11 @@ export function createOwnershipScope(
     send: (input: Parameters<typeof policy.send>[0], origin: string | null) =>
       run(() => policy.send(input, origin)),
     verify: (input: Parameters<typeof policy.verify>[0]) => run(() => policy.verify(input)),
-    complete: (...args: Parameters<typeof policy.complete>) => run(() => policy.complete(...args)),
+    complete: (...args: Parameters<typeof policy.complete>) => {
+      if (args[0] !== 'signup') completionStage = 'completion-policy'
+      return run(() => policy.complete(...args))
+    },
+    diagnosticStage: () => completionStage,
     reauthenticate: (input: Parameters<typeof policy.reauthenticate>[0]) =>
       run(() => policy.reauthenticate(input)),
     takeReceipt: () => {

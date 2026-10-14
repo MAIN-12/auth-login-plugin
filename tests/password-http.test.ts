@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, expect, it } from 'vitest'
+import { afterAll, beforeAll, expect, it, vi } from 'vitest'
 import { buildConfig, getPayload, handleEndpoints, type Payload } from 'payload'
 import { sqliteAdapter } from '@payloadcms/db-sqlite'
 import { mkdtemp, rm } from 'node:fs/promises'
@@ -295,4 +295,104 @@ it('public native provisioning checks stored Admin eligibility even when afterRe
       })
     ).status,
   ).toBe(200)
+})
+
+it('temporary password failure diagnostics contain only the fixed stage and existing correlation', async () => {
+  const info = vi.spyOn(payload.logger, 'info')
+  const diagnostic = () =>
+    info.mock.calls
+      .map(([entry]) => entry as unknown as Record<string, unknown>)
+      .filter(
+        (entry) => entry?.event === '[DEBUG-password-authority] auth.password-completion.failed',
+      )
+  try {
+    const malformed = await request('/auth/reset-password', {
+      permit: 'fixture-opaque-invalid-permit',
+      password: 'fixture owner selected password phrase',
+    })
+    expect(malformed.status).toBe(401)
+    expect(await malformed.json()).toEqual({ success: false, code: 'AUTH_FAILED' })
+    expect(diagnostic()).toEqual([
+      {
+        event: '[DEBUG-password-authority] auth.password-completion.failed',
+        correlation: malformed.headers.get('X-Auth-Request-ID'),
+        stage: 'permit-read',
+      },
+    ])
+    const signup = await verify('diagnostic-owner@example.test', 'signup')
+    expect(
+      (
+        await request('/auth/signup', {
+          permit: signup.permit,
+          password: 'fixture original owner password phrase',
+        })
+      ).status,
+    ).toBe(200)
+    const recovery = await verify('diagnostic-owner@example.test', 'recovery')
+    failChange = true
+    const hookFailure = await request('/auth/reset-password', {
+      permit: recovery.permit,
+      password: 'fixture replacement owner password phrase',
+    })
+    failChange = false
+    expect(hookFailure.status).toBe(401)
+    expect(await hookFailure.json()).toEqual({ success: false, code: 'AUTH_FAILED' })
+    expect(diagnostic()[1]).toEqual({
+      event: '[DEBUG-password-authority] auth.password-completion.failed',
+      correlation: hookFailure.headers.get('X-Auth-Request-ID'),
+      stage: 'native-password-write',
+    })
+    expect(
+      (
+        await request('/auth/reset-password', {
+          permit: recovery.permit,
+          password: 'fixture replacement owner password phrase',
+        })
+      ).status,
+    ).toBe(200)
+    expect(diagnostic()).toHaveLength(2)
+    for (const entry of diagnostic()) {
+      expect(Object.keys(entry).sort()).toEqual(['correlation', 'event', 'stage'])
+      expect(entry.correlation).toMatch(/^[a-f0-9-]{36}$/)
+    }
+  } finally {
+    failChange = false
+    info.mockRestore()
+  }
+})
+
+it('temporary set-password diagnostics report admission without exposing submitted credentials', async () => {
+  const info = vi.spyOn(payload.logger, 'info')
+  try {
+    const response = await request('/auth/set-password', {
+      permit: 'fixture-opaque-reauth-permit',
+      password: 'fixture replacement owner password phrase',
+    })
+    expect(response.status).toBe(403)
+    expect(await response.json()).toEqual({ success: false, code: 'METHOD_DISABLED' })
+    expect(info).toHaveBeenCalledWith({
+      event: '[DEBUG-password-authority] auth.password-completion.failed',
+      correlation: response.headers.get('X-Auth-Request-ID'),
+      stage: 'admission',
+    })
+  } finally {
+    info.mockRestore()
+  }
+})
+
+it('temporary diagnostic logger failures never replace the existing password rejection', async () => {
+  const info = vi.spyOn(payload.logger, 'info').mockImplementation(() => {
+    throw new Error('fixture unavailable logger')
+  })
+  try {
+    const response = await request('/auth/reset-password', {
+      permit: 'fixture-opaque-invalid-permit',
+      password: 'fixture owner selected password phrase',
+    })
+    expect(response.status).toBe(401)
+    expect(await response.json()).toEqual({ success: false, code: 'AUTH_FAILED' })
+    expect(response.headers.get('X-Auth-Request-ID')).toMatch(/^[a-f0-9-]{36}$/)
+  } finally {
+    info.mockRestore()
+  }
 })

@@ -39,6 +39,24 @@ import {
 
 type User = NonNullable<PayloadRequest['user']>
 type Session = { id: string; createdAt: string | Date; expiresAt: string | Date }
+/** Temporary diagnostics: fixed stage names only; never pass credential/account values. */
+export type PasswordCommitStage =
+  | 'credential-transaction'
+  | 'permit-consume'
+  | 'account-read'
+  | 'account-version'
+  | 'account-password-material'
+  | 'principal-binding'
+  | 'session-cap'
+  | 'login-permission'
+  | 'credential-intent'
+  | 'native-password-write'
+  | 'credential-readback'
+  | 'credential-evidence'
+  | 'session-revocation'
+  | 'session-rotation'
+  | 'session-sign'
+
 export async function commitPassword(
   req: PayloadRequest,
   collection: string,
@@ -47,12 +65,16 @@ export async function commitPassword(
   now: () => number = Date.now,
   assertPublicAccount?: (req: PayloadRequest) => Promise<void>,
   assertCurrent?: () => Promise<void>,
+  diagnosticStage?: (stage: PasswordCommitStage) => void,
 ): Promise<{ success: boolean; token?: string; exp?: number }> {
   const originalUser = req.user
   try {
+    diagnosticStage?.('credential-transaction')
     return await credentialTransaction(req, collection, permit.email, async () => {
       await assertCurrent?.()
+      diagnosticStage?.('permit-consume')
       await consumeMethodPermit(req, permit, now)
+      diagnosticStage?.('account-read')
       const record = (await findNativeAccountByEmail(req, collection, permit.email)) as User | null
       if (permit.purpose === 'signup') {
         if (record || permit.account !== null) throw new AuthFailure('AUTH_FAILED', 401)
@@ -69,6 +91,7 @@ export async function commitPassword(
         await assertCurrent?.()
         return { success: true }
       }
+      diagnosticStage?.('account-version')
       if (
         !record ||
         record.id !== permit.account ||
@@ -77,6 +100,7 @@ export async function commitPassword(
       )
         throw new AuthFailure('AUTH_FAILED', 401)
       if (permit.purpose === 'recovery') {
+        diagnosticStage?.('account-password-material')
         if (
           typeof record.hash !== 'string' ||
           !record.hash ||
@@ -84,15 +108,21 @@ export async function commitPassword(
           !record.salt
         )
           throw new AuthFailure('AUTH_FAILED', 401)
+        diagnosticStage?.('credential-intent')
         beginCredentialIntent(req, permit.email, password)
         // Ownership proof can establish previously unknown email verification, never infer it.
+        diagnosticStage?.('native-password-write')
         await updateAccountPassword(req, collection, record.id, password, true)
+        diagnosticStage?.('credential-readback')
         const fresh = await findNativeAccountById(req, collection, record.id)
+        diagnosticStage?.('credential-evidence')
         assertCredentialIntent(req, fresh, record.id)
+        diagnosticStage?.('session-revocation')
         await persistNativeSessions(req, collection, record.id, fresh, [])
         await assertCurrent?.()
         return { success: true }
       }
+      diagnosticStage?.('principal-binding')
       if (
         !originalUser ||
         originalUser.collection !== collection ||
@@ -101,6 +131,7 @@ export async function commitPassword(
         record._verified !== true
       )
         throw new AuthFailure('AUTH_FAILED', 401)
+      diagnosticStage?.('session-cap')
       const session = (record.sessions as Session[] | undefined)?.find(
         (session) => session.id === permit.sid,
       )
@@ -113,15 +144,22 @@ export async function commitPassword(
         : NaN
       if (!session || !Number.isFinite(cap) || cap <= Date.now())
         throw new AuthFailure('AUTH_FAILED', 401)
+      diagnosticStage?.('login-permission')
       checkLoginPermission({ req, user: record })
+      diagnosticStage?.('credential-intent')
       beginCredentialIntent(req, permit.email, password)
+      diagnosticStage?.('native-password-write')
       await updateAccountPassword(req, collection, record.id, password)
+      diagnosticStage?.('credential-readback')
       const fresh = (await findNativeAccountById(req, collection, record.id)) as User
+      diagnosticStage?.('credential-evidence')
       assertCredentialIntent(req, fresh, record.id)
+      diagnosticStage?.('session-rotation')
       const sid = randomUUID()
       await persistNativeSessions(req, collection, record.id, fresh, [
         { id: sid, createdAt: session.createdAt, expiresAt: new Date(cap) },
       ])
+      diagnosticStage?.('session-sign')
       const signed = await jwtSign({
         fieldsToSign: {
           ...getFieldsToSign({ collectionConfig: config, email: permit.email, sid, user: fresh }),

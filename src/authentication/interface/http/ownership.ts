@@ -19,13 +19,25 @@ import {
 type ScopeFactory = (req: PayloadRequest) => ReturnType<typeof createOwnershipScope>
 const headers = (req: PayloadRequest) =>
   headersWithCors({ headers: new Headers({ 'Cache-Control': 'no-store' }), req })
-function failure(error: unknown, req: PayloadRequest) {
-  return authFailureResponse(
+function failure(error: unknown, req: PayloadRequest, stage?: string) {
+  const response = authFailureResponse(
     error instanceof AuthOperationFailure
       ? new AuthFailure(error.code, authStatus[error.code])
       : error,
     req,
   )
+  if (stage) {
+    try {
+      req.payload.logger.info({
+        event: '[DEBUG-password-authority] auth.password-completion.failed',
+        correlation: response.headers.get('X-Auth-Request-ID'),
+        stage,
+      })
+    } catch {
+      /* Temporary diagnostics cannot affect the original safe failure response. */
+    }
+  }
+  return response
 }
 async function origin(req: PayloadRequest, options?: OtpOptions) {
   try {
@@ -77,13 +89,18 @@ export function passwordEndpoints(
       path: `${settings.authEndpointPrefix}/${path}`,
       method: 'post',
       handler: async (req) => {
+        let scope: ReturnType<ScopeFactory> | undefined
+        let transportStage = 'origin'
         try {
           assertAllowedOrigin(req)
-          const scope = scopeFor(req)
+          transportStage = 'scope'
+          scope = scopeFor(req)
           try {
+            transportStage = 'admission'
             scope.admitCompletion(
               path === 'signup' ? 'signup' : path === 'reset-password' ? 'recovery' : 'reauth',
             )
+            transportStage = 'input'
             const input = parseAuthInterface(passwordCompletionSchema, await readJSON(req))
             await scope.complete(
               path === 'signup' ? 'signup' : path === 'reset-password' ? 'recovery' : 'reauth',
@@ -118,7 +135,11 @@ export function passwordEndpoints(
             scope.dispose()
           }
         } catch (error) {
-          return failure(error, req)
+          return failure(
+            error,
+            req,
+            path === 'signup' ? undefined : (scope?.diagnosticStage() ?? transportStage),
+          )
         }
       },
     })),
