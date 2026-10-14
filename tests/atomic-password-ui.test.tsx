@@ -225,7 +225,11 @@ it.each(['tailwind', 'hero-ui'] as const)(
     const passwords = host.querySelectorAll<HTMLInputElement>('input')
     for (const password of passwords)
       expect(
-        password.classList.contains(style === 'hero-ui' ? 'input--secondary' : 'bg-gray-100'),
+        style === 'hero-ui'
+          ? password
+              .closest('[data-slot="input-group"]')
+              ?.classList.contains('input-group--secondary')
+          : password.classList.contains('bg-gray-100'),
       ).toBe(true)
     await enter(passwords[0], strongPassword)
     await enter(passwords[1], 'mismatch')
@@ -411,7 +415,11 @@ it.each([
     expect(back.getAttribute('href')).toBe('/members/login?redirect=%2Faccount')
     const currentPassword = host.querySelector('input[autocomplete="current-password"]')!
     expect(
-      currentPassword.classList.contains(style === 'hero-ui' ? 'input--secondary' : 'bg-gray-100'),
+      style === 'hero-ui'
+        ? currentPassword
+            .closest('[data-slot="input-group"]')
+            ?.classList.contains('input-group--secondary')
+        : currentPassword.classList.contains('bg-gray-100'),
     ).toBe(true)
     const emailAction = [...host.querySelectorAll('button')].find((button) =>
       button.textContent?.includes('Verificar por correo'),
@@ -421,3 +429,145 @@ it.each([
     ).toBe(true)
   },
 )
+
+it.each(['tailwind', 'hero-ui'] as const)(
+  'validates email inline and gates submit across auth email forms in %s',
+  async (style) => {
+    const request = vi.fn()
+    vi.stubGlobal('fetch', request)
+    for (const slug of ['login', 'signup', 'forgot-password']) {
+      await mount(<AuthPages slug={[slug]} style={style} texture="none" locale="es" />)
+      const input = host.querySelector<HTMLInputElement>('input[type="email"]')!
+      const button = host.querySelector<HTMLButtonElement>('button[type="submit"]')!
+      expect(button.disabled).toBe(true)
+      expect(input.getAttribute('aria-invalid')).toBe('false')
+      await act(async () => input.dispatchEvent(new FocusEvent('focusout', { bubbles: true })))
+      expect(input.getAttribute('aria-invalid')).toBe('true')
+      await enter(input, 'no-es-correo')
+      expect(input.getAttribute('aria-invalid')).toBe('true')
+      const error = document.getElementById(input.getAttribute('aria-describedby')!)!
+      expect(error.textContent).toContain('correo')
+      expect(error.classList.contains('sr-only')).toBe(false)
+      if (style === 'tailwind') expect(input.className).toContain('border-red-500')
+      else {
+        expect(input.getAttribute('style')).toBeNull()
+        expect(error.getAttribute('data-slot')).toBe('field-error')
+      }
+      expect(button.disabled).toBe(true)
+      await submit()
+      expect(request).not.toHaveBeenCalled()
+      expect(host.querySelector('input[type="email"]')).not.toBeNull()
+      await enter(input, 'member@example.test')
+      expect(input.getAttribute('aria-invalid')).toBe('false')
+      expect(button.disabled).toBe(false)
+      await act(async () => root.unmount())
+      host.remove()
+    }
+  },
+)
+
+it.each(['tailwind', 'hero-ui'] as const)(
+  'gates password establishment and marks only invalid password fields in %s',
+  async (style) => {
+    storePasswordProof(config, {
+      purpose: 'signup',
+      permit: 'proof',
+      expiresAt: Date.now() + 900000,
+    })
+    await mount(<SetPasswordPage style={style} texture="none" locale="en" />)
+    const [password, confirmation] = host.querySelectorAll<HTMLInputElement>('input')
+    const button = host.querySelector<HTMLButtonElement>('button[type="submit"]')!
+    expect(button.disabled).toBe(true)
+    await enter(password, 'weak')
+    expect(password.getAttribute('aria-invalid')).toBe('true')
+    expect(button.disabled).toBe(true)
+    await enter(password, strongPassword)
+    await enter(confirmation, 'different')
+    expect(password.getAttribute('aria-invalid')).toBe('false')
+    expect(confirmation.getAttribute('aria-invalid')).toBe('true')
+    expect(button.disabled).toBe(true)
+    await enter(confirmation, strongPassword)
+    expect(confirmation.getAttribute('aria-invalid')).toBe('false')
+    expect(button.disabled).toBe(false)
+  },
+)
+
+it.each(['tailwind', 'hero-ui'] as const)(
+  'uses identical Google button presentation for signup and login in %s',
+  async (style) => {
+    const presentations: string[] = []
+    for (const slug of ['login', 'signup']) {
+      await mount(<AuthPages slug={[slug]} style={style} texture="none" />, {
+        googleOAuthEnabled: true,
+      })
+      const button = [...host.querySelectorAll('button')].find((candidate) =>
+        candidate.textContent?.includes('Google'),
+      )!
+      presentations.push(button.className)
+      await act(async () => root.unmount())
+      host.remove()
+    }
+    expect(presentations[0]).toBe(presentations[1])
+  },
+)
+
+it.each(['tailwind', 'hero-ui'] as const)(
+  'requires an existing password for login and reauthentication without imposing new-password strength in %s',
+  async (style) => {
+    const request = vi.fn(async () =>
+      Response.json({ success: false, code: 'AUTH_FAILED' }, { status: 401 }),
+    )
+    vi.stubGlobal('fetch', request)
+    await mount(<AuthPages slug={['login']} style={style} texture="none" locale="en" />)
+    await enter(host.querySelector('input')!, 'member@example.test')
+    await submit()
+    const password = host.querySelector<HTMLInputElement>('input[type="password"]')!
+    const submitButton = host.querySelector<HTMLButtonElement>('button[type="submit"]')!
+    expect(submitButton.disabled).toBe(true)
+    await submit()
+    expect(request).not.toHaveBeenCalled()
+    await enter(password, 'old')
+    expect(submitButton.disabled).toBe(false)
+    await enter(password, 'x'.repeat(1025))
+    expect(submitButton.disabled).toBe(true)
+    await act(async () => root.unmount())
+    host.remove()
+    await mount(<SetPasswordPage style={style} texture="none" locale="en" />)
+    const reauth = [...host.querySelectorAll<HTMLButtonElement>('button')].find(
+      (button) => button.textContent === 'Reauthenticate',
+    )!
+    expect(reauth.disabled).toBe(true)
+    await enter(host.querySelector('input')!, 'old')
+    expect(reauth.disabled).toBe(false)
+    await act(async () => reauth.click())
+    expect(request).toHaveBeenCalledTimes(1)
+    const input = host.querySelector('input')!
+    expect(input.getAttribute('aria-invalid')).toBe('true')
+    if (style === 'tailwind') expect(input.style.borderColor).toBe('#ef4444')
+    else {
+      expect(input.getAttribute('style')).toBeNull()
+      expect(host.querySelector('[data-invalid="true"]')).not.toBeNull()
+    }
+    await enter(input, 'corrected')
+    expect(input.getAttribute('aria-invalid')).toBe('false')
+  },
+)
+
+import { isAuthEmailValid } from '../src/authentication/interface/react/formValidation'
+import { ownershipSendSchema } from '../src/authentication/interface/http/authSchemas'
+
+it.each([
+  '',
+  'not-email',
+  'user@domain',
+  'user@@example.test',
+  'user name@example.test',
+  'member@example.test',
+  '  member@example.test  ',
+  `${'x'.repeat(242)}@example.test`,
+  `${'x'.repeat(243)}@example.test`,
+])('keeps client email admission aligned with HTTP ownership admission: %j', (email) => {
+  expect(isAuthEmailValid(email)).toBe(
+    ownershipSendSchema.safeParse({ email, purpose: 'signup' }).success,
+  )
+})

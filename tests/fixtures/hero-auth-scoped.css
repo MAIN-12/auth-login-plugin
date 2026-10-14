@@ -1,0 +1,37 @@
+/* Selective host CSS: no full HeroUI import and no global Tailwind reset. */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import '@heroui/styles/themes/shared/theme.css';
+@import '@heroui/styles/themes/default/variables.css';
+@import '@heroui/styles/utilities';
+@import '@heroui/styles/variants';
+.identity-login {
+  @layer base {
+    &,
+    *,
+    ::before,
+    ::after {
+      box-sizing: border-box;
+    }
+    button,
+    input {
+      margin: 0;
+      border: 0 solid;
+      font: inherit;
+    }
+  }
+  @import '@heroui/styles/components/card.css';
+  @import '@heroui/styles/components/button.css';
+  @import '@heroui/styles/components/input.css';
+  @import '@heroui/styles/components/field-error.css';
+  @import '@heroui/styles/components/input-otp.css';
+  @import '@heroui/styles/components/input-group.css';
+  @import '@heroui/styles/components/label.css';
+  @import '@heroui/styles/components/textfield.css';
+  @import '@heroui/styles/components/separator.css';
+  @import '@heroui/styles/components/spinner.css';
+  font-family: Inter, Arial, sans-serif;
+  color: var(--foreground);
+  @tailwind utilities;
+}
+@source '../../src/components';

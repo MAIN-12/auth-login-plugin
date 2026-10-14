@@ -103,7 +103,7 @@ it.each(['tailwind', 'hero-ui'] as const)(
     expect(host.querySelector('[role="alert"]')?.textContent).toBeTruthy()
     expect(
       [...host.querySelectorAll<HTMLInputElement>('input')].map((input) => input.value),
-    ).toEqual(['', '', '', '', '', ''])
+    ).toEqual(style === 'hero-ui' ? [''] : ['', '', '', '', '', ''])
     expect(buttons[1].disabled).toBe(false)
     await enter(host.querySelector('input')!, '654321')
     expect(request).toHaveBeenCalledTimes(2)
@@ -125,6 +125,20 @@ it.each(['tailwind', 'hero-ui'] as const)(
     await mount(<AuthCard slug="verify-otp" style={style} locale="en" />)
     await paste('12345')
     const inputs = host.querySelectorAll<HTMLInputElement>('input')
+    if (style === 'hero-ui') {
+      expect(inputs).toHaveLength(1)
+      expect(document.activeElement).toBe(inputs[0])
+      expect(inputs[0].value).toBe('12345')
+      expect(host.querySelectorAll('[data-slot="input-otp-slot"]')).toHaveLength(6)
+      await enter(inputs[0], '1245')
+      expect(inputs[0].value).toBe('1245')
+      expect(request).not.toHaveBeenCalled()
+      inputs[0].setSelectionRange(0, inputs[0].value.length)
+      await paste('654-321')
+      expect(request).toHaveBeenCalledTimes(1)
+      await finish({ success: true, user: { id: 'A' }, exp: Math.floor(Date.now() / 1000) + 900 })
+      return
+    }
     expect(document.activeElement).toBe(inputs[5])
     await enter(inputs[2], '')
     expect([...inputs].map((input) => input.value)).toEqual(['1', '2', '', '4', '5', ''])

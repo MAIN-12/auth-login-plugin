@@ -22,6 +22,30 @@ indicators use HeroUI semantic tokens. Explicit caller classes still take preced
 The `tailwind` adapter retains its standalone light palette; email colors remain
 configured separately.
 
+Hosts using **selective HeroUI CSS imports** must load the styles for every native
+component, not only `input.css`/`textfield.css`. Alongside the existing card,
+button, input, label, textfield, separator and spinner styles, auth forms require:
+
+```css
+/* Add inside the same scope/layer as the host's existing HeroUI components. */
+@import '@heroui/styles/components/field-error.css';
+@import '@heroui/styles/components/input-otp.css';
+@import '@heroui/styles/components/input-group.css';
+```
+
+Missing these imports renders OTP slots at zero size and field errors as ordinary
+inherited text. `@source` scanning alone does not load component styles. Hosts
+using the full `@import '@heroui/styles'` already include them; modal users must
+also include the native modal styles when importing components selectively.
+The package does not inject global CSS or change the host's theme/reset policy.
+
+Verify the selective-host contract with `node scripts/test-hero-native-inputs.mjs`.
+To test a consumer's actual `src/styles/auth.css` and `theme.css`, set
+`AUTH_NATIVE_CONSUMER_STYLE_ROOT` to its absolute application directory. The
+harness checks visible slot dimensions and native error color/typography, not
+just DOM attributes; `AUTH_NATIVE_THEME=dark` and `AUTH_NATIVE_CUSTOM_DANGER=1`
+exercise dark and custom semantic tokens.
+
 ## Source organization
 
 `src/components` contains only Atomic Design levels: `atoms`, `molecules`,

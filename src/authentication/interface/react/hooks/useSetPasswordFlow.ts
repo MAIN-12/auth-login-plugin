@@ -1,5 +1,7 @@
 'use client'
 
+import { isExistingPasswordValid } from '../formValidation'
+
 import { useAuthService } from '../AuthServiceContext'
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useAuthNavigation, useAuthSearchParams, authRoute } from '../AuthFlowContext'
@@ -59,7 +61,7 @@ export function useSetPasswordFlow({ redirectTo = '/', locale }: UseSetPasswordF
     return () => clearTimeout(timer)
   }, [proof, restartProof])
   const handleReauthenticate = useCallback(async () => {
-    if (inFlight.current) return
+    if (inFlight.current || !isExistingPasswordValid(currentPassword)) return
     inFlight.current = true
     setIsLoading(true)
     setError(null)
@@ -166,9 +168,18 @@ export function useSetPasswordFlow({ redirectTo = '/', locale }: UseSetPasswordF
     isLoading,
     showPassword,
     strength,
-    setPassword,
-    setConfirmPassword,
-    setCurrentPassword,
+    setPassword: (value: string) => {
+      setPassword(value)
+      setError(null)
+    },
+    setConfirmPassword: (value: string) => {
+      setConfirmPassword(value)
+      setError(null)
+    },
+    setCurrentPassword: (value: string) => {
+      setCurrentPassword(value)
+      setError(null)
+    },
     setShowPassword,
     handleSubmit,
     handleReauthenticate,

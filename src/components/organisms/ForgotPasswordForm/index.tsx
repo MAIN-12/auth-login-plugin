@@ -24,7 +24,8 @@ export interface ForgotPasswordFormProps extends AuthLocalizationProps {
 export function ForgotPasswordForm({ loginUrl, locale, messages }: ForgotPasswordFormProps) {
   const config = useAuthConfig()
   const params = useAuthSearchParams()
-  const { email, error, isLoading, setEmail, handleSubmit } = useForgotPasswordFlow(locale)
+  const { email, emailError, isEmailValid, error, isLoading, setEmail, handleSubmit } =
+    useForgotPasswordFlow(locale)
   const theme = useAuthThemeClasses()
   const translations = useAuthTranslations(locale, messages)
   const t = translations.forgotPassword
@@ -34,17 +35,18 @@ export function ForgotPasswordForm({ loginUrl, locale, messages }: ForgotPasswor
 
   return (
     <>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form noValidate onSubmit={handleSubmit} className="space-y-4">
         {error && <AuthErrorNotice>{getErrorMessage(error)}</AuthErrorNotice>}
         <FormField
           type="email"
-          error={getErrorMessage(error)}
+          error={getErrorMessage(emailError || error)}
           label={t.emailLabel}
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onValueChange={setEmail}
+          onBlur={() => setEmail(email)}
           isRequired
         />
-        <Button type="submit" variant="primary" isLoading={isLoading}>
+        <Button type="submit" variant="primary" isLoading={isLoading} isDisabled={!isEmailValid}>
           {t.sendResetCode}
         </Button>
       </form>

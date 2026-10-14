@@ -5,6 +5,7 @@ import { useAuthTranslations } from '../../../contexts/AuthAppearanceContext'
 import { useAuthThemeClasses } from '../../../theme'
 import { authErrorMessage } from '../../../i18n/ui'
 import React from 'react'
+import { isExistingPasswordValid } from '../../../authentication/interface/react/formValidation'
 import { useAuthConfig } from '../../../authentication/interface/react/providers/AuthConfigProvider/index'
 import {
   AuthLink,
@@ -51,6 +52,11 @@ export function SetPasswordForm({ redirectTo = '/', locale, messages }: SetPassw
   // Helper to translate error keys
   const getErrorMessage = (error: string | null) => authErrorMessage(error, translations)
 
+  const passwordError = password && !strength.isValid ? 'passwordTooWeak' : null
+  const confirmationError =
+    confirmPassword && password !== confirmPassword ? 'passwordMismatch' : null
+  const serverError = error === 'passwordMismatch' || error === 'passwordTooWeak' ? null : error
+
   if (requiresReauthentication)
     return (
       <div className="space-y-4">
@@ -63,8 +69,14 @@ export function SetPasswordForm({ redirectTo = '/', locale, messages }: SetPassw
           value={currentPassword}
           onValueChange={setCurrentPassword}
           variant="secondary"
+          isRequired
         />
-        <Button variant="primary" isLoading={isLoading} onPress={handleReauthenticate}>
+        <Button
+          variant="primary"
+          isLoading={isLoading}
+          isDisabled={!isExistingPasswordValid(currentPassword)}
+          onPress={handleReauthenticate}
+        >
           {t.reauthenticate}
         </Button>
         {config.otpLogin && (
@@ -83,14 +95,14 @@ export function SetPasswordForm({ redirectTo = '/', locale, messages }: SetPassw
       </div>
     )
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form noValidate onSubmit={handleSubmit} className="space-y-4">
       {error && <AuthErrorNotice>{getErrorMessage(error)}</AuthErrorNotice>}
 
       <PasswordField
         visible={showPassword}
         onToggleVisibility={() => setShowPassword(!showPassword)}
         visibilityLabel={showPassword ? t.hidePassword : t.showPassword}
-        error={getErrorMessage(error)}
+        error={getErrorMessage(passwordError || serverError)}
         label={t.newPasswordLabel}
         value={password}
         onValueChange={setPassword}
@@ -116,7 +128,7 @@ export function SetPasswordForm({ redirectTo = '/', locale, messages }: SetPassw
 
       <PasswordField
         visible={showPassword}
-        error={getErrorMessage(error)}
+        error={getErrorMessage(confirmationError || serverError)}
         label={t.confirmPasswordLabel}
         value={confirmPassword}
         onValueChange={setConfirmPassword}
@@ -124,7 +136,12 @@ export function SetPasswordForm({ redirectTo = '/', locale, messages }: SetPassw
         autoComplete="new-password"
         variant="secondary"
       />
-      <Button type="submit" variant="primary" isLoading={isLoading}>
+      <Button
+        type="submit"
+        variant="primary"
+        isLoading={isLoading}
+        isDisabled={!strength.isValid || !confirmPassword || password !== confirmPassword}
+      >
         {t.setPassword}
       </Button>
     </form>

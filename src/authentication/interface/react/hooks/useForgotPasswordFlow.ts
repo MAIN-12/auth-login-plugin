@@ -1,5 +1,7 @@
 'use client'
 
+import { useEmailField } from './useEmailField'
+
 import { useState, useCallback, useRef } from 'react'
 import { useAuthSearchParams, useAuthNavigation, authRoute } from '../AuthFlowContext'
 import { useAuthService } from '../AuthServiceContext'
@@ -15,7 +17,11 @@ export function useForgotPasswordFlow(locale?: string) {
   const params = useAuthSearchParams()
 
   const inFlight = useRef(false)
-  const [email, setEmail] = useState('')
+  const { email, setEmail: updateEmail, emailError, isEmailValid } = useEmailField()
+  const setEmail = (value: string) => {
+    updateEmail(value)
+    setError(null)
+  }
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(() =>
     params.get('reason') === 'proof-expired' ? 'proofExpired' : null,
@@ -24,7 +30,11 @@ export function useForgotPasswordFlow(locale?: string) {
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
-      if (inFlight.current || !email.trim()) return
+      if (inFlight.current) return
+      if (!isEmailValid) {
+        setError('invalidEmail')
+        return
+      }
       inFlight.current = true
       setIsLoading(true)
       setError(null)
@@ -55,8 +65,8 @@ export function useForgotPasswordFlow(locale?: string) {
         setIsLoading(false)
       }
     },
-    [email, router, config, params, service],
+    [email, isEmailValid, router, config, params, service],
   )
 
-  return { email, error, isLoading, setEmail, handleSubmit }
+  return { email, isEmailValid, emailError, error, isLoading, setEmail, handleSubmit }
 }

@@ -9,11 +9,13 @@ export function Input({
   isRequired,
   isDisabled,
   variant = 'default',
+  'aria-invalid': invalid,
   ...props
 }: InputProps) {
   return (
     <HeroInput
       {...props}
+      aria-invalid={invalid}
       value={value}
       onChange={
         onChange || (onValueChange ? (event) => onValueChange(event.target.value) : undefined)

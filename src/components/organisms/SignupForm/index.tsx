@@ -36,8 +36,16 @@ export function SignupForm({
   const config = useAuthConfig()
   const params = useAuthSearchParams()
   const redirectTo = params.get('redirect') || '/'
-  const { email, setEmail, isLoading, error, handleSubmit, handleGoogleLogin } =
-    useSignupFlow(locale)
+  const {
+    email,
+    emailError,
+    isEmailValid,
+    setEmail,
+    isLoading,
+    error,
+    handleSubmit,
+    handleGoogleLogin,
+  } = useSignupFlow(locale)
   const theme = useAuthThemeClasses()
   const translations = useAuthTranslations(locale, messages)
   const t = translations.signup
@@ -49,13 +57,7 @@ export function SignupForm({
     <>
       {showGoogleOAuth && config.googleOAuthEnabled && (
         <>
-          <GoogleAuthButton
-            fullWidth
-            variant="bordered"
-            size="lg"
-            className="mb-4 [--button-fg:var(--foreground)]"
-            onPress={handleGoogleLogin}
-          >
+          <GoogleAuthButton onPress={handleGoogleLogin} isDisabled={isLoading}>
             {t.continueWithGoogle}
           </GoogleAuthButton>
           <div className="flex items-center gap-4 my-4">
@@ -65,14 +67,15 @@ export function SignupForm({
           </div>
         </>
       )}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form noValidate onSubmit={handleSubmit} className="space-y-4">
         {error && <AuthErrorNotice>{getErrorMessage(error)}</AuthErrorNotice>}
         <FormField
           type="email"
-          error={getErrorMessage(error)}
+          error={getErrorMessage(emailError || error)}
           label={t.emailLabel}
           value={email}
           onValueChange={setEmail}
+          onBlur={() => setEmail(email)}
           isRequired
         />
         <p className={`text-xs ${theme.muted} text-center`}>
@@ -85,7 +88,7 @@ export function SignupForm({
             {t.privacyLink}
           </a>
         </p>
-        <Button type="submit" variant="primary" isLoading={isLoading}>
+        <Button type="submit" variant="primary" isLoading={isLoading} isDisabled={!isEmailValid}>
           {t.createAccount}
         </Button>
       </form>

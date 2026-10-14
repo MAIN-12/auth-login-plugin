@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import React, { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AuthPresentationContext } from '../src/contexts/AuthAppearanceContext'
 import { AuthConfigProvider } from '../src/authentication/interface/react/providers/AuthConfigProvider/index'
 import { publicConfig } from './auth-test-config'
@@ -62,6 +62,15 @@ describe('host HeroUI theme inheritance', () => {
     )
     expect(host.querySelector('button')?.getAttribute('style')).toBeNull()
     expect(host.querySelector('label')?.getAttribute('style')).toBeNull()
+    const input = host.querySelector('input')!
+    expect(input.getAttribute('style')).toBeNull()
+    expect(input.getAttribute('aria-invalid')).toBe('true')
+    expect(input.className).not.toMatch(/(?:border|ring|text)-red-/)
+    const error = host.querySelector('[data-slot="field-error"]')!
+    expect(error).not.toBeNull()
+    expect(error.textContent).toBe('Invalid')
+    expect(error.className).not.toContain('text-red-')
+    expect(input.getAttribute('aria-describedby')?.split(' ')).toContain(error.id)
     expect(host.querySelector('[data-invalid="true"]')).not.toBeNull()
   })
 
@@ -92,25 +101,44 @@ describe('host HeroUI theme inheritance', () => {
     expect(host.querySelector('[data-theme="light"], .light')).toBeNull()
   })
 
-  it('uses theme field/focus/danger tokens for positional OTP without changing digit behavior', async () => {
+  it('uses native theme OTP slots without overriding danger colors or numeric input', async () => {
     const values: string[] = []
     await render(
       <OtpInput value="" error="Invalid" onValueChange={(value) => values.push(value)} />,
     )
-    const digits = host.querySelectorAll('input')
-    expect(digits).toHaveLength(6)
-    expect(digits[0].classList.contains('input')).toBe(true)
-    expect(digits[0].classList.contains('bg-white')).toBe(false)
-    expect(digits[0].classList.contains('focus:ring-focus')).toBe(true)
-    expect(digits[0].classList.contains('aria-[invalid=true]:border-danger')).toBe(true)
+    await vi.waitFor(async () => {
+      await act(async () => {})
+      expect(host.querySelector('[data-slot="input-otp-slot"]')).not.toBeNull()
+    })
+    const input = host.querySelector('input')!
+    expect(host.querySelectorAll('input')).toHaveLength(1)
+    const slots = host.querySelectorAll('[data-slot="input-otp-slot"]')
+    expect(slots).toHaveLength(6)
+    for (const slot of slots) {
+      expect(slot.getAttribute('data-invalid')).toBe('true')
+      expect(slot.getAttribute('style')).toBeNull()
+      expect(slot.className).not.toMatch(/(?:border|ring|text)-red-/)
+    }
+    expect(input.getAttribute('style')).not.toContain('#ef4444')
+    expect(input.getAttribute('aria-invalid')).toBe('true')
+    expect(host.querySelector('[data-slot="field-error"]')?.textContent).toBe('Invalid')
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(
-        digits[0],
+        input,
         '123456',
       )
-      digits[0].dispatchEvent(new Event('input', { bubbles: true }))
+      input.dispatchEvent(new Event('input', { bubbles: true }))
     })
     expect(values).toEqual(['123456'])
+  })
+
+  it('retains standalone Tailwind OTP invalid colors outside the HeroUI theme', async () => {
+    await render(<OtpInput value="" error="Invalid" />, 'tailwind')
+    for (const digit of host.querySelectorAll('input')) {
+      expect(digit.getAttribute('aria-invalid')).toBe('true')
+      expect(digit.style.borderColor).toBe('#ef4444')
+      expect(digit.classList.contains('aria-[invalid=true]:border-danger')).toBe(false)
+    }
   })
 
   it('uses semantic colors for shared text/status/strength, retaining the Tailwind palette', async () => {

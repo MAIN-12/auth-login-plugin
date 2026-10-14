@@ -1,5 +1,8 @@
 'use client'
 
+import { useEmailField } from './useEmailField'
+import { isAuthEmailValid, isExistingPasswordValid } from '../formValidation'
+
 import { useAuthService } from '../AuthServiceContext'
 
 import { useState, useCallback, useRef } from 'react'
@@ -26,7 +29,11 @@ export function useLoginFlow({ redirectTo, onPasswordLogin, locale }: UseLoginFl
   const inFlight = useRef(false)
 
   const [step, setStep] = useState<LoginStep>('email')
-  const [email, setEmail] = useState('')
+  const { email, setEmail: updateEmail, emailError, isEmailValid } = useEmailField()
+  const setEmail = (value: string) => {
+    updateEmail(value)
+    setError(null)
+  }
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,7 +43,10 @@ export function useLoginFlow({ redirectTo, onPasswordLogin, locale }: UseLoginFl
   const handleEmailSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
-      if (!email.trim()) return
+      if (!isAuthEmailValid(email)) {
+        setError('invalidEmail')
+        return
+      }
       setIsLoading(true)
       setError(null)
 
@@ -55,7 +65,13 @@ export function useLoginFlow({ redirectTo, onPasswordLogin, locale }: UseLoginFl
   const handlePasswordSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault()
-      if (!config.passwordLogin || inFlight.current) return
+      if (
+        !config.passwordLogin ||
+        inFlight.current ||
+        !isAuthEmailValid(email) ||
+        !isExistingPasswordValid(password)
+      )
+        return
       inFlight.current = true
       setIsLoading(true)
       setError(null)
@@ -73,7 +89,7 @@ export function useLoginFlow({ redirectTo, onPasswordLogin, locale }: UseLoginFl
   )
 
   const handleSendOtp = useCallback(async () => {
-    if (!config.otpLogin || inFlight.current) return
+    if (!config.otpLogin || inFlight.current || !isAuthEmailValid(email)) return
     inFlight.current = true
     setIsSendingOtp(true)
     setError(null)
@@ -112,13 +128,18 @@ export function useLoginFlow({ redirectTo, onPasswordLogin, locale }: UseLoginFl
   return {
     step,
     email,
+    isEmailValid,
+    emailError,
     password,
     error,
     isLoading,
     isSendingOtp,
     showPassword,
     setEmail,
-    setPassword,
+    setPassword: (value: string) => {
+      setPassword(value)
+      setError(null)
+    },
     setShowPassword,
     handleEmailSubmit,
     handlePasswordSubmit,

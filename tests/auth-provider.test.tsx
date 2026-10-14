@@ -209,7 +209,9 @@ describe('modal authentication flow', () => {
     const dialog = document.querySelector('dialog')!
     expect(dialog.getAttribute('aria-label')).toBe('Welcome Back')
     const first = dialog.querySelector<HTMLButtonElement>('button[aria-label="Close"]')!
-    const last = dialog.querySelector<HTMLButtonElement>('button[type=submit]')!
+    const submitButton = dialog.querySelector<HTMLButtonElement>('button[type=submit]')!
+    expect(submitButton.disabled).toBe(true)
+    const last = dialog.querySelector<HTMLInputElement>('input[type=email]')!
     first.focus()
     await act(async () => {
       first.dispatchEvent(
@@ -228,6 +230,20 @@ describe('modal authentication flow', () => {
       )
     })
     expect(document.activeElement).toBe(first)
+    await fill('dialog input[type=email]', 'member@example.test')
+    expect(submitButton.disabled).toBe(false)
+    first.focus()
+    await act(async () => {
+      first.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Tab',
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+    })
+    expect(document.activeElement).toBe(submitButton)
     const cancel = new Event('cancel', { cancelable: true })
     await act(async () => dialog.dispatchEvent(cancel))
     expect(cancel.defaultPrevented).toBe(true)

@@ -35,7 +35,7 @@ Trusted host provisioning remains explicit: Local API **and** `overrideAccess: t
 
 Login, signup, OTP, reset and Google share local-safe destination handling. Local query/hash destinations survive intermediate routes; external, protocol-relative and repeatedly encoded bypasses use `/`. External allowlisting is not implemented. Successful signup/recovery completes password establishment and returns to **login**, preserving destination; it does not authenticate automatically.
 
-OTP UI stores six positions, with spaces representing blank slots internally. Send only `/^\d{6}$/` complete values to the server. Borrar/backspace and out-of-order edits preserve later positions. Paste/autofill supports complete codes; automatic/manual verification share one in-flight guard. A missing/malformed context renders a localized recovery action, not an empty screen. Responsive presentation mounts a single live form tree.
+OTP submits only `/^\d{6}$/` complete values; automatic/manual verification share one in-flight guard. Tailwind stores six independent positions, with spaces representing blank slots; borrar/backspace and out-of-order edits preserve later positions. HeroUI uses native `InputOTP` with one contiguous numeric input and six visual slots: caret/selection, deletion and paste follow native input behavior. The public string props remain unchanged and legacy trailing padding is accepted. Both adapters support complete-code paste/autofill. A missing/malformed context renders a localized recovery action, not an empty screen. Responsive presentation mounts a single live form tree.
 
 ## Email customization (3.1.0)
 

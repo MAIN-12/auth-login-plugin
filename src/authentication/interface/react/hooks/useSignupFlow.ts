@@ -1,5 +1,7 @@
 'use client'
 
+import { useEmailField } from './useEmailField'
+
 import { useState } from 'react'
 import { authRoute, useAuthNavigation, useAuthSearchParams } from '../AuthFlowContext'
 import { useAuthService } from '../AuthServiceContext'
@@ -12,13 +14,22 @@ export function useSignupFlow(locale?: string) {
   const params = useAuthSearchParams()
   const navigation = useAuthNavigation()
   const redirectTo = params.get('redirect') || '/'
-  const [email, setEmail] = useState('')
+  const { email, setEmail: updateEmail, emailError, isEmailValid } = useEmailField()
+  const setEmail = (value: string) => {
+    updateEmail(value)
+    setError(null)
+  }
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(() =>
     params.get('reason') === 'proof-expired' ? 'proofExpired' : null,
   )
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (isLoading) return
+    if (!isEmailValid) {
+      setError('invalidEmail')
+      return
+    }
     setIsLoading(true)
     setError(null)
     try {
@@ -45,6 +56,8 @@ export function useSignupFlow(locale?: string) {
   }
   return {
     email,
+    isEmailValid,
+    emailError,
     setEmail,
     isLoading,
     error,

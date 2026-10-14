@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { TextField, Label } from '@heroui/react'
+import { TextField, Label, FieldError } from '@heroui/react'
 import { Input } from '../../atoms/Input/Hero'
 import { fieldDescriptions, type ResolvedFormFieldProps } from './types'
 
@@ -18,7 +18,7 @@ export function FormField({ label, help, error, className, ...props }: ResolvedF
       {label && <Label htmlFor={props.id}>{label}</Label>}
       <Input
         {...props}
-        aria-invalid={Boolean(error) || props['aria-invalid']}
+        aria-invalid={Boolean(error) || Boolean(props['aria-invalid'])}
         aria-describedby={fieldDescriptions({ ...props, help, error })}
       />
       {help && (
@@ -26,11 +26,7 @@ export function FormField({ label, help, error, className, ...props }: ResolvedF
           {help}
         </span>
       )}
-      {error && (
-        <span id={`${props.id}-error`} className="sr-only">
-          {error}
-        </span>
-      )}
+      {error && <FieldError id={`${props.id}-error`}>{error}</FieldError>}
     </TextField>
   )
 }

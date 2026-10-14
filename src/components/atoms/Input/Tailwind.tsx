@@ -10,11 +10,14 @@ export const Input: React.FC<InputProps> = ({
   variant = 'default',
   className = '',
   type = 'text',
+  'aria-invalid': invalid,
   ...props
 }) => (
   <input
     {...props}
     type={type}
+    aria-invalid={invalid}
+    style={invalid ? { borderColor: '#ef4444', color: '#b91c1c' } : undefined}
     value={value}
     onChange={onChange || (onValueChange ? (e) => onValueChange(e.target.value) : undefined)}
     required={isRequired}
