@@ -43,7 +43,7 @@ OTP UI stores six positions, with spaces representing blank slots internally. Se
 creation. Omitted templates retain built-ins. `renderAuthEmail` from `/rsc`
 exposes the same async rendering contract for previews and manual delivery;
 `AuthEmailOverrides`, `AuthEmailParams`, and `AuthEmailResult` are exported types.
-OTP callbacks receive request locale, flow purpose, configured expiry and branding.
+OTP callbacks receive request locale, flow purpose, effective `expiresAt` (Unix milliseconds), remaining `expiresInSeconds` and branding. Re-emission preserves the original challenge deadline, code and attempt budget.
 Welcome/password-changed/manual password-reset renderers do not introduce new
 notifications into native credential transactions. Consumers deliver these after
 successful operations using their Payload email adapter.
@@ -52,7 +52,13 @@ successful operations using their Payload email adapter.
 
 RSC generator export names remain stable (`generateOtpEmail`, `generatePasswordResetEmail`, `generateWelcomeEmail`, `generatePasswordChangedEmail`, `wrapInBaseTemplate`). Dynamic inputs are escaped by generators; URL/color/contact validation is shared with plugin configuration. **`wrapInBaseTemplate(content)` accepts trusted template HTML**, not untrusted user markup. Callers composing custom HTML must escape their own content.
 
-Supply real HTTPS `domain`/`loginUrl` to welcome/password-changed templates; the placeholder `https://example.com/login` is not your application destination. `getBaseUrl(base?)` and `getSenderEmail(sender?)` no longer read environment variables. Pass consumer configuration explicitly. OTP and password-reset subjects start with the code, including custom renderer results unless they already contain it; built-in preheaders remain code-free. Standalone template expiry copy uses the approved five-minute default; consumers customizing server TTL must communicate their own policy separately.
+Supply real HTTPS `domain`/`loginUrl` to welcome/password-changed templates; when neither is configured, built-ins omit the CTA rather than link to a placeholder. `getBaseUrl(base?)` and `getSenderEmail(sender?)` no longer read environment variables. Pass consumer configuration explicitly. OTP and password-reset subjects start with the code, including custom renderer results unless they already contain it; built-in preheaders remain code-free. Built-in OTP/password-reset templates prefer an explicit UTC deadline from `expiresAt`, so queue delay and late resend never advertise a new lifetime. Standalone callers may pass `expiresInSeconds` (default 300); durations are floored to seconds, never rounded up to whole minutes. Pass the actual deadline for delivery rather than relying on a relative duration.
+
+Built-ins return `subject`, `html` and `text`. The adapter receives both alternatives; inspect the provider's delivered MIME to confirm `multipart/alternative` handling. Legacy overrides returning only `{ subject, html }` remain valid and receive **no synthesized default text**, which could contradict their custom content. To provide plain text, add a nonempty `text` string matching your HTML's code, purpose, expiry, instructions and links. Other callback result fields (recipients, sender, headers and delivery options) are discarded. Custom renderers must use `expiresAt` or the supplied remaining lifetime, not restart a configured TTL; see `dev/examples/auth-emails.ts` for a deadline-aware legacy HTML example.
+
+Default functional text colors reach at least 4.5:1 against both default backgrounds; the text-only brand heading uses the text color, not the low-contrast decorative primary fill. Custom color overrides remain hex-validated and are **consumer-owned**: check text/background and primaryText/primary contrast (4.5:1 for normal text), plus actual light/dark rendering. Custom branding and templates are not an accessibility certification.
+
+Email OTP is not a phishing-resistant factor or a claim of MFA/NIST AAL2. Code-first subjects intentionally expose the code to previews/notifications; a code-free preheader does not prevent a client from previewing the body. HTML `autocomplete="one-time-code"` is a hint, not a promise of email autofill across devices. WebOTP's SMS transport is not an email reader. Real-device and real-mail checks remain required; use the audit's device/MIME/DNS matrix before claiming a supported combination.
 
 Email contact uses the validated `contactUrl` with a localized label when configured; otherwise it uses `contactEmail` as a mailto link. Configuring both intentionally gives the URL precedence.
 

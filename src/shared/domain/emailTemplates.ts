@@ -27,6 +27,8 @@ export interface OtpEmailParams {
   userName: string
   otp: string
   purpose?: 'login' | 'password-reset' | 'signup' | 'verify-email' | 'reauth'
+  /** Effective challenge deadline (Unix milliseconds); preferred over relative TTL. */
+  expiresAt?: number
   expiresInSeconds?: number
   language?: SupportedLanguage
   socialLinks?: SocialLink[]
@@ -36,6 +38,8 @@ export interface OtpEmailParams {
 export interface OtpEmailResult {
   subject: string
   html: string
+  /** Optional for legacy custom renderers; built-ins always provide plain text. */
+  text?: string
 }
 
 export interface WelcomeEmailParams {
@@ -50,9 +54,13 @@ export interface WelcomeEmailParams {
 export interface WelcomeEmailResult {
   subject: string
   html: string
+  /** Optional for legacy custom renderers; built-ins always provide plain text. */
+  text?: string
 }
 
 export interface PasswordResetEmailParams {
+  expiresAt?: number
+  expiresInSeconds?: number
   userName: string
   otp: string
   language?: SupportedLanguage
@@ -63,6 +71,8 @@ export interface PasswordResetEmailParams {
 export interface PasswordResetEmailResult {
   subject: string
   html: string
+  /** Optional for legacy custom renderers; built-ins always provide plain text. */
+  text?: string
 }
 
 export interface PasswordChangedEmailParams {
@@ -76,6 +86,8 @@ export interface PasswordChangedEmailParams {
 export interface PasswordChangedEmailResult {
   subject: string
   html: string
+  /** Optional for legacy custom renderers; built-ins always provide plain text. */
+  text?: string
 }
 
 export interface AuthEmailParams {
@@ -88,6 +100,8 @@ export interface AuthEmailParams {
 export interface AuthEmailResult {
   subject: string
   html: string
+  /** Optional for legacy custom renderers; built-ins always provide plain text. */
+  text?: string
 }
 
 /** Server-side callbacks. Omitted templates retain their built-in implementation. */

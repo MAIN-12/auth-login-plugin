@@ -9,7 +9,7 @@ export function generateWelcomeEmail(params: WelcomeEmailParams): WelcomeEmailRe
     userEmail,
     loginUrl = params.baseOptions?.domain
       ? `${params.baseOptions.domain.replace(/\/$/, '')}/login`
-      : 'https://example.com/login',
+      : undefined,
     language = params.baseOptions?.language ?? 'en',
     socialLinks,
     baseOptions,
@@ -28,11 +28,15 @@ export function generateWelcomeEmail(params: WelcomeEmailParams): WelcomeEmailRe
         <p style="margin:0;font-size:16px;">${t.welcome.introMessage}</p>
       </td>
     </tr>
-    <tr>
+    ${
+      loginUrl
+        ? `<tr>
       <td style="text-align:center;padding:16px;">
         <a href="${validatedEmailUrl(loginUrl)}" style="display:inline-block;background-color:${colors.primary};color:${colors.primaryText};font-weight:600;text-decoration:none;padding:14px 40px;border-radius:980px;font-size:16px;">${t.welcome.ctaButton}</a>
       </td>
-    </tr>
+    </tr>`
+        : ''
+    }
     <tr>
       <td style="text-align:center;padding:24px 16px 8px;">
         <p style="margin:0;font-size:14px;color:${colors.textTertiary};line-height:1.6;">${t.welcome.helpMessage}</p>
@@ -41,6 +45,14 @@ export function generateWelcomeEmail(params: WelcomeEmailParams): WelcomeEmailRe
 
   return {
     subject: t.welcome.subject,
+    text: [
+      t.welcome.title,
+      t.welcome.introMessage,
+      loginUrl ? `${t.welcome.ctaButton}: ${new URL(loginUrl).href}` : '',
+      t.welcome.helpMessage,
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
     html: wrapInBaseTemplate(content, {
       ...baseOptions,
       preheader: t.welcome.preheader,

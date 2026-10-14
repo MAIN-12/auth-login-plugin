@@ -1,5 +1,6 @@
 import { withOtpSubject } from '../../../domain/emailPresentation'
 import { wrapInBaseTemplate, escapeEmailText, resolveEmailColors } from '../baseTemplate'
+import { otpContent } from '../otpContent'
 import { getEmailTranslations } from '../../../../i18n/email'
 
 import type { OtpEmailParams, OtpEmailResult } from '../../../domain/emailTemplates'
@@ -7,7 +8,6 @@ export type { OtpEmailParams, OtpEmailResult } from '../../../domain/emailTempla
 
 export function generateOtpEmail(params: OtpEmailParams): OtpEmailResult {
   const {
-    userName,
     otp,
     purpose = 'login',
     language = params.baseOptions?.language ?? 'en',
@@ -16,21 +16,13 @@ export function generateOtpEmail(params: OtpEmailParams): OtpEmailResult {
   } = params
   const t = getEmailTranslations(language)
   const colors = resolveEmailColors(baseOptions?.colors)
-  const verification = purpose === 'signup' || purpose === 'verify-email' || purpose === 'reauth'
-  const purposeText = verification
-    ? language === 'es'
-      ? 'Usa este código para verificar tu correo y continuar:'
-      : 'Use this code to verify your email and continue:'
-    : purpose === 'password-reset'
-      ? t.otp.purposePasswordReset
-      : t.otp.purposeLogin
-  const subject = purpose === 'password-reset' ? t.otp.subjectPasswordReset : t.otp.subjectLogin
+  const copy = otpContent({ ...params, purpose, language })
 
   const content = `
     <tr>
       <td style="text-align:center;padding-bottom:32px;">
-        <h1 style="margin:0 0 12px;font-size:28px;font-weight:600;color:${colors.text};letter-spacing:-0.02em;">${t.greeting} ${escapeEmailText(userName)}</h1>
-        <p style="margin:0;font-size:17px;color:${colors.textSecondary};line-height:1.5;">${purposeText}</p>
+        <h1 style="margin:0 0 12px;font-size:28px;font-weight:600;color:${colors.text};letter-spacing:-0.02em;">${escapeEmailText(copy.greeting)}</h1>
+        <p style="margin:0;font-size:17px;color:${colors.textSecondary};line-height:1.5;">${escapeEmailText(copy.instruction)}</p>
       </td>
     </tr>
     <tr>
@@ -42,16 +34,28 @@ export function generateOtpEmail(params: OtpEmailParams): OtpEmailResult {
     </tr>
     <tr>
       <td style="text-align:center;">
-        <p style="margin:0 0 8px;font-size:14px;color:${colors.textTertiary};">${t.otp.expiresIn} <span style="color:${colors.textSecondary};">${Math.ceil((params.expiresInSeconds ?? 300) / 60)} ${language === 'es' ? 'minutos' : 'minutes'}</span></p>
+        <p style="margin:0 0 8px;font-size:14px;color:${colors.textTertiary};">${escapeEmailText(copy.expiry)}</p>
+        <p style="margin:0 0 8px;font-size:14px;color:${colors.textTertiary};">${escapeEmailText(copy.doNotShare)}</p>
         <p style="margin:0;font-size:13px;color:${colors.textTertiary};">${t.otp.ignoreMessage}</p>
       </td>
     </tr>`
 
   return {
-    subject: withOtpSubject(subject, otp),
+    subject: withOtpSubject(copy.subject, otp),
+    text: [
+      baseOptions?.projectName,
+      copy.greeting,
+      copy.instruction,
+      otp,
+      copy.expiry,
+      copy.doNotShare,
+      t.otp.ignoreMessage,
+    ]
+      .filter(Boolean)
+      .join('\n\n'),
     html: wrapInBaseTemplate(content, {
       ...baseOptions,
-      preheader: t.otp.preheader,
+      preheader: copy.preheader,
       language,
       socialLinks,
     }),

@@ -44,7 +44,7 @@ export function createOtpProtocol<T>(dependencies: OtpProtocolDependencies<T>) {
     const context = data.context ?? dependencies.context?.() ?? dependencies.codec.context()
     const accountKey = accountKeyFor(data.email)
     const originKey = keyed(`origin:${origin}`)
-    let delivery: { email: string; code: string } | undefined
+    let delivery: { email: string; code: string; expiresAt: number } | undefined
     try {
       const accountID = await dependencies.findAccount(data.email)
       const quotaKey = keyed(
@@ -108,6 +108,7 @@ export function createOtpProtocol<T>(dependencies: OtpProtocolDependencies<T>) {
         if (accountID !== null && record.accountID === accountID)
           delivery = {
             email: data.email,
+            expiresAt: record.expiresAt as number,
             code: open(
               record.ciphertext as string,
               bindingFor(accountKey, context, record.accountID),

@@ -158,7 +158,7 @@ export function createOwnershipScope(
                 },
               )
         },
-        deliver: async ({ email, code }) => {
+        deliver: async ({ email, code, expiresAt }) => {
           const mail = await renderOtpEmail(
             code,
             {
@@ -167,7 +167,8 @@ export function createOwnershipScope(
             },
             options!.emails,
             purpose === 'recovery' ? 'password-reset' : purpose,
-            options!.ttlSeconds,
+            Math.max(0, Math.floor((expiresAt - (options!.now ?? Date.now)()) / 1000)),
+            expiresAt,
           )
           await req.payload.sendEmail({ to: email, from: options!.email!.from, ...mail })
         },

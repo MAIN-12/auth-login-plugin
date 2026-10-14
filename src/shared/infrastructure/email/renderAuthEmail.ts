@@ -36,7 +36,8 @@ export async function renderAuthEmail<K extends keyof AuthEmailParams>(
     typeof result.html !== 'string' ||
     !result.subject.trim() ||
     !result.html.trim() ||
-    /[\r\n]/.test(result.subject)
+    /[\r\n]/.test(result.subject) ||
+    (result.text !== undefined && (typeof result.text !== 'string' || !result.text.trim()))
   ) {
     throw new Error('auth-login: email renderer must return a subject and HTML')
   }
@@ -45,5 +46,5 @@ export async function renderAuthEmail<K extends keyof AuthEmailParams>(
     (type === 'otp' || type === 'passwordReset') && 'otp' in params
       ? withOtpSubject(result.subject, params.otp)
       : result.subject
-  return { subject, html: result.html }
+  return { subject, html: result.html, ...(result.text === undefined ? {} : { text: result.text }) }
 }

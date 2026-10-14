@@ -28,7 +28,7 @@ it('exported email generators escape branding and names with OTP in login subjec
     projectName: '<Brand>',
     contactEmail: 'support@example.test',
     domain: 'https://example.test',
-    colors: { primary: '#123456' },
+    colors: { text: '#123456' },
   }
   const email = generateOtpEmail({
     userName: '<script>secret</script>',
@@ -36,7 +36,7 @@ it('exported email generators escape branding and names with OTP in login subjec
     language: 'es',
     baseOptions,
   })
-  expect(email.subject).toBe('123456: Tu código de verificación')
+  expect(email.subject).toBe('123456: Código de acceso a <Brand>')
   expect(email.html.match(/display:none[^>]*>([^<]*)/)?.[1]).not.toContain('123456')
   expect(email.html).not.toContain('<script>')
   expect(email.html).toContain('&lt;Brand&gt;')

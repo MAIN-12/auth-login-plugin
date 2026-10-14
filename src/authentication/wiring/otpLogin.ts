@@ -42,7 +42,7 @@ export function createOtpLoginScope(
           findAccount: adapter.findAccount,
           quotaIdentity: adapter.quotaIdentity,
           session: adapter.session,
-          deliver: async ({ email, code }) => {
+          deliver: async ({ email, code, expiresAt }) => {
             const locale = req.headers.get('accept-language')
             const mail = await renderOtpEmail(
               code,
@@ -52,7 +52,8 @@ export function createOtpLoginScope(
               },
               options!.emails,
               'login',
-              options!.ttlSeconds,
+              Math.max(0, Math.floor((expiresAt - (options!.now ?? Date.now)()) / 1000)),
+              expiresAt,
             )
             await req.payload.sendEmail({
               to: email,

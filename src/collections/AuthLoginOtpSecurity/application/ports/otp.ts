@@ -52,7 +52,7 @@ export interface OtpProtocolDependencies<T> {
   context?: () => string
   quotaIdentity?: (account: string | number) => string | number
   findAccount: (email: string) => Promise<string | number | null>
-  deliver: (mail: { email: string; code: string }) => Promise<void>
+  deliver: (mail: { email: string; code: string; expiresAt: number }) => Promise<void>
   session: (account: string | number, email: string) => Promise<T>
   event: (
     event: 'limited' | 'mail_failed' | 'send' | 'verify_failed' | 'unavailable',

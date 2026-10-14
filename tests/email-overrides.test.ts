@@ -38,8 +38,13 @@ it('uses async custom templates and built-in fallbacks without leaking delivery 
 
 it('delivers captured custom OTP templates for login, signup, recovery and verification through Payload', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'email-overrides-'))
-  const seen: Array<{ purpose?: string; language?: string; expiresInSeconds?: number }> = []
-  const delivered: Array<{ to: unknown; html: unknown }> = []
+  const seen: Array<{
+    purpose?: string
+    language?: string
+    expiresInSeconds?: number
+    expiresAt?: number
+  }> = []
+  const delivered: Array<{ to: unknown; html: unknown; text: unknown }> = []
   let now = Date.now()
   const emails: AuthEmailOverrides = {
     otp: async (params) => {
@@ -47,7 +52,11 @@ it('delivers captured custom OTP templates for login, signup, recovery and verif
       expect(params.baseOptions?.projectName).toBe('My project')
       expect(params.baseOptions?.colors?.primary).toBe('#123456')
       expect(params.baseOptions?.contactEmail).toBe('help@example.com')
-      return { subject: 'Your custom code', html: `<p>${params.otp}</p>` }
+      return {
+        subject: 'Your custom code',
+        html: `<p>${params.otp}</p>`,
+        text: `${params.otp} expires at ${params.expiresAt}`,
+      }
     },
   }
   const plugin = authLoginPlugin({
@@ -83,7 +92,7 @@ it('delivers captured custom OTP templates for login, signup, recovery and verif
       defaultFromAddress: 'auth@example.com',
       defaultFromName: 'Test',
       sendEmail: async (mail) => {
-        delivered.push({ to: mail.to, html: mail.html })
+        delivered.push({ to: mail.to, html: mail.html, text: mail.text })
       },
     }),
     collections: [
@@ -132,11 +141,32 @@ it('delivers captured custom OTP templates for login, signup, recovery and verif
         purpose: expected,
         language: 'es',
         expiresInSeconds: 120,
+        expiresAt: now + 120_000,
       })
       expect(delivered.at(-1)?.to).toBe(email)
       expect(delivered.at(-1)?.html).toMatch(/^<p>\d{6}<\/p>$/)
+      expect(delivered.at(-1)?.text).toContain(String(now + 120_000))
+      const original = seen.at(-1)!
+      const { context } = await response.json()
+      now += 90_000
+      const resent = await handleEndpoints({
+        config,
+        payloadInstanceCacheKey: key,
+        request: new Request('http://localhost:3000/api/auth/otp/send', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'accept-language': 'es-CO' },
+          body: JSON.stringify({ email, purpose, context }),
+        }),
+      })
+      expect(resent.status).toBe(200)
+      expect(seen.at(-1)).toMatchObject({
+        purpose: expected,
+        expiresAt: original.expiresAt,
+        expiresInSeconds: 30,
+      })
+      expect(delivered.at(-1)?.text).toContain(String(original.expiresAt))
     }
-    expect(delivered).toHaveLength(4)
+    expect(delivered).toHaveLength(8)
   } finally {
     await payload.destroy()
     await rm(dir, { recursive: true, force: true })
@@ -155,4 +185,27 @@ it('does not duplicate a code in a custom subject and rejects code header inject
   await expect(
     renderAuthEmail('otp', { ...params, otp: '123456\r\nBcc: other@example.com' }),
   ).rejects.toThrow('invalid email OTP')
+})
+
+it('preserves optional custom text without default-text mixing and strips delivery controls', async () => {
+  const params = { userName: '', otp: '012345' }
+  expect(
+    await renderAuthEmail('otp', params, {
+      otp: () => ({
+        subject: 'Custom',
+        html: '<p>custom</p>',
+        text: 'custom alternative',
+        to: 'attacker@example.test',
+        from: 'attacker@example.test',
+        headers: { Bcc: 'attacker@example.test' },
+      }),
+    }),
+  ).toEqual({ subject: '012345: Custom', html: '<p>custom</p>', text: 'custom alternative' })
+  for (const text of ['', 123, null]) {
+    await expect(
+      renderAuthEmail('otp', params, {
+        otp: () => ({ subject: 'Custom', html: '<p>custom</p>', text }),
+      } as never),
+    ).rejects.toThrow('email renderer')
+  }
 })

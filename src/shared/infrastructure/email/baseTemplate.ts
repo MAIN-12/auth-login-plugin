@@ -21,7 +21,7 @@ export function wrapInBaseTemplate(content: string, options: BaseTemplateOptions
   const name = escapeEmailText(options.projectName ?? 'Account')
   const logo = options.logoUrl
     ? `<img src="${validatedEmailUrl(options.logoUrl)}" alt="${name}" width="180">`
-    : `<h1 style="color:${colors.primary}">${name}</h1>`
+    : `<h1 style="color:${colors.text}">${name}</h1>`
   if (options.domain) validatedEmailUrl(options.domain)
   const email = options.contactEmail
   if (email && !/^[^\s<>"'@]+@[^\s<>"'@]+\.[^\s<>"'@]+$/.test(email))

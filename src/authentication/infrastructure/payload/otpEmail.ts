@@ -18,6 +18,7 @@ export function renderOtpEmail(
   emails?: OtpOptions['emails'],
   purpose: OtpEmailParams['purpose'] = 'login',
   expiresInSeconds = 300,
+  expiresAt?: number,
 ) {
   return renderAuthEmail(
     'otp',
@@ -26,6 +27,7 @@ export function renderOtpEmail(
       otp: code,
       purpose,
       expiresInSeconds,
+      expiresAt,
       language: settings?.locale ?? 'en',
       baseOptions: { ...settings, language: settings?.locale ?? 'en' },
     },

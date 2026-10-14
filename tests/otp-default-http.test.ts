@@ -9,6 +9,7 @@ import { authLoginPlugin } from '../src/index'
 let dir: string
 let html = ''
 let subject = ''
+let text = ''
 let now = Date.now()
 const instances: {
   payload: Payload
@@ -46,6 +47,7 @@ beforeAll(async () => {
         sendEmail: async (mail) => {
           html = String(mail.html)
           subject = String(mail.subject)
+          text = String(mail.text)
         },
       }),
       collections: [
@@ -95,8 +97,11 @@ async function proof(email: string, purpose: string, cookie?: string) {
   const { context } = await sent.json()
   const otp = html.match(/>\s*(\d{6})\s*</)![1]
   expect(subject).toBe(
-    purpose === 'recovery' ? `${otp}: Your password reset code` : `${otp}: Your verification code`,
+    `${otp}: ${({ login: 'Sign-in code for your account', signup: 'Confirm your registration with your account', recovery: 'Reset your password with your account', reauth: 'Confirm your identity with your account' } as Record<string, string>)[purpose]}`,
   )
+  expect(text).toContain(otp)
+  expect(text).toContain('UTC')
+  expect(text).toContain('Do not share')
   expect(html.match(/display:none[^>]*>([^<]*)/)?.[1]).not.toContain(otp)
   const verified = await request(1, '/otp/verify', { email, purpose, context, otp }, cookie)
   expect(verified.status).toBe(200)

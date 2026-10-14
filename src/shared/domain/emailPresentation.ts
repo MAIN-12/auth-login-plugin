@@ -17,7 +17,7 @@ export const DEFAULT_COLORS: EmailColors = {
   accent: '#0071e3',
   text: '#1d1d1f',
   textSecondary: '#6e6e73',
-  textTertiary: '#86868b',
+  textTertiary: '#6e6e73',
   background: '#ffffff',
   backgroundSecondary: '#ffffff',
   border: '#d2d2d7',

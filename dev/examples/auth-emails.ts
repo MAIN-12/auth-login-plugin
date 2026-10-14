@@ -92,8 +92,12 @@ function render(
   }
 }
 
-function codeBlock(otp: string, expiresInSeconds = 300): string {
-  return `<p style="padding:20px;background:#eef2ff;border-radius:12px;text-align:center;font-size:32px;font-weight:bold;letter-spacing:6px;">${escapeHtml(otp)}</p><p style="font-size:13px;color:#64748b;">This code expires in ${Math.ceil(expiresInSeconds / 60)} minutes. Never share it. If you didn’t request it, you can ignore this email.</p>`
+function codeBlock(otp: string, expiresInSeconds = 300, expiresAt?: number): string {
+  const expiry =
+    expiresAt === undefined
+      ? `This code expires in ${Math.max(0, Math.floor(expiresInSeconds))} seconds.`
+      : `This code expires at ${new Date(expiresAt).toISOString()} (UTC).`
+  return `<p style="padding:20px;background:#eef2ff;border-radius:12px;text-align:center;font-size:32px;font-weight:bold;letter-spacing:6px;">${escapeHtml(otp)}</p><p style="font-size:13px;color:#64748b;">${escapeHtml(expiry)} Never share it. If you didn’t request it, you can ignore this email.</p>`
 }
 
 function action(label: string): string {
@@ -102,17 +106,17 @@ function action(label: string): string {
 }
 
 export const projectAuthEmails: AuthEmailOverrides = {
-  otp: ({ userName, otp, purpose = 'login', baseOptions, expiresInSeconds }) =>
+  otp: ({ userName, otp, purpose = 'login', baseOptions, expiresInSeconds, expiresAt }) =>
     render(
       userName,
       copy[purpose === 'verify-email' || purpose === 'reauth' ? 'signup' : purpose],
-      codeBlock(otp, expiresInSeconds),
+      codeBlock(otp, expiresInSeconds, expiresAt),
       baseOptions,
     ),
   welcome: ({ userName, baseOptions }) =>
     render(userName, copy.welcome, action(copy.welcome.action), baseOptions),
-  passwordReset: ({ userName, otp, baseOptions }) =>
-    render(userName, copy.passwordReset, codeBlock(otp), baseOptions),
+  passwordReset: ({ userName, otp, baseOptions, expiresInSeconds, expiresAt }) =>
+    render(userName, copy.passwordReset, codeBlock(otp, expiresInSeconds, expiresAt), baseOptions),
   passwordChanged: ({ userName, baseOptions }) =>
     render(userName, copy.passwordChanged, action(copy.passwordChanged.action), baseOptions),
 }
