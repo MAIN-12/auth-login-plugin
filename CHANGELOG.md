@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.1.1 — merged, not yet published
+
+- Validate email/password inputs across login, signup and recovery; disable form submission until data is valid and show field errors.
+- Use native HeroUI `InputOTP`, `FieldError` and password `InputGroup`/visibility buttons; inherit semantic theme tokens and align Google button presentation. Selective CSS hosts must load the new component styles.
+- Preserve original OTP deadlines on resend; improve purpose-specific built-in messages and add matching plain text. Legacy HTML-only email overrides remain supported without synthesized text.
+- Add secret-free password failure-stage diagnostics.
+- **Cumulative breaking upgrade from published 3.1.0:** use Payload-managed internal collections and provider-scoped identities; remove the public offline migration helper and separate schema/migration entry points. Consumers own data preservation, cutover and rollback; this version label does not make the upgrade backwards compatible.
+- Add an [upgrade guide for Enntra PR #149](docs/migration-3.1.0-3.1.1.md), including consumer schema/script blockers, OTP test changes and custom-email requirements.
+
 ## 3.1.0
 
 - Add a HeroUI plugin theme default with provider and component overrides for page and modal login, plus an interactive theme demo.

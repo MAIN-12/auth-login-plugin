@@ -51,6 +51,7 @@ export async function buildConsumerPackage(root: string, packageDir: string) {
   )
   const normativeDocs = [
     'package/docs/migration.md',
+    'package/docs/migration-3.1.0-3.1.1.md',
     'package/docs/plugin-contracts.md',
     'package/docs/schema-migrations.md',
   ]
