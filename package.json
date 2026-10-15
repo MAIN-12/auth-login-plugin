@@ -35,6 +35,7 @@
   "files": [
     "dist",
     "docs/migration.md",
+    "docs/migration-3.1.0-3.1.1.md",
     "docs/plugin-contracts.md",
     "docs/schema-migrations.md"
   ],

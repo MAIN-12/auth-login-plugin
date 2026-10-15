@@ -4,6 +4,8 @@ This working branch contains **the issues 01–06 hardening candidate**, a break
 
 ## Integration contracts and documentation authority
 
+Upgrading the published `3.1.0` integration? Follow the [3.1.0 → 3.1.1 guide, mapped to Enntra PR #149](docs/migration-3.1.0-3.1.1.md). This cumulative upgrade includes breaking schema/API changes, not only UI fixes; `3.1.1` is merged but not yet published to npm.
+
 Read [the local plugin contracts and migration guide](docs/plugin-contracts.md) for configuration, shared card/page/modal workflows, explicit ES/EN locale, email branding, HTTP result contracts and verification scope. Existing `docs/README.md`, `docs/CONTEXT.md` and copied AOP guides describe another repository: they are **nonnormative reference here** and were preserved, not silently migrated or overwritten.
 
 **Database setup uses Payload collections:** the plugin registers its internal collections and extends the configured auth collection. Generate and deploy ordinary consumer-owned [Payload migrations](docs/schema-migrations.md); no separate auth SQL migration or readiness command is needed. Request handlers never create tables.
@@ -349,7 +351,8 @@ The browser acceptance helpers in `tests/*-browser.ts` use the same TypeScript t
 
 The server-only `emails` option accepts synchronous or asynchronous renderers for
 `otp`, `welcome`, `passwordReset`, and `passwordChanged`. Each returns
-`{ subject, html }`; omitted renderers keep the built-in template. Use
+`{ subject, html, text? }`; omitted renderers keep the built-in template. Built-ins
+include plain text; HTML-only overrides receive no synthesized text. Use
 `dev/examples/auth-emails.ts` as a complete example of shared layout and wording.
 
 ```ts
@@ -376,8 +379,9 @@ const preview = await renderAuthEmail(
 
 OTP callbacks run for login, signup, recovery, email verification and
 reauthentication. Their `purpose` is respectively `login`, `signup`,
-`password-reset`, `verify-email`, or `reauth`; `expiresInSeconds` reflects the
-configured challenge lifetime. `language` follows the effective request locale.
+`password-reset`, `verify-email`, or `reauth`; `expiresAt` is the original challenge
+deadline in Unix milliseconds and `expiresInSeconds` is its remaining lifetime.
+Re-emission does not restart that deadline. `language` follows the effective request locale.
 Custom renderers are trusted server code: escape dynamic values, validate links,
 and keep codes out of preheaders. OTP and password-reset subjects automatically include the code at the start unless the custom subject already contains it. Errors retain the authentication
 flow's existing failure behavior. Callbacks and private email settings never enter
