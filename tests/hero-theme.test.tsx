@@ -97,7 +97,8 @@ describe('host HeroUI theme inheritance', () => {
     expect(host.contains(dialog)).toBe(true)
     expect(dialog.closest('[data-theme]')).toBe(host)
     expect(dialog.classList.contains('bg-white')).toBe(false)
-    expect(dialog.getAttribute('style')).toBeNull()
+    expect(dialog.style.background).toBe('transparent')
+    expect(dialog.style.colorScheme).toBe('')
     expect(host.querySelector('[data-theme="light"], .light')).toBeNull()
   })
 

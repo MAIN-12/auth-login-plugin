@@ -179,6 +179,7 @@ describe('modal authentication flow', () => {
   it.each(['native', 'hero-ui'] as const)(
     'hides the %s close button while preserving outside dismissal',
     async (style) => {
+      if (style === 'hero-ui') await import('../src/components/organisms/AuthModal/AuthModalHero')
       await mount({ style, hideCloseButton: true })
       await open()
       const selector = style === 'native' ? 'dialog' : '[data-slot="modal-dialog"]'
