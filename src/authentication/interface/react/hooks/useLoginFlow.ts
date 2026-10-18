@@ -121,9 +121,25 @@ export function useLoginFlow({ redirectTo, onPasswordLogin, locale }: UseLoginFl
     setError(null)
   }, [])
 
-  const handleGoogleLogin = useCallback(() => {
-    if (!inFlight.current && config.googleOAuthEnabled) service.loginGoogle(redirectTo)
-  }, [redirectTo, config, service])
+  const handleGoogleLogin = useCallback(async () => {
+    if (inFlight.current || !config.googleOAuthEnabled) return
+    if (!router.popup) {
+      service.loginGoogle(redirectTo)
+      return
+    }
+    inFlight.current = true
+    setIsLoading(true)
+    setError(null)
+    try {
+      await service.loginGooglePopup(redirectTo)
+      await router.complete(redirectTo)
+    } catch {
+      setError('genericError')
+    } finally {
+      inFlight.current = false
+      setIsLoading(false)
+    }
+  }, [redirectTo, config, router, service])
 
   return {
     step,

@@ -76,6 +76,42 @@ it('callback login creates native cookie only from its private receipt and never
   expect(f.scope.callback).toHaveBeenCalledWith(state, 'browser', f.req.url)
   expect(f.scope.dispose).toHaveBeenCalledTimes(1)
 })
+it('popup login passes popup mode on start and posts completion message with native cookie on callback', async () => {
+  const f = fixture()
+  f.req.url = 'https://app.test/api/auth/oauth/google?mode=popup&returnTo=%2Fsell%3Fstep%3D2'
+  f.req.headers.set('Origin', 'https://app.test')
+  const startResponse = await f.endpoints[0].handler(f.req)
+  expect(startResponse.status).toBe(303)
+  expect(f.scope.start).toHaveBeenCalledWith(
+    expect.objectContaining({
+      purpose: 'login',
+      popup: true,
+      returnTo: '/sell?step=2',
+    }),
+  )
+
+  f.req.url = `${redirectURI}?state=${state}&code=private-code`
+  f.scope.callback.mockResolvedValueOnce({
+    result: { success: true },
+    purpose: 'login',
+    returnTo: '/sell?step=2',
+    popup: true,
+  })
+  f.scope.takeReceipt.mockReturnValueOnce({
+    token: 'private-native-token',
+    exp: Date.now() / 1000 + 60,
+  })
+  const callbackResponse = await f.endpoints.at(-1)!.handler(f.req)
+  expect(callbackResponse.status).toBe(200)
+  expect(callbackResponse.headers.get('Location')).toBeNull()
+  expect(callbackResponse.headers.get('Content-Type')).toBe('text/html; charset=utf-8')
+  expect(callbackResponse.headers.get('Set-Cookie')).toContain('private-native-token')
+  const html = await callbackResponse.text()
+  expect(html).toContain(
+    'window.opener?.postMessage({"type":"auth-login.google.login","success":true},"https://app.test");window.close()',
+  )
+  expect(html).not.toContain('private-native-token')
+})
 it('wrong callback host denies before application and preserves the historical pre-extraction cleanup phase', async () => {
   const f = fixture()
   f.req.headers.set('host', 'wrong.test')

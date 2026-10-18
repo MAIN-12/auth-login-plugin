@@ -63,6 +63,47 @@ it('Google reauthentication receives a bounded popup grant only from the exact p
   expect(close).toHaveBeenCalled()
   expect(listeners.size).toBe(0)
 })
+it('Google popup login opens popup mode and resolves only on exact origin and popup message', async () => {
+  const close = vi.fn()
+  const popup = { closed: false, close }
+  const listeners = new Map<string, (event: MessageEvent) => void>()
+  const open = vi.fn(() => popup)
+  vi.stubGlobal('window', {
+    location: { origin: 'https://app.example' },
+    open,
+    addEventListener: (name: string, listener: (event: MessageEvent) => void) =>
+      listeners.set(name, listener),
+    removeEventListener: (name: string) => listeners.delete(name),
+  })
+  let settled = false
+  const result = createAuthService({
+    ...publicConfig,
+    googleOAuthEnabled: true,
+  }).loginGooglePopup('/sell?step=3#pricing')
+  result.then(() => {
+    settled = true
+  })
+  const data = { type: 'auth-login.google.login', success: true }
+  listeners.get('message')!({
+    origin: 'https://attacker.example',
+    source: popup,
+    data,
+  } as unknown as MessageEvent)
+  listeners.get('message')!({ origin: 'https://app.example', source: {}, data } as MessageEvent)
+  await Promise.resolve()
+  expect(settled).toBe(false)
+  listeners.get('message')!({
+    origin: 'https://app.example',
+    source: popup,
+    data,
+  } as unknown as MessageEvent)
+  await result
+  expect(open.mock.calls[0][0]).toBe(
+    '/api/auth/oauth/google?mode=popup&returnTo=%2Fsell%3Fstep%3D3%23pricing',
+  )
+  expect(close).toHaveBeenCalled()
+  expect(listeners.size).toBe(0)
+})
 it('one service admits only one Google popup while reauthentication is in flight', async () => {
   const popup = { closed: false, close: vi.fn() }
   const listeners = new Map<string, (event: MessageEvent) => void>()

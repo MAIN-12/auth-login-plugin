@@ -54,6 +54,23 @@ export function useSignupFlow(locale?: string) {
       setIsLoading(false)
     }
   }
+  const handleGoogleLogin = async () => {
+    if (isLoading || !config.googleOAuthEnabled) return
+    if (!navigation.popup) {
+      service.loginGoogle(redirectTo)
+      return
+    }
+    setIsLoading(true)
+    setError(null)
+    try {
+      await service.loginGooglePopup(redirectTo)
+      await navigation.complete(redirectTo)
+    } catch {
+      setError('genericError')
+    } finally {
+      setIsLoading(false)
+    }
+  }
   return {
     email,
     isEmailValid,
@@ -62,6 +79,6 @@ export function useSignupFlow(locale?: string) {
     isLoading,
     error,
     handleSubmit,
-    handleGoogleLogin: () => service.loginGoogle(redirectTo),
+    handleGoogleLogin,
   }
 }

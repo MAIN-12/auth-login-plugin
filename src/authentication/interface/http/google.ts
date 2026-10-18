@@ -44,11 +44,25 @@ function failure(error: unknown, req: PayloadRequest, requestId?: string) {
   return response
 }
 const startSchema = z.object({ returnTo: z.string().max(2048).optional() }).strict()
-const reauthSchema = startSchema.extend({ mode: z.literal('popup').optional() })
+const popupSchema = startSchema.extend({ mode: z.literal('popup').optional() }).strict()
 const linkSchema = startSchema.extend({
   permit: z.string().min(1).max(2048),
   confirm: z.literal(true),
 })
+function popupResponse(payload: unknown, origin: string, headers: Headers) {
+  const nonce = randomBytes(16).toString('base64url')
+  const message = JSON.stringify(payload).replaceAll('<', '\\u003c')
+  const target = JSON.stringify(origin).replaceAll('<', '\\u003c')
+  headers.set('Content-Type', 'text/html; charset=utf-8')
+  headers.set(
+    'Content-Security-Policy',
+    `default-src 'none'; script-src 'nonce-${nonce}'; base-uri 'none'; frame-ancestors 'none'`,
+  )
+  return new Response(
+    `<!doctype html><title>Authentication complete</title><script nonce="${nonce}">window.opener?.postMessage(${message},${target});window.close()</script>`,
+    { headers },
+  )
+}
 /** HTTP interface only: validated input, browser cookie, application call, native cookie/redirect. */
 export function googleEndpoints(
   settings: PublicAuthConfig,
@@ -73,16 +87,13 @@ export function googleEndpoints(
         const input =
           purpose === 'link'
             ? parseAuthInterface(linkSchema, await readJSON(req))
-            : parseAuthInterface(
-                purpose === 'reauth' ? reauthSchema : startSchema,
-                Object.fromEntries(url.searchParams),
-              )
+            : parseAuthInterface(popupSchema, Object.fromEntries(url.searchParams))
         const browser = randomBytes(32).toString('base64url')
         const result = await scope.start({
           browser,
           returnTo: input.returnTo,
           purpose,
-          popup: purpose === 'reauth' && 'mode' in input && input.mode === 'popup',
+          popup: 'mode' in input && input.mode === 'popup',
           ...('permit' in input && typeof input.permit === 'string'
             ? { permit: input.permit }
             : {}),
@@ -165,23 +176,22 @@ export function googleEndpoints(
                 token: receipt.token,
               }),
             )
+            if (result.popup)
+              return popupResponse(
+                { type: 'auth-login.google.login', success: true },
+                expected.origin,
+                headers,
+              )
           }
           if ('permit' in result.result) {
             if (!result.popup) return Response.json(result.result, { headers })
-            const nonce = randomBytes(16).toString('base64url')
-            const message = JSON.stringify({
-              type: 'auth-login.google.reauthentication',
-              grant: result.result,
-            }).replaceAll('<', '\\u003c')
-            const target = JSON.stringify(expected.origin).replaceAll('<', '\\u003c')
-            headers.set('Content-Type', 'text/html; charset=utf-8')
-            headers.set(
-              'Content-Security-Policy',
-              `default-src 'none'; script-src 'nonce-${nonce}'; base-uri 'none'; frame-ancestors 'none'`,
-            )
-            return new Response(
-              `<!doctype html><title>Authentication complete</title><script nonce="${nonce}">window.opener?.postMessage(${message},${target});window.close()</script>`,
-              { headers },
+            return popupResponse(
+              {
+                type: 'auth-login.google.reauthentication',
+                grant: result.result,
+              },
+              expected.origin,
+              headers,
             )
           }
           headers.set('Location', result.returnTo)

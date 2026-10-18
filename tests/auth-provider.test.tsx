@@ -366,6 +366,47 @@ describe('modal authentication flow', () => {
     await submit()
     expect(router.push).toHaveBeenCalledWith('/checkout?step=2')
   })
+  it('completes Google login and signup in a popup window inside the modal without navigating away from the current page', async () => {
+    const close = vi.fn()
+    const popup = { closed: false, close }
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => popup as unknown as Window)
+    const assignSpy = vi.spyOn(window.location, 'assign').mockImplementation(() => {})
+    await mount({
+      publicConfig: { ...publicConfig, googleOAuthEnabled: true, allowSignup: true },
+      authCardProps: { showGoogleOAuth: true, locale: 'en' },
+    })
+    await open()
+    const googleLoginButton = [
+      ...document.querySelectorAll<HTMLButtonElement>('dialog button'),
+    ].find((button) => button.textContent?.includes('Continue with Google'))!
+    expect(googleLoginButton).toBeTruthy()
+    await act(async () => {
+      googleLoginButton.click()
+    })
+    expect(assignSpy).not.toHaveBeenCalled()
+    expect(openSpy).toHaveBeenCalledWith(
+      '/api/auth/oauth/google?mode=popup&returnTo=%2Fproducts%3Fcategory%3Dbooks%23details',
+      '_blank',
+      'popup,width=600,height=700',
+    )
+    authenticated = true
+    await act(async () => {
+      window.dispatchEvent(
+        new MessageEvent('message', {
+          origin: window.location.origin,
+          source: popup as unknown as Window,
+          data: { type: 'auth-login.google.login', success: true },
+        }),
+      )
+    })
+    expect(close).toHaveBeenCalled()
+    expect(auth.status).toBe('authenticated')
+    expect(auth.isLoginOpen).toBe(false)
+    expect(router.push).not.toHaveBeenCalled()
+    expect(router.refresh).toHaveBeenCalled()
+    openSpy.mockRestore()
+    assignSpy.mockRestore()
+  })
   it('does not offer the disabled signup, recovery, Google or OTP paths', async () => {
     await mount()
     await open()

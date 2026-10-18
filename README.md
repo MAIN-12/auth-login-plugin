@@ -439,7 +439,7 @@ flow, and typed input is preserved while switching themes.
 
 ### Modal close button
 
-The login modal shows a close button by default. Pass `hideCloseButton` to hide it in both native and HeroUI styles, including its reserved space. Outside-click and Escape dismissal remain enabled.
+The login modal shows a close button by default. Pass `hideCloseButton` to hide it in both native and HeroUI styles, including its reserved space. Outside-click and Escape dismissal remain enabled. When Google OAuth is enabled, clicking **Continue with Google** inside the modal opens a popup window and completes the session in place so unsaved host-page state is preserved.
 
 ```tsx
 <AuthProvider publicConfig={authPlugin.publicConfig} modalLogin hideCloseButton>

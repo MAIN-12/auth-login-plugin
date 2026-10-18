@@ -210,6 +210,7 @@ export function AuthProvider({
     searchParams.set('redirect', flow.destination)
     return {
       searchParams,
+      popup: true,
       push: (href: string) => {
         if (flow.id !== flowId.current) return
         const url = new URL(href, window.location.origin)

@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.3
+
+- Open Google OAuth login and signup in a popup window when triggered inside `AuthProvider` modal login, preserving current page state without a full-page redirect.
+
 ## 3.1.2
 
 - Make the login modal shell transparent and position the close button above the card in native and HeroUI styles.

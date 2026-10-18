@@ -116,6 +116,9 @@ function LoginFormContent({
               )}
             </>
           )}
+          {!(config.passwordLogin || config.otpLogin) && error && (
+            <AuthErrorNotice className="mt-4">{getErrorMessage(error)}</AuthErrorNotice>
+          )}
           {(config.passwordLogin || config.otpLogin) && (
             <form noValidate onSubmit={handleEmailSubmit} className="space-y-4">
               {error && <AuthErrorNotice>{getErrorMessage(error)}</AuthErrorNotice>}

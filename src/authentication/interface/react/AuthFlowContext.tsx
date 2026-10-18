@@ -9,6 +9,7 @@ export interface AuthFlowNavigation {
   push: (url: string) => void
   complete: (redirectTo: string) => Promise<void>
   searchParams: URLSearchParams
+  popup?: boolean
 }
 export const AuthFlowContext = createContext<AuthFlowNavigation | null>(null)
 
@@ -29,7 +30,8 @@ export function useAuthNavigation() {
     },
     [flow],
   )
-  return useMemo(() => ({ push, complete }), [push, complete])
+  const popup = Boolean(flow?.popup)
+  return useMemo(() => ({ push, complete, popup }), [push, complete, popup])
 }
 
 export function useAuthSearchParams() {

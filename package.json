@@ -1,6 +1,6 @@
 {
   "name": "@main12/auth-login",
-  "version": "3.1.2",
+  "version": "3.1.3",
   "description": "Payload CMS authentication plugin — isolated configuration and guarded native password login",
   "license": "MIT",
   "repository": {
