@@ -61,6 +61,8 @@ export interface AuthProviderProps extends AuthPresentationProps {
   basePath?: string
   modalLabel?: string
   closeLabel?: string
+  /** Hide the modal close button; outside-click and Escape still dismiss it. */
+  hideCloseButton?: boolean
 }
 const AuthContext = createContext<AuthContextValue | null>(null)
 
@@ -87,6 +89,7 @@ export function AuthProvider({
   basePath = publicConfig.authBasePath,
   modalLabel,
   closeLabel,
+  hideCloseButton = false,
 }: AuthProviderProps) {
   const presentation = useAuthPresentation(
     { style, theme, locale, messages, logo, poweredBy },
@@ -258,6 +261,7 @@ export function AuthProvider({
                 style={modalPresentation.style ?? presentation.style}
                 label={modalLabel ?? t.login.title}
                 closeLabel={closeLabel ?? t.common.close}
+                hideCloseButton={hideCloseButton}
                 onClose={closeLogin}
               >
                 <AuthFlowContext.Provider value={navigation}>

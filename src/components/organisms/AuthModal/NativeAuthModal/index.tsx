@@ -3,7 +3,13 @@
 import React, { useEffect, useRef } from 'react'
 import type { AuthModalProps } from '../types'
 
-export function NativeAuthModal({ children, onClose, label, closeLabel }: AuthModalProps) {
+export function NativeAuthModal({
+  children,
+  onClose,
+  label,
+  closeLabel,
+  hideCloseButton = false,
+}: AuthModalProps) {
   const ref = useRef<HTMLDialogElement>(null)
   useEffect(() => {
     const dialog = ref.current!
@@ -83,17 +89,19 @@ export function NativeAuthModal({ children, onClose, label, closeLabel }: AuthMo
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
-      className="m-auto w-[calc(100%_-_2rem)] max-w-md max-h-[90dvh] overflow-y-auto rounded-2xl border-0 bg-white p-0 text-gray-900 shadow-2xl backdrop:bg-black/50"
+      className="m-auto w-[calc(100%_-_2rem)] max-w-[400px] max-h-[90dvh] overflow-y-auto border-0 bg-transparent p-0 backdrop:bg-black/50"
     >
-      <div className="relative p-2">
-        <button
-          type="button"
-          aria-label={closeLabel}
-          onClick={onClose}
-          className="absolute right-3 top-3 z-10 rounded-full p-2 focus-visible:outline-2"
-        >
-          ✕
-        </button>
+      <div className={hideCloseButton ? 'relative' : 'relative pt-12'}>
+        {!hideCloseButton && (
+          <button
+            type="button"
+            aria-label={closeLabel}
+            onClick={onClose}
+            className="absolute right-0 top-0 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-black/70 text-white hover:bg-black/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+          >
+            ✕
+          </button>
+        )}
         {children}
       </div>
     </dialog>

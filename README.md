@@ -436,3 +436,13 @@ fixed light palette.
 Open `/theme-demo` in the development app to switch between a light/dark page
 and inherited/forced login appearances. The demo uses the configured login
 flow, and typed input is preserved while switching themes.
+
+### Modal close button
+
+The login modal shows a close button by default. Pass `hideCloseButton` to hide it in both native and HeroUI styles, including its reserved space. Outside-click and Escape dismissal remain enabled.
+
+```tsx
+<AuthProvider publicConfig={authPlugin.publicConfig} modalLogin hideCloseButton>
+  {children}
+</AuthProvider>
+```

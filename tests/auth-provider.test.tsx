@@ -176,6 +176,25 @@ describe('session guard', () => {
 })
 
 describe('modal authentication flow', () => {
+  it.each(['native', 'hero-ui'] as const)(
+    'hides the %s close button while preserving outside dismissal',
+    async (style) => {
+      await mount({ style, hideCloseButton: true })
+      await open()
+      const selector = style === 'native' ? 'dialog' : '[data-slot="modal-dialog"]'
+      await vi.waitFor(async () => {
+        await act(async () => {})
+        expect(document.querySelector(`${selector} input[type=email]`)).toBeTruthy()
+      })
+      expect(document.querySelector(`${selector} button[aria-label="Close"]`)).toBeNull()
+      expect(document.querySelector('[data-slot="modal-close-trigger"]')).toBeNull()
+      await click(`${selector} input[type=email]`)
+      expect(auth.isLoginOpen).toBe(true)
+      await click(style === 'native' ? 'dialog' : '[data-slot="modal-backdrop"]')
+      expect(auth.isLoginOpen).toBe(false)
+    },
+  )
+
   it('uses centralized regional and customized modal close copy, with explicit prop precedence', async () => {
     await mount({ authCardProps: { locale: 'es-CO' } })
     await open()

@@ -1,6 +1,11 @@
 # Changelog
 
-## 3.1.1 — merged, not yet published
+## 3.1.2
+
+- Make the login modal shell transparent and position the close button above the card in native and HeroUI styles.
+- Add optional `hideCloseButton` to `AuthProvider` and `AuthModal`; hiding it also removes its reserved space while preserving outside-click and Escape dismissal.
+
+## 3.1.1
 
 - Validate email/password inputs across login, signup and recovery; disable form submission until data is valid and show field errors.
 - Use native HeroUI `InputOTP`, `FieldError` and password `InputGroup`/visibility buttons; inherit semantic theme tokens and align Google button presentation. Selective CSS hosts must load the new component styles.
